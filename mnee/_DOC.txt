@@ -1,0 +1,19 @@
+[KEY] - addresses the raw key by its internal name (see the list in bindings.lua), so isn't rebindable and does not show up in binding menu
+++++ is_key_down( <key name>, dirty_mode, pressed_mode, is_vip )
+   - a core function that will return the boolean state of the key every frame.
+   - dirty_mode will disable perma-false on special key press (normally it prevents conflicts between "ctrl+m" and "m" for example)
+   - pressed_mode will report "true" only once and then wait till the button is reset; can be also used via a wrapped - get_key_pressed( <key name>, dirty_mode, is_vip )
+   - is_vip will ensure that the button is triggered no matter the majority of overrides that might hinder it in this endeavor; there's also a wrapper that will set all the arguments to true - get_key_vip( <key name> )
+
+[BINDING] - operates via flexible and rebindable single- or multi-keyed combinations, they do show up in binding menu and do be recommended as a main input source
+++++ is_binding_down( <mod_id>, <binding name>, dirty_mode, pressed_mode, is_vip, loose_mode )
+   - operates exactly like is_key_down
+   - loose_mode will allow a part of larger combination to trigger a smaller one (for instance, "shift+ctrl+e" and "ctrl+e" would both be engaged)
+   - two other wrapper functions, get_binding_pressed( <mod_id>, <binding name>, is_vip, dirty_mode, loose_mode ) and get_binding_vip( <mod_id>, <binding name> ), will perform equal to they keyed counterparts with vip variant being all-inclusive as always
+
+[AXIS] - produces integer output with an option of discrete buttoned mode, do be rebindable
+++++ get_axis_state( <mod_id>, <binding name>, dirty_mode, pressed_mode, is_vip )
+   - if binding is set to proper analog axis, the output will be a number from -1.000 to 1.000 with 0 at rest and 1 at the edge of deadzone
+   - if binding is set to discrete, the output will be forced to only three states: -1.000, 0 and 1.000 according to the button presses
+   - all the modes behave exactly as described before with an exception of pressed_mode that will limit the output to -1, 0, 1 and dirty_mode that only works with discrete setting.
+   - wrappers are as always: get_axis_pressed( <mod_id>, <binding name>, dirty_mode, is_vip ) and get_axis_vip( <mod_id>, <binding name> )

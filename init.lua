@@ -4,67 +4,33 @@ get_active_keys = get_active_keys or ( function() return "huh?" end )
 
 function OnModInit()
 	dofile_once( "mods/mnee/lib.lua" )
-	
-	local is_lame = require == nil
-	local ffi = not( is_lame ) and require( "ffi" ) or nil
-	is_lame = ffi == nil
-	if( is_lame ) then
-		GameAddFlagRun( MNEE_LAME )
-	else
-		--this stuff goes hard: https://github.com/thenumbernine/lua-ffi-bindings/blob/master/sdl.lua
-		ffi.cdef([[
-			const uint8_t* SDL_GetKeyboardState(int* numkeys);
-			uint32_t SDL_GetKeyFromScancode(uint32_t scancode);
-			char* SDL_GetScancodeName(uint32_t scancode);
-			char* SDL_GetKeyName(uint32_t key);
-			
-			short GetAsyncKeyState(int vKey);
-			
-			int SDL_SetClipboardText(const char *text);
-			char* SDL_GetClipboardText(void);
-			
-			typedef struct SDL_Joystick SDL_Joystick;
-			SDL_Joystick* SDL_JoystickOpen(int device_index);
-			void SDL_JoystickClose(SDL_Joystick*);
-			int SDL_JoystickNumAxes(SDL_Joystick*);
-			int16_t SDL_JoystickGetAxis(SDL_Joystick*, int axis);
-			int SDL_JoystickNumButtons(SDL_Joystick*);
-			uint8_t SDL_JoystickGetButton(SDL_Joystick*, int button);
-			int SDL_JoystickNumHats(SDL_Joystick*);
-			uint8_t SDL_JoystickGetHat(SDL_Joystick*, int hat);
-		]])
-		_SDL = ffi.load( "SDL2.dll" )
-		
-		jpad = {}
-		jpad_update = function( num )
-			if( num < 0 ) then
-				num = math.abs( num )
-				_SDL.SDL_JoystickClose( jpad[ num - 1 ])
-				table.remove( jpad, num )
-			else
-				local val = _SDL.SDL_JoystickOpen( num - 1 )
-				if( tostring( val ) ~= "cdata<struct SDL_Joystick *>: NULL" ) then
-					table.insert( jpad, val )
-					val = string.gsub( tostring( val ), "cdata<struct SDL_Joystick %*>: ", "" )
-				else
-					val = nil
-				end
-				
-				return val
-			end
-		end
-	end
-	
+
 	local lists = dofile_once( "mods/mnee/lists.lua" )
 	local keycaps = lists[1]
 	local mouse = lists[2]
-	jpad = jpad or {}
-	
+	local jcaps = lists[3]
+
+	jpad = jpad or { false, false, false, false }
+	jpad_update = function( num )
+		if( num < 0 ) then
+			jpad[ math.abs( num )] = false
+		else
+			local val = InputIsJoystickConnected( num - 1 )
+			if( val > 0 ) then
+				jpad[num] = true
+			else
+				val = nil
+			end
+			
+			return val
+		end
+	end
+
 	local divider = "&"
 	get_active_keys = function()
 		local active = divider
 		
-		--keyboard; add clipboard
+		--keyboard
 		for i,key in ipairs( keycaps ) do
 			if( key ~= "[NONE]" ) then
 				if( InputIsKeyDown( i ) and ( key ~= "left_windows" and key ~= "right_windows" )) then
@@ -79,33 +45,17 @@ function OnModInit()
 				active = active..key..divider
 			end
 		end
-		
+
 		--gamepad; add rumbling
 		if( #jpad > 0 ) then
-			local gpd_btn = { "x", "a", "b", "y", "l1", "r1", "l2", "r2", "select", "start", "l3", "r3", }
-			local gpd_hat = { "up", "right", "down", "left", }
-			
-			for i,j in ipairs( jpad ) do
-				local num_b = _SDL.SDL_JoystickNumButtons( j ) - 1
-				for e = 0,num_b do
-					if( _SDL.SDL_JoystickGetButton( j, e ) > 0 ) then
-						local name = gpd_btn[e + 1] or ( "btn"..( e + 1 ))
-						active = active..i.."gpd_"..name..divider
-					end
-				end
-				
-				local num_h = _SDL.SDL_JoystickNumHats( j ) - 1
-				for e = 0,num_h do
-					local hat = _SDL.SDL_JoystickGetHat( j, e )
-					for k = 1,4 do
-						if( hat%2 > 0 ) then
-							local name = gpd_hat[k]
-							if( e > 1 ) then
-								name = name..( e + 1 )
+			for i,is_real in ipairs( jpad ) do
+				if( is_real ) then
+					for k,key in ipairs( jcaps ) do
+						if( key ~= "[NONE]" ) then
+							if( InputIsJoystickButtonDown( i - 1, k )) then
+								active = active..i.."gpd_"..key..divider
 							end
-							active = active..i.."gpd_"..name..divider
 						end
-						hat = math.floor( hat/2 )
 					end
 				end
 			end
@@ -134,40 +84,32 @@ function OnModInit()
 	
 	get_current_axes = function()
 		local state = divider
-		
+
 		if( #jpad > 0 ) then
 			local gpd_axis = { "_lh", "_lv", "_rh", "_rv", }
-			local deadzone = 5000
-			local extreme = 32000
-			
-			for i,j in ipairs( jpad ) do
-				local num_a = _SDL.SDL_JoystickNumAxes( j ) - 1
-				for e = 0,num_a do
-					local value = _SDL.SDL_JoystickGetAxis( j, e )
-					value = limiter( math.abs( value ) < deadzone and 0 or value, extreme )
-					if( math.abs( value ) > 0 ) then
-						value = math.floor( 1000*( value - deadzone*get_sign( value ))/( extreme - deadzone ))
+			local total = 1000
+			local deadzone = total/20
+
+			for i,is_real in ipairs( jpad ) do
+				if( is_real ) then
+					for e = 0,1 do
+						local value = { InputGetJoystickAnalogStick( i - 1, e )}
+						for k = 1,2 do
+							local v = math.floor( total*value[k] )
+							v = math.abs( v ) < deadzone and 0 or v
+							if( math.abs( v ) > 0 ) then
+								v = ( v - deadzone*get_sign( v ))/( total - deadzone )
+							end
+							
+							local name = i.."gpd_axis"..gpd_axis[e*2 + k]
+							state = state.."|"..name.."|"..v.."|"..divider
+						end
 					end
-					
-					local name = i.."gpd_axis"..( gpd_axis[e + 1] or ( e + 1 ))
-					state = state.."|"..name.."|"..value.."|"..divider
 				end
 			end
 		end
 		
 		return state
-	end
-	
-	access_clipboard_text = function( text )
-		if( is_lame ) then
-			return
-		end
-		
-		if( text ~= nil ) then
-			return _SDL.SDL_SetClipboardText( text )
-		else
-			return ffi.string( _SDL.SDL_GetClipboardText())
-		end
 	end
 end
 
@@ -189,7 +131,7 @@ gui_retoggler = gui_retoggler or false
 function OnWorldPreUpdate()
 	dofile_once( "mods/mnee/lib.lua" )
 	dofile_once( "mods/mnee/gui_lib.lua" )
-	
+
 	if( GameHasFlagRun( MNEE_INITER )) then
 		local storage = get_storage( GameGetWorldStateEntity(), "mnee_down" ) or 0
 		if( storage ~= 0 ) then
@@ -230,8 +172,7 @@ function OnWorldPreUpdate()
 		end
 		
 		local is_auto = ModSettingGetNextValue( "mnee.CTRL_AUTOMAPPING" )
-		local gslot_update = { 0, 0, 0, 0, }
-		ctl_ids = ctl_ids or {}
+		local gslot_update = { false, false, false, false, }
 		
 		if( not( GameIsInventoryOpen())) then
 			if( gui == nil ) then
@@ -360,21 +301,9 @@ function OnWorldPreUpdate()
 						end
 						play_sound( "delete" )
 					end
-					
+
 					if( io ~= nil ) then
-						uid, clicked = new_button( gui, uid, pic_x + 136, pic_y + 66, pic_z - 0.01, "mods/mnee/pics/button_ctl_"..( ctl_panel and "B" or "A" )..".png" )
-						uid = new_tooltip( gui, uid, pic_z - 200, "LMB to toggle controller mapping panel." )
-						if( clicked ) then
-							if( ctl_panel ) then
-								ctl_panel = false
-								play_sound( "close_window" )
-							else
-								ctl_panel = true
-								play_sound( "open_window" )
-							end
-						end
-						
-						uid, clicked, r_clicked = new_button( gui, uid, pic_x + 136, pic_y + 77, pic_z - 0.01, "mods/mnee/pics/button_bkp.png" )
+						uid, clicked, r_clicked = new_button( gui, uid, pic_x + 136, pic_y + 66, pic_z - 0.01, "mods/mnee/pics/button_bkp.png" )
 						uid = new_tooltip( gui, uid, pic_z - 200, "LMB to backup all the data. @ RMB to load last backup." )
 						if( clicked ) then
 							local cout = "@"
@@ -413,43 +342,53 @@ function OnWorldPreUpdate()
 								play_sound( "error" )
 							end
 						end
-					
+					end
+
+					uid, clicked = new_button( gui, uid, pic_x + 136, pic_y + 77, pic_z - 0.01, "mods/mnee/pics/button_ctl_"..( ctl_panel and "B" or "A" )..".png" )
+					uid = new_tooltip( gui, uid, pic_z - 200, "LMB to toggle controller mapping panel." )
+					if( clicked ) then
 						if( ctl_panel ) then
-							if( is_auto ) then
-								uid = new_anim( gui, uid, 1, pic_x + 160, pic_y + 55, pic_z, "mods/mnee/pics/scan/", 20, 5 )
-							else
-								uid = new_image( gui, uid, pic_x + 160, pic_y + 55, pic_z, "mods/mnee/pics/scan/0.png" )
-							end
-							uid, clicked, r_clicked = new_button( gui, uid, pic_x + 160, pic_y + 55, pic_z - 0.01, "mods/mnee/pics/scan/_hitbox.png" )
-							uid = new_tooltip( gui, uid, pic_z - 200, "RMB to "..( is_auto and "dis" or "en" ).."able automatic detection." )
-							if( r_clicked ) then
-								ModSettingSetNextValue( "mnee.CTRL_AUTOMAPPING", not( is_auto ), false )
-								play_sound( "button_special" )
-							end
-							
-							for i = 1,4 do
-								local is_real = ctl_ids[i] ~= nil
-								uid, clicked, r_clicked = new_button( gui, uid, pic_x + 160, pic_y + 66 + 11*( i - 1 ), pic_z, "mods/mnee/pics/button_10_"..( is_real and "B" or "A" )..".png" )
-								uid = new_tooltip( gui, uid, pic_z - 200, is_real and "CURRENT CTRL ID: "..ctl_ids[i].." @ RMB to remove this controller." or "LMB to map new controller." )
-								new_text( gui, pic_x + 162, pic_y + 66 + 11*( i - 1 ), pic_z - 0.01, i, is_real and 3 or 1 )
-								
-								if( clicked ) then
-									gslot_update[i] = 1
-								end
-								if( r_clicked ) then
-									if( is_real ) then
-										jpad_update( -i )
-										table.remove( ctl_ids, i )
-										play_sound( "delete" )
-									else
-										GamePrint( "No controller is present!" )
-										play_sound( "error" )
-									end
-								end
-							end
-							
-							uid = new_button( gui, uid, pic_x + 158, pic_y + 53, pic_z + 0.01, "mods/mnee/pics/controller_panel.png" )
+							ctl_panel = false
+							play_sound( "close_window" )
+						else
+							ctl_panel = true
+							play_sound( "open_window" )
 						end
+					end
+					if( ctl_panel ) then
+						if( is_auto ) then
+							uid = new_anim( gui, uid, 1, pic_x + 160, pic_y + 55, pic_z, "mods/mnee/pics/scan/", 20, 5 )
+						else
+							uid = new_image( gui, uid, pic_x + 160, pic_y + 55, pic_z, "mods/mnee/pics/scan/0.png" )
+						end
+						uid, clicked, r_clicked = new_button( gui, uid, pic_x + 160, pic_y + 55, pic_z - 0.01, "mods/mnee/pics/scan/_hitbox.png" )
+						uid = new_tooltip( gui, uid, pic_z - 200, "RMB to "..( is_auto and "dis" or "en" ).."able automatic detection." )
+						if( r_clicked ) then
+							ModSettingSetNextValue( "mnee.CTRL_AUTOMAPPING", not( is_auto ), false )
+							play_sound( "button_special" )
+						end
+						
+						for i = 1,4 do
+							local is_real = jpad[i]
+							uid, clicked, r_clicked = new_button( gui, uid, pic_x + 160, pic_y + 66 + 11*( i - 1 ), pic_z, "mods/mnee/pics/button_10_"..( is_real and "B" or "A" )..".png" )
+							uid = new_tooltip( gui, uid, pic_z - 200, is_real and "CURRENT CTRL ID: "..( i - 1 ).." @ RMB to remove this controller." or "LMB to map new controller." )
+							new_text( gui, pic_x + 162, pic_y + 66 + 11*( i - 1 ), pic_z - 0.01, i, is_real and 3 or 1 )
+							
+							if( clicked ) then
+								gslot_update[i] = true
+							end
+							if( r_clicked ) then
+								if( is_real ) then
+									jpad_update( -i )
+									play_sound( "delete" )
+								else
+									GamePrint( "No controller is present!" )
+									play_sound( "error" )
+								end
+							end
+						end
+						
+						uid = new_button( gui, uid, pic_x + 158, pic_y + 53, pic_z + 0.01, "mods/mnee/pics/controller_panel.png" )
 					end
 					
 					local profile = ModSettingGetNextValue( "mnee.PROFILE" )
@@ -601,32 +540,19 @@ function OnWorldPreUpdate()
 		
 		if( jpad_update ~= nil ) then
 			for i,gslot in ipairs( gslot_update ) do
-				if( gslot > 0 or is_auto ) then
-					if( ctl_ids[i] == nil ) then
+				if( gslot or is_auto ) then
+					if( not( jpad[i])) then
 						local ctl = jpad_update( i )
-						if( ctl ~= nil ) then
-							local is_unique = true
-							for e,ctl_id in ipairs( ctl_ids ) do
-								if( ctl_id == ctl ) then
-									is_unique = false
-									break
-								end
-							end
-							if( is_unique ) then
-								table.insert( ctl_ids, ctl )
-								if( not( is_auto )) then
-									play_sound( "confirm" )
-								end
-							elseif( not( is_auto )) then
-								GamePrint( "This controller is already present!" )
+						if( not( is_auto )) then
+							if( ctl ~= nil ) then
+								play_sound( "confirm" )
+							else
+								GamePrint( "ERROR" )
 								play_sound( "error" )
 							end
-						elseif( not( is_auto )) then
-							GamePrint( "ERROR" )
-							play_sound( "error" )
 						end
 					elseif( not( is_auto )) then
-						GamePrint( "This slot is occupied!" )
+						GamePrint( "This slot is already binded!" )
 						play_sound( "error" )
 					end
 				end

@@ -17,3 +17,9 @@
    - if binding is set to discrete, the output will be forced to only three states: -1.000, 0 and 1.000 according to the button presses
    - all the modes behave exactly as described before with an exception of pressed_mode that will limit the output to -1, 0, 1 and dirty_mode that only works with discrete setting.
    - wrappers are as always: get_axis_pressed( <mod_id>, <binding name>, dirty_mode, is_vip ) and get_axis_vip( <mod_id>, <binding name> )
+
+[KEYBOARD] - full keyboard input access within a single function; is not rebindable and is not customizable (unless one would manually edit the lists.lua > full_shifted)
+++++ get_keyboard_input()
+   - returns the first detected key, will only return one at a time
+   - supports shifting - will automatically detect the state change and return modified value
+   - additionally returns a set of special values for several func keys: return (3 normal, -3 shifted), escape (0 normal, nil shifted), backspace (2 normal, -2 shifted), tab (4 normal, -4 shifted), space (" " normal, -1 shifted).

@@ -16,10 +16,10 @@ bindings = {}
 [*]gpd_l2
 [*]gpd_l3
 
-[*]gpd_right
-[*]gpd_left
-[*]gpd_down
 [*]gpd_up
+[*]gpd_down
+[*]gpd_left
+[*]gpd_right
 
 [*]gpd_select
 [*]gpd_start

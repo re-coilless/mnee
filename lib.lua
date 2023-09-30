@@ -1,5 +1,4 @@
 MNEE_INITER = "MNEE_IS_GOING"
-MNEE_LAME = "MNEE_IS_LAME"
 MNEE_TOGGLER = "MNEE_DISABLED"
 MNEE_RETOGGLER = "MNEE_REDO"
 MNEE_UPDATER = "MNEE_RELOAD"
@@ -79,12 +78,6 @@ function get_keys()
 	
 	return mnee_extractor( ComponentGetValue2( storage, "value_string" ))
 end
-
--- function mnee2noita( keyname )
-	-- local lists = dofile_once( "mods/mnee/lists.lua" )
-	-- local name = lists[1][ keyname ]
-	-- return name == nil and keyname or name
--- end
 
 function get_disarmer()
 	local storage = get_storage( GameGetWorldStateEntity(), "mnee_disarmer" ) or 0
@@ -498,4 +491,41 @@ end
 
 function get_axis_vip( mod_id, name )
 	return get_axis_pressed( mod_id, name, true, true )
+end
+
+function get_shifted_value( c )
+	local check = string.byte( c ) 
+	if( check > 96 and check < 123 ) then
+		return string.char( check - 32 )
+	else
+		local lists = dofile_once( "mods/mnee/lists.lua" )
+		return lists[4][c] or c
+	end
+end
+
+function get_keyboard_input()
+	local lists = dofile_once( "mods/mnee/lists.lua" )
+
+	local is_shifted = InputIsKeyDown( 225 ) or InputIsKeyDown( 229 )
+	for i = 4,56 do
+		if( InputIsKeyJustDown( i )) then
+			local value = lists[1][i]
+			if( is_shifted ) then
+				value = get_shifted_value( value )
+			elseif( i > 39 and i < 45 ) then
+				if( i == 40 ) then
+					value = 3
+				elseif( i == 41 ) then
+					value = 0
+				elseif( i == 42 ) then
+					value = 2
+				elseif( i == 43 ) then
+					value = 4
+				elseif( i == 44 ) then
+					value = " "
+				end
+			end
+			return value
+		end
+	end
 end

@@ -1,6 +1,6 @@
 bindings = {}
 
---see data/scripts/debug/keycodes.lua for keyboard inputs
+--see mods/mnee/lists.lua for most of the inputs
 
 --[[gamepad button list; [*] states the gamepad number; non-standard gamepads might be supported but extra buttons will not be listed here - check naming during rebinding
 

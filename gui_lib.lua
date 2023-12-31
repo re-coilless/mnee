@@ -8,25 +8,6 @@ function t2w( str )
 	return t
 end
 
-function magic_sorter( tbl, func )
-    local out_tbl = {}
-    for n in pairs( tbl ) do
-        table.insert( out_tbl, n )
-    end
-    table.sort( out_tbl, func )
-	
-    local i = 0
-    local iter = function ()
-        i = i + 1
-        if( out_tbl[i] == nil ) then
-            return nil
-        else
-            return out_tbl[i], tbl[out_tbl[i]]
-        end
-    end
-    return iter
-end
-
 function liner( text, length, height, length_k, clean_mode, forced_reverse )
 	local formated = {}
 	if( text ~= nil and text ~= "" ) then
@@ -165,9 +146,9 @@ end
 function colourer( gui, c_type )
 	local color = { r = 0, g = 0, b = 0 }
 	if( type( c_type ) == "table" ) then
-		color.r = c_type[1]
-		color.g = c_type[2]
-		color.b = c_type[3]
+		color.r = c_type[1] or 255
+		color.g = c_type[2] or 255
+		color.b = c_type[3] or 255
 	else
 		if( c_type == nil or c_type == 1 ) then
 			color.r = 238

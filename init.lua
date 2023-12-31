@@ -64,24 +64,6 @@ function OnModInit()
 		return active
 	end
 	
-	function get_sign( a )
-		if( a < 0 ) then
-			return -1
-		else
-			return 1
-		end
-	end
-	
-	function limiter( value, limit, max_mode )
-		max_mode = max_mode or false
-		
-		if(( max_mode and math.abs( value ) < limit ) or ( not( max_mode ) and math.abs( value ) > limit )) then
-			return get_sign( value )*limit
-		end
-		
-		return value
-	end
-	
 	get_current_axes = function()
 		local state = divider
 

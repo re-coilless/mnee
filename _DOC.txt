@@ -19,7 +19,7 @@
    - wrappers are as always: get_axis_pressed( <mod_id>, <binding name>, dirty_mode, is_vip ) and get_axis_vip( <mod_id>, <binding name> )
 
 [KEYBOARD] - full keyboard input access within a single function; is not rebindable and is not customizable (unless one would manually edit the lists.lua > full_shifted)
-++++ get_keyboard_input()
+++++ get_keyboard_input( no_shifting )
    - returns the first detected key, will only return one at a time
-   - supports shifting - will automatically detect the state change and return modified value
+   - supports shifting - will automatically detect the state change and return modified value (this will be disabled if no_shifting is true)
    - additionally returns a set of special values for several func keys: return (3 normal, -3 shifted), escape (0 normal, nil shifted), backspace (2 normal, -2 shifted), tab (4 normal, -4 shifted), space (" " normal, -1 shifted).

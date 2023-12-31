@@ -44,6 +44,17 @@ function get_table_count( tbl )
 	return table_count
 end
 
+function limiter( value, limit, max_mode )
+	max_mode = max_mode or false
+	limit = math.abs( limit )
+	
+	if(( max_mode and math.abs( value ) < limit ) or ( not( max_mode ) and math.abs( value ) > limit )) then
+		return get_sign( value )*limit
+	end
+	
+	return value
+end
+
 function mnee_extractor( data_raw )
 	if( data_raw == MNEE_DIV_1 ) then
 		return {}
@@ -189,6 +200,25 @@ function toggle_axis_memo( name )
 		end
 	end
 	ComponentSetValue2( storage, "value_string", memo_raw )
+end
+
+function magic_sorter( tbl, func )
+    local out_tbl = {}
+    for n in pairs( tbl ) do
+        table.insert( out_tbl, n )
+    end
+    table.sort( out_tbl, func )
+	
+    local i = 0
+    local iter = function ()
+        i = i + 1
+        if( out_tbl[i] == nil ) then
+            return nil
+        else
+            return out_tbl[i], tbl[out_tbl[i]]
+        end
+    end
+    return iter
 end
 
 function axis_sorter( tbl, func )
@@ -369,6 +399,27 @@ function get_key_vip( name )
 	return get_key_pressed( name, true, true )
 end
 
+function get_fancy_key( key )
+	local lists = dofile_once( "mods/mnee/lists.lua" )
+	return lists[5][key] or key
+end
+
+function get_binding_keys( mod_id, name, is_compact )
+	is_compact = is_compact or false
+	mnee_binding_data = mnee_binding_data or get_bindings()
+	local binding = mnee_binding_data[ mod_id ][ name ]
+
+	local symbols = is_compact and {"","-",""} or {"["," + ","]"}
+	local out = symbols[1]
+	for key in magic_sorter( binding.keys ) do
+		out = out..get_fancy_key( key )..symbols[2]
+	end
+	
+	out = string.sub( out, 1, -( #symbols[2] + 1 ))..symbols[3]
+	if( is_compact ) then out = string.lower( out ) end
+	return out
+end
+
 function is_binding_down( mod_id, name, dirty_mode, pressed_mode, is_vip, loose_mode )
 	dirty_mode = dirty_mode or false
 	pressed_mode = pressed_mode or false
@@ -503,10 +554,11 @@ function get_shifted_value( c )
 	end
 end
 
-function get_keyboard_input()
+function get_keyboard_input( no_shifting )
+	no_shifting = no_shifting or false
 	local lists = dofile_once( "mods/mnee/lists.lua" )
 
-	local is_shifted = InputIsKeyDown( 225 ) or InputIsKeyDown( 229 )
+	local is_shifted = not( no_shifting ) and ( InputIsKeyDown( 225 ) or InputIsKeyDown( 229 ))
 	for i = 4,56 do
 		if( InputIsKeyJustDown( i )) then
 			local value = lists[1][i]
@@ -526,6 +578,11 @@ function get_keyboard_input()
 				end
 			end
 			return value
+		end
+	end
+	for i = 1,10 do
+		if( InputIsKeyJustDown( 88 + i )) then
+			return string.sub( tostring( i ), -1 )
 		end
 	end
 end

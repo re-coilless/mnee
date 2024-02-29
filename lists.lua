@@ -316,8 +316,8 @@ local full_joy = {
 	"r3",
 	"l1",
 	"r1",
-	"[NONE]",--JOY_BUTTON_LEFT_STICK_MOVED
-	"[NONE]",--JOY_BUTTON_RIGHT_STICK_MOVED
+	"[NONE]",--l2
+	"[NONE]",--r2
 	"btn_a",
 	"btn_b",
 	"btn_x",
@@ -365,7 +365,7 @@ local full_shifted = {
 	["8"] = "*",
 	["9"] = "(",
 	["0"] = ")",
-	["space"] = -1,
+	["space"] = " ",
 	["backspace"] = -2,
 	["return"] = -3,
 	["tab"] = -4,
@@ -509,16 +509,21 @@ local full_fancy = {
 	["analog_7"] = "GPd(a7+)",
 	["analog_8"] = "GPd(a8+)",
 	["analog_9"] = "GPd(a9+)",
+
 	["up"] = "GPd(up)",
 	["down"] = "GPd(down)",
 	["left"] = "GPd(left)",
 	["right"] = "GPd(right)",
+
 	["start"] = "GPd(strt)",
 	["select"] = "GPd(slct)",
+
 	["l3"] = "GPd(l_stck)",
 	["r3"] = "GPd(r_stck)",
 	["l1"] = "GPd(l_bump)",
 	["r1"] = "GPd(r_bump)",
+	["l2"] = "GPd(l_trgr)",
+	["r2"] = "GPd(r_trgr)",
 
 	["btn_a"] = "GPd(A)",
 	["btn_b"] = "GPd(B)",
@@ -536,7 +541,7 @@ local full_fancy = {
 	["btn_13"] = "GPd(13)",
 	["btn_14"] = "GPd(14)",
 	["btn_15"] = "GPd(15)",
-
+	
 	["analog_0_down"] = "GPd(a0)",
 	["analog_1_down"] = "GPd(a1)",
 	["analog_2_down"] = "GPd(a2)",

@@ -1,27 +1,39 @@
 ModRegisterAudioEventMappings( "mods/mnee/GUIDs.txt" )
-
 get_active_keys = get_active_keys or ( function() return "huh?" end )
 
 function OnModInit()
 	dofile_once( "mods/mnee/lib.lua" )
+
+	-- refactor and fix var naming
+	
+	-- simple bindings (only one button can be binded) + simple bindings should ignore the no special keys limitation + simple bindings is default unless there's is_advanced marker or user is using rmb to rebind
+
+	-- two layers of binds, can be defined via keys_alt table
+	-- add button to switch main/alt binding rebind modes
+
+	-- rewrite doc
+	-- add dirty_check that will check conflicts for dirty stuff
+	
+	-- add global service_mode toggle that checks for the presence of mnee_ignore_service_mode global variable and disables all controls if this is not found; mnee_this_is_vip is the same (vip ignores both service mode and global custom keybind toggle)
+	-- make procedural pause screen keyboard that shows the single-key binds on hover (only if the moddev marked the binding as show_on_pause)
 
 	local lists = dofile_once( "mods/mnee/lists.lua" )
 	local keycaps = lists[1]
 	local mouse = lists[2]
 	local jcaps = lists[3]
 
+	jpad_count = 0
+	jpad_states = jpad_states or { -1, -1, -1, -1 }
 	jpad = jpad or { false, false, false, false }
 	jpad_update = function( num )
 		if( num < 0 ) then
+			jpad_states[ jpad[ math.abs( num )] + 1 ] = 1
 			jpad[ math.abs( num )] = false
 		else
-			local val = InputIsJoystickConnected( num - 1 )
-			if( val > 0 ) then
-				jpad[num] = true
-			else
-				val = nil
+			local val = get_next_jpad()
+			if( val ) then
+				jpad[num] = val
 			end
-			
 			return val
 		end
 	end
@@ -45,16 +57,21 @@ function OnModInit()
 				active = active..key..divider
 			end
 		end
-
+		
 		--gamepad; add rumbling
 		if( #jpad > 0 ) then
-			for i,is_real in ipairs( jpad ) do
-				if( is_real ) then
+			for i,real_num in ipairs( jpad ) do
+				if( real_num ) then
 					for k,key in ipairs( jcaps ) do
 						if( key ~= "[NONE]" ) then
-							if( InputIsJoystickButtonDown( i - 1, k )) then
+							if( InputIsJoystickButtonDown( real_num, k )) then
 								active = active..i.."gpd_"..key..divider
 							end
+						end
+					end
+					for k = 0,1 do
+						if( InputGetJoystickAnalogButton( real_num, k ) > 0.5 ) then
+							active = active..i.."gpd_"..( k == 0 and "l2" or "r2" )..divider
 						end
 					end
 				end
@@ -64,18 +81,34 @@ function OnModInit()
 		return active
 	end
 	
+	get_current_triggers = function()
+		local state = divider
+		if( #jpad > 0 ) then
+			for i,real_num in ipairs( jpad ) do
+				if( real_num ) then
+					for k = 0,1 do
+						local v = math.floor( 100*InputGetJoystickAnalogButton( real_num, k ) + 0.5 )/100
+						local name = i.."gpd_"..( k == 0 and "left" or "right" )
+						state = state.."|"..name.."|"..v.."|"..divider
+					end
+				end
+			end
+		end
+
+		return state
+	end
+
 	get_current_axes = function()
 		local state = divider
-
 		if( #jpad > 0 ) then
 			local gpd_axis = { "_lh", "_lv", "_rh", "_rv", }
 			local total = 1000
 			local deadzone = total/20
 
-			for i,is_real in ipairs( jpad ) do
-				if( is_real ) then
+			for i,real_num in ipairs( jpad ) do
+				if( real_num ) then
 					for e = 0,1 do
-						local value = { InputGetJoystickAnalogStick( i - 1, e )}
+						local value = { InputGetJoystickAnalogStick( real_num, e )}
 						for k = 1,2 do
 							local v = math.floor( total*value[k] )
 							v = math.abs( v ) < deadzone and 0 or v
@@ -117,8 +150,10 @@ function OnWorldPreUpdate()
 	if( GameHasFlagRun( MNEE_INITER )) then
 		local storage = get_storage( GameGetWorldStateEntity(), "mnee_down" ) or 0
 		if( storage ~= 0 ) then
+			get_next_jpad( true )
 			ComponentSetValue2( get_storage( GameGetWorldStateEntity(), "mnee_axis" ), "value_string", get_current_axes())
-			
+			ComponentSetValue2( get_storage( GameGetWorldStateEntity(), "mnee_triggers" ), "value_string", get_current_triggers())
+
 			local active_core = get_active_keys()
 			local axis_core = get_axes()
 			for bnd,v in pairs( axis_core ) do
@@ -130,7 +165,7 @@ function OnWorldPreUpdate()
 			
 			clean_disarmer()
 			
-			if( get_binding_pressed( "mnee", "aa_menu", current_binding == "" )) then
+			if( get_binding_pressed( "mnee", "menu", current_binding == "" )) then
 				if( gui_active ) then
 					gui_active = false
 					play_sound( "close_window" )
@@ -139,12 +174,12 @@ function OnWorldPreUpdate()
 					play_sound( "open_window" )
 				end
 			end
-			if( get_binding_pressed( "mnee", "ab_off" )) then
+			if( get_binding_pressed( "mnee", "off" )) then
 				GameAddFlagRun( MNEE_TOGGLER )
 				GamePrint( "[CUSTOM INPUTS DISABLED]" )
 				play_sound( "uncapture" )
 			end
-			if( get_binding_pressed( "mnee", "ac_pfl_chng" )) then
+			if( get_binding_pressed( "mnee", "profile_change" )) then
 				local prf = ModSettingGetNextValue( "mnee.PROFILE" ) + 1
 				prf = prf > 3 and 1 or prf
 				ModSettingSetNextValue( "mnee.PROFILE", prf, false )
@@ -156,12 +191,12 @@ function OnWorldPreUpdate()
 		local is_auto = ModSettingGetNextValue( "mnee.CTRL_AUTOMAPPING" )
 		local gslot_update = { false, false, false, false, }
 		
-		if( not( GameIsInventoryOpen())) then
+		if( not( GameIsInventoryOpen())) then --use index-compatible check from Penman
 			if( gui == nil ) then
 				gui = GuiCreate()
 			end
 			GuiStartFrame( gui )
-			
+
 			ctl_panel = ctl_panel or false
 			
 			local keys = get_bindings()
@@ -210,7 +245,7 @@ function OnWorldPreUpdate()
 					starter = 8*binding_page - 8
 					ender = 8*binding_page + 1
 					t_x, t_y = pic_x + 48, pic_y
-					for id,bind in axis_sorter( keys[ current_mod ] ) do
+					for id,bind in axis_sorter( keys[ current_mod ]) do
 						if( counter > starter and counter < ender ) then
 							t_y = t_y + 11
 							
@@ -219,7 +254,7 @@ function OnWorldPreUpdate()
 							
 							uid, clicked, r_clicked = new_button( gui, uid, t_x, t_y, pic_z - 0.01, "mods/mnee/pics/button_74_A.png" )
 							uid = new_tooltip( gui, uid, pic_z - 200, ( is_axis and ( "[AXIS]"..( is_static and "" or " @ " )) or "" )..( is_static and "[STATIC] @ " or "" )..bind.name..": "..bind.desc.." @ "..bind2string( bind.keys )..( is_axis and " @ LMB to bind analog stick. RMB to bind buttons." or "" ))
-							new_text( gui, t_x + 2, t_y, pic_z - 0.02, liner( bind.name, 70 ), 1 )
+							new_text( gui, t_x + 2, t_y, pic_z - 0.02, liner( bind.name, 70 ), is_static and 3 or 1 )
 							if( clicked or ( is_axis and r_clicked )) then
 								if( not( is_static )) then
 									current_binding = id
@@ -344,7 +379,7 @@ function OnWorldPreUpdate()
 							uid = new_image( gui, uid, pic_x + 160, pic_y + 55, pic_z, "mods/mnee/pics/scan/0.png" )
 						end
 						uid, clicked, r_clicked = new_button( gui, uid, pic_x + 160, pic_y + 55, pic_z - 0.01, "mods/mnee/pics/scan/_hitbox.png" )
-						uid = new_tooltip( gui, uid, pic_z - 200, "RMB to "..( is_auto and "dis" or "en" ).."able automatic detection." )
+						uid = new_tooltip( gui, uid, pic_z - 200, "["..jpad_count.."] gamepads detected. @ RMB to "..( is_auto and "dis" or "en" ).."able automatic detection." )
 						if( r_clicked ) then
 							ModSettingSetNextValue( "mnee.CTRL_AUTOMAPPING", not( is_auto ), false )
 							play_sound( "button_special" )
@@ -353,7 +388,7 @@ function OnWorldPreUpdate()
 						for i = 1,4 do
 							local is_real = jpad[i]
 							uid, clicked, r_clicked = new_button( gui, uid, pic_x + 160, pic_y + 66 + 11*( i - 1 ), pic_z, "mods/mnee/pics/button_10_"..( is_real and "B" or "A" )..".png" )
-							uid = new_tooltip( gui, uid, pic_z - 200, is_real and "CURRENT CTRL ID: "..( i - 1 ).." @ RMB to remove this controller." or "LMB to map new controller." )
+							uid = new_tooltip( gui, uid, pic_z - 200, is_real and "CURRENT CTRL ID: "..is_real.." @ RMB to remove this controller." or "LMB to map new controller." )
 							new_text( gui, pic_x + 162, pic_y + 66 + 11*( i - 1 ), pic_z - 0.01, i, is_real and 3 or 1 )
 							
 							if( clicked ) then
@@ -526,7 +561,7 @@ function OnWorldPreUpdate()
 					if( not( jpad[i])) then
 						local ctl = jpad_update( i )
 						if( not( is_auto )) then
-							if( ctl ~= nil ) then
+							if( ctl ) then
 								play_sound( "confirm" )
 							else
 								GamePrint( "ERROR" )
@@ -553,7 +588,6 @@ function OnPlayerSpawned( hooman )
 		return
 	end
 	GameAddFlagRun( MNEE_INITER )
-	
 	GlobalsSetValue( "PROSPERO_IS_REAL", "1" )
 	
 	local entity_id = GameGetWorldStateEntity()
@@ -565,6 +599,11 @@ function OnPlayerSpawned( hooman )
 	EntityAddComponent( entity_id, "VariableStorageComponent", 
 	{
 		name = "mnee_disarmer",
+		value_string = MNEE_DIV_1,
+	})
+	EntityAddComponent( entity_id, "VariableStorageComponent", 
+	{
+		name = "mnee_triggers",
 		value_string = MNEE_DIV_1,
 	})
 	EntityAddComponent( entity_id, "VariableStorageComponent", 

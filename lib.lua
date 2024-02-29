@@ -81,6 +81,36 @@ function get_storage( hooman, name )
 	return nil
 end
 
+function get_next_jpad( init_only )
+	for i,j in ipairs( jpad_states ) do
+		local is_real = InputIsJoystickConnected( i - 1 ) > 0
+		if( j < 0 ) then
+			if( is_real ) then
+				jpad_states[i] = 1
+				jpad_count = jpad_count + 1
+			end
+		else
+			if( is_real ) then
+				if( j > 0 and not( init_only )) then
+					jpad_states[i] = 0
+					return i - 1
+				end
+			else
+				for e,jp in ipairs( jpad ) do
+					if( jp == ( i - 1 )) then
+						jpad[e] = false
+						break
+					end
+				end
+				jpad_states[i] = -1
+				jpad_count = jpad_count - 1
+			end
+		end
+	end
+
+	return false
+end
+
 function get_keys()
 	local storage = get_storage( GameGetWorldStateEntity(), "mnee_down" ) or 0
 	if( storage == 0 ) then
@@ -139,6 +169,31 @@ function add_disarmer( value )
 		return
 	end
 	ComponentSetValue2( storage, "value_string", ComponentGetValue2( storage, "value_string" )..( MNEE_DIV_2..value..MNEE_DIV_2..GameGetFrameNum()..MNEE_DIV_2 )..MNEE_DIV_1 )
+end
+
+function get_triggers()
+	local storage = get_storage( GameGetWorldStateEntity(), "mnee_triggers" ) or 0
+	if( storage == 0 ) then
+		return {}
+	end
+	local triggers_raw = ComponentGetValue2( storage, "value_string" )
+	if( triggers_raw == MNEE_DIV_1 ) then
+		return {}
+	end
+	
+	local triggers = {}
+	for tr in string.gmatch( triggers_raw, MNEE_PTN_1 ) do
+		local trigger = ""
+		for val in string.gmatch( tr, MNEE_PTN_2 ) do
+			if( trigger == "" ) then
+				trigger = val
+			else
+				triggers[ trigger ] = tonumber( val )
+			end
+		end
+	end
+	
+	return triggers
 end
 
 function get_axes()
@@ -228,9 +283,10 @@ function axis_sorter( tbl, func )
 	end
 	table.sort( out_tbl, function( a, b )
 	    if( tbl[a].keys[1] == "is_axis" and tbl[b].keys[1] == "is_axis" ) then
-            return ( a < b )
+			if( tbl[a].order_id ~= nil ) then print( tbl[a].order_id ) end
+            return (( tbl[a].order_id or a ) < ( tbl[b].order_id or b ))
         else
-		    return ( tbl[a].keys[1] == "is_axis" or ( tbl[b].keys[1] ~= "is_axis" and a < b ))
+		    return ( tbl[a].keys[1] == "is_axis" or ( tbl[b].keys[1] ~= "is_axis" and ( tbl[a].order_id or a ) < ( tbl[b].order_id or b )))
 	    end
 	end)
 	
@@ -276,6 +332,7 @@ function get_bindings( profile, binds_only )
 						data[ mod_name ][ binding_name ][ "keys" ] = {}
 						
 						if( not( binds_only )) then
+							data[ mod_name ][ binding_name ][ "order_id" ] = bindings[ mod_name ][ binding_name ].order_id
 							data[ mod_name ][ binding_name ][ "is_locked" ] = bindings[ mod_name ][ binding_name ].is_locked
 							data[ mod_name ][ binding_name ][ "name" ] = bindings[ mod_name ][ binding_name ].name
 							data[ mod_name ][ binding_name ][ "desc" ] = bindings[ mod_name ][ binding_name ].desc

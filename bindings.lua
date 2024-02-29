@@ -1,6 +1,6 @@
 bindings = {}
 
---see mods/mnee/lists.lua for most of the inputs
+--see mods/mnee/lists.lua for most of the key ids
 
 --[[gamepad button list; [*] states the gamepad number; non-standard gamepads might be supported but extra buttons will not be listed here - check naming during rebinding
 
@@ -36,7 +36,9 @@ bindings = {}
 ]]
 
 bindings["mnee"] = {
-	aa_menu = { --[ACTUAL BINDING ID] "aa_" is needed to maintain alphabetical order, since that's how this table is being sorted
+	menu = { --[ACTUAL BINDING ID]
+		order_id = "a", --[SORTING ORDER]
+		is_locked = false, --[PREVENT REBINDING]
 		name = "Open M-nee", --[DISPLAYED NAME]
 		desc = "Will open this menu.", --[DISPLAYED DESCRIPTION]
 		keys = { --[DEFAULT BINDING KEYS]
@@ -45,7 +47,8 @@ bindings["mnee"] = {
 		},
 	},
 	
-	ab_off = {
+	off = {
+		order_id = "b",
 		name = "Disable M-nee",
 		desc = "Will disable all the custom inputs.",
 		keys = {
@@ -54,7 +57,8 @@ bindings["mnee"] = {
 		},
 	},
 	
-	ac_pfl_chng = {
+	profile_change = {
+		order_id = "c",
 		name = "Change Profile",
 		desc = "Cycle through independed binding profiles.",
 		keys = {
@@ -64,7 +68,7 @@ bindings["mnee"] = {
 	},
 }
 
---[[gamepad axis list; [*] states the gamepad number; non-standard gamepads might be supported but extra buttons will not be listed here - check naming after rebinding
+--[[gamepad analog axis list; [*] states the gamepad number; non-standard gamepads might be supported but extra buttons will not be listed here - check naming after rebinding
 
 [*]gpd_axis_lh
 [*]gpd_axis_lv

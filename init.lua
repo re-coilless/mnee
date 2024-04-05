@@ -4,18 +4,29 @@ get_active_keys = get_active_keys or ( function() return "huh?" end )
 function OnModInit()
 	dofile_once( "mods/mnee/lib.lua" )
 
-	-- refactor and fix var naming
+	-- figure main menu failing bug (maybe add actual try-catch for once)
 	
-	-- simple bindings (only one button can be binded) + simple bindings should ignore the no special keys limitation + simple bindings is default unless there's is_advanced marker or user is using rmb to rebind
-
 	-- two layers of binds, can be defined via keys_alt table
 	-- add button to switch main/alt binding rebind modes
+	-- save all alt shit in a separate setting and just append the stuff to the main list
+	-- the actual binding checking thing checks if the stuff is real and does all the things as usual
+	-- include the alt binds in conflict checking
+	-- make sure that if alt matches main or if alt is not real - the alt is not considered
+
+	-- refactor and fix var naming
+	
+	-- simple bindings (only one button can be binded)
+	-- simple bindings should ignore the no special keys limitation
+	-- simple bindings is default unless there's is_advanced marker or user is using rmb to rebind
+	-- buttoned analog stick can only ever be a simple bind
 
 	-- rewrite doc
 	-- add dirty_check that will check conflicts for dirty stuff
-	
+
+	-- add unbinding button to rebinding screen (sets key to "_")
 	-- add global service_mode toggle that checks for the presence of mnee_ignore_service_mode global variable and disables all controls if this is not found; mnee_this_is_vip is the same (vip ignores both service mode and global custom keybind toggle)
 	-- make procedural pause screen keyboard that shows the single-key binds on hover (only if the moddev marked the binding as show_on_pause)
+	-- add default alt buttoned kappa bind
 
 	local lists = dofile_once( "mods/mnee/lists.lua" )
 	local keycaps = lists[1]
@@ -197,8 +208,10 @@ function OnWorldPreUpdate()
 			end
 			GuiStartFrame( gui )
 
-			ctl_panel = ctl_panel or false
-			
+			if( ctl_panel == nil ) then
+				ctl_panel = jpad_count > 0
+			end
+
 			local keys = get_bindings()
 			local is_disabled = GameHasFlagRun( MNEE_TOGGLER )
 			

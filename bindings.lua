@@ -85,7 +85,7 @@ bindings["example"] = {
 	aa_stuff_2 = {
 		name = "Behold the Ultimate Power of Complete Input",
 		desc = "And this one is extra fancy.",
-		keys = { "is_axis", "Key_KP_PLUS", "Key_KP_MINUS", },
+		keys = { "is_axis", "keypad_+", "keypad_-", },
 	},
 }
 

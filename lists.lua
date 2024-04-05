@@ -316,8 +316,8 @@ local full_joy = {
 	"r3",
 	"l1",
 	"r1",
-	"[NONE]",--l2
-	"[NONE]",--r2
+	"[NONE]", --l2
+	"[NONE]", --r2
 	"btn_a",
 	"btn_b",
 	"btn_x",
@@ -334,14 +334,14 @@ local full_joy = {
 	"btn_13",
 	"btn_14",
 	"btn_15",
-	"[NONE]",--"btn_lh_+",
-	"[NONE]",--"btn_lh_-",
-	"[NONE]",--"btn_lv_+",
-	"[NONE]",--"btn_lv_-",
-	"[NONE]",--"btn_rh_+",
-	"[NONE]",--"btn_rh_-",
-	"[NONE]",--"btn_rv_+",
-	"[NONE]",--"btn_rv_-",
+	"[NONE]", --"btn_lh_+",
+	"[NONE]", --"btn_lh_-",
+	"[NONE]", --"btn_lv_+",
+	"[NONE]", --"btn_lv_-",
+	"[NONE]", --"btn_rh_+",
+	"[NONE]", --"btn_rh_-",
+	"[NONE]", --"btn_rv_+",
+	"[NONE]", --"btn_rv_-",
 	"analog_0_down",
 	"analog_1_down",
 	"analog_2_down",

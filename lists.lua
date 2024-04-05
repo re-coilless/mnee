@@ -318,10 +318,10 @@ local full_joy = {
 	"r1",
 	"[NONE]", --l2
 	"[NONE]", --r2
-	"btn_a",
-	"btn_b",
-	"btn_x",
-	"btn_y",
+	"a",
+	"b",
+	"x",
+	"y",
 	"btn_4",
 	"btn_5",
 	"btn_6",

@@ -579,7 +579,7 @@ function get_axis_state( mod_id, name, dirty_mode, pressed_mode, is_vip )
 				
 				return 0
 			else
-				return value/1000
+				return value
 			end
 		else
 			if( is_key_down( binding[2], dirty_mode, pressed_mode, is_vip )) then

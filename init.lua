@@ -266,10 +266,22 @@ function OnWorldPreUpdate()
 							
 							local is_static = bind.is_locked or false
 							local is_axis = bind.keys[1] == "is_axis"
+							local function get_translated( text )
+								local out = ""
+								if( type( text ) == "string" ) then
+									local keys = t2w( text )
+									for i,key in ipairs( keys ) do
+										out = out..( out == "" and out or " " )..GameTextGetTranslatedOrNot( key )
+									end
+								else
+									out = text()
+								end
+								return out
+							end
 							
 							uid, clicked, r_clicked = new_button( gui, uid, t_x, t_y, pic_z - 0.01, "mods/mnee/pics/button_74_A.png" )
-							uid = new_tooltip( gui, uid, pic_z - 200, ( is_axis and ( "[AXIS]"..( is_static and "" or " @ " )) or "" )..( is_static and "[STATIC] @ " or "" )..GameTextGetTranslatedOrNot( bind.name )..": "..GameTextGetTranslatedOrNot( bind.desc ).." @ "..bind2string( bind.keys )..( is_axis and " @ LMB to bind analog stick. RMB to bind buttons." or "" ))
-							new_text( gui, t_x + 2, t_y, pic_z - 0.02, liner( GameTextGetTranslatedOrNot( bind.name ), 70 ), is_static and 3 or 1 )
+							uid = new_tooltip( gui, uid, pic_z - 200, ( is_axis and ( "[AXIS]"..( is_static and "" or " @ " )) or "" )..( is_static and "[STATIC] @ " or "" )..get_translated( bind.name )..": "..get_translated( bind.desc ).." @ "..bind2string( bind.keys )..( is_axis and " @ LMB to bind analog stick. RMB to bind buttons." or "" ))
+							new_text( gui, t_x + 2, t_y, pic_z - 0.02, liner( get_translated( bind.name ), 70 ), is_static and 3 or 1 )
 							if( clicked or ( is_axis and r_clicked )) then
 								if( not( is_static )) then
 									current_binding = id

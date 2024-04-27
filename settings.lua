@@ -11,19 +11,27 @@ function mod_setting_full_resetter( mod_id, gui, in_main_menu, im_id, setting )
 	mod_setting_tooltip( mod_id, gui, in_main_menu, setting )
 end
 
+function text_with_no_mod( translation, default )
+	if( GameHasFlagRun( "MNEE_IS_GOING" )) then
+		return translation
+	else
+		return default
+	end
+end
+
 local mod_id = "mnee"
 mod_settings_version = 1
 mod_settings = 
 {
 	{
 		id = "READ_ME",
-		ui_name = "[PRESS LEFT_CTRL+M IN-GAME TO OPEN THE MENU]",
+		ui_name = text_with_no_mod( "$mnee_tutorial", "[PRESS LEFT_CTRL+M IN-GAME TO OPEN THE MENU]" ),
 		not_setting = true,
 	},
 	{
 		id = "NUKE_EM",
-		ui_name = "Complete Reset",
-		ui_description = "RMB to reset all the saved M-Nee bindings and settings.",
+		ui_name = text_with_no_mod( "$mnee_reset", "Complete Reset" ),
+		ui_description = text_with_no_mod( "$mnee_rmb_reset", "RMB to reset all the saved M-Nee bindings." ),
 		value_default = false,
 		hidden = false,
 		scope = MOD_SETTING_SCOPE_RUNTIME,

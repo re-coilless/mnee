@@ -24,6 +24,11 @@ MNEE_SPECIAL_KEYS = {
 	-- right_windows = 1,
 }
 
+function catch( f )
+	local is_good, stuff = pcall( f )
+	if( not( is_good )) then print( stuff ) end
+end
+
 function get_sign( a )
 	if( a < 0 ) then
 		return -1
@@ -55,6 +60,12 @@ function limiter( value, limit, max_mode )
 	return value
 end
 
+function set_translations( path )
+	local file = ModTextFileGetContent( path )
+	local main = "data/translations/common.csv"
+	ModTextFileSetContent( main, ModTextFileGetContent( main )..string.gsub( file, "^[^\n]*\n", "" ))
+end
+
 function mnee_extractor( data_raw )
 	if( data_raw == MNEE_DIV_1 ) then
 		return {}
@@ -79,6 +90,15 @@ function get_storage( hooman, name )
 	end
 	
 	return nil
+end
+
+function get_hybrid_function( func, input )
+	if( func == nil ) then return end
+	if( type( func ) == "function" ) then
+		return func( unpack( input or {}))
+	else
+		return func
+	end
 end
 
 function get_next_jpad( init_only )
@@ -334,6 +354,7 @@ function get_bindings( profile, binds_only )
 						if( not( binds_only )) then
 							data[ mod_name ][ binding_name ][ "order_id" ] = bindings[ mod_name ][ binding_name ].order_id
 							data[ mod_name ][ binding_name ][ "is_locked" ] = bindings[ mod_name ][ binding_name ].is_locked
+							data[ mod_name ][ binding_name ][ "is_hidden" ] = bindings[ mod_name ][ binding_name ].is_hidden
 							data[ mod_name ][ binding_name ][ "name" ] = bindings[ mod_name ][ binding_name ].name
 							data[ mod_name ][ binding_name ][ "desc" ] = bindings[ mod_name ][ binding_name ].desc
 						end
@@ -550,7 +571,7 @@ function get_axis_state( mod_id, name, dirty_mode, pressed_mode, is_vip )
 	is_vip = is_vip or false
 	
 	if( GameHasFlagRun( MNEE_TOGGLER ) and not( is_vip )) then
-		return 0
+		return 0, false
 	end
 	
 	local update_frame = tonumber( GlobalsGetValue( MNEE_UPDATER, "0" ))
@@ -564,32 +585,30 @@ function get_axis_state( mod_id, name, dirty_mode, pressed_mode, is_vip )
 	local binding = mnee_binding_data[ mod_id ][ name ]
 	if( binding ~= nil ) then
 		binding = binding.keys
-		if( binding[3] == nil ) then
+		local out, is_buttoned = 0, binding[3] ~= nil
+		if( is_buttoned ) then
+			if( is_key_down( binding[2], dirty_mode, pressed_mode, is_vip )) then
+				out = -1
+			elseif( is_key_down( binding[3], dirty_mode, pressed_mode, is_vip )) then
+				out = 1
+			end
+		else
 			local value = get_axes()[ binding[2]] or 0
 			if( pressed_mode ) then
 				local memo = get_axis_memo()
 				if( memo[ binding[2]] == nil ) then
 					if( math.abs( value ) > 500 ) then
 						toggle_axis_memo( binding[2])
-						return get_sign( value )
+						out = get_sign( value )
 					end
 				elseif( math.abs( value ) < 200 ) then
 					toggle_axis_memo( binding[2])
 				end
-				
-				return 0
 			else
-				return value
-			end
-		else
-			if( is_key_down( binding[2], dirty_mode, pressed_mode, is_vip )) then
-				return 1
-			elseif( is_key_down( binding[3], dirty_mode, pressed_mode, is_vip )) then
-				return -1
-			else
-				return 0
+				out = value
 			end
 		end
+		return out, is_buttoned
 	end
 end
 

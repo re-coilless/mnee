@@ -3,10 +3,9 @@ get_active_keys = get_active_keys or ( function() return "huh?" end )
 
 function OnModInit()
 	dofile_once( "mods/mnee/lib.lua" )
-
-	-- figure main menu failing bug (maybe add actual try-catch for once)
-	-- translations
-	-- actually add protection to all volatile functions
+	set_translations( "mods/mnee/translations.csv" )
+	
+	-- move ui to the right (leave space for the controllers)
 	
 	-- two layers of binds, can be defined via keys_alt table
 	-- add button to switch main/alt binding rebind modes
@@ -189,14 +188,14 @@ function OnWorldPreUpdate()
 			end
 			if( get_binding_pressed( "mnee", "off" )) then
 				GameAddFlagRun( MNEE_TOGGLER )
-				GamePrint( "[CUSTOM INPUTS DISABLED]" )
+				GamePrint( GameTextGetTranslatedOrNot( "$mnee_no_input" ))
 				play_sound( "uncapture" )
 			end
 			if( get_binding_pressed( "mnee", "profile_change" )) then
 				local prf = ModSettingGetNextValue( "mnee.PROFILE" ) + 1
 				prf = prf > 3 and 1 or prf
 				ModSettingSetNextValue( "mnee.PROFILE", prf, false )
-				GamePrint( "Current Profile: "..string.char( prf + 64 ))
+				GamePrint( GameTextGetTranslatedOrNot( "$mnee_this_profile" )..": "..string.char( prf + 64 ))
 				play_sound( "switch_page" )
 			end
 		end
@@ -225,7 +224,7 @@ function OnWorldPreUpdate()
 					local pic_w, pic_h = GuiGetImageDimensions( gui, pic, 1 )
 					
 					uid, clicked = new_button( gui, uid, pic_x + pic_w - 8, pic_y + 2, pic_z - 0.01, "mods/mnee/pics/key_close.png" )
-					uid = new_tooltip( gui, uid, pic_z - 200, "Close" )
+					uid = new_tooltip( gui, uid, pic_z - 200, GameTextGetTranslatedOrNot( "$mnee_close" ))
 					if( clicked ) then
 						gui_active = false
 						play_sound( "close_window" )
@@ -240,7 +239,7 @@ function OnWorldPreUpdate()
 							t_y = t_y + 11
 							
 							uid, clicked = new_button( gui, uid, t_x, t_y, pic_z - 0.01, "mods/mnee/pics/button_43_"..( current_mod == mod and "B" or "A" )..".png" )
-							uid = new_tooltip( gui, uid, pic_z - 200, current_mod == mod and mod or "LMB to open the bindings." )
+							uid = new_tooltip( gui, uid, pic_z - 200, current_mod == mod and mod or GameTextGetTranslatedOrNot( "$mnee_lmb_keys" ))
 							new_text( gui, t_x + 2, t_y, pic_z - 0.02, liner( mod, 39 ), current_mod == mod and 3 or 1 )
 							if( clicked ) then
 								current_mod = mod
@@ -261,27 +260,21 @@ function OnWorldPreUpdate()
 					ender = 8*binding_page + 1
 					t_x, t_y = pic_x + 48, pic_y
 					for id,bind in axis_sorter( keys[ current_mod ]) do
-						if( counter > starter and counter < ender ) then
+						local will_show = counter > starter and counter < ender
+						if( will_show ) then
+							will_show = not( get_hybrid_function( bind.is_hidden ))
+						end
+						if( will_show ) then
 							t_y = t_y + 11
 							
-							local is_static = bind.is_locked or false
+							local is_static = get_hybrid_function( bind.is_locked ) or false
 							local is_axis = bind.keys[1] == "is_axis"
-							local function get_translated( text )
-								local out = ""
-								if( type( text ) == "string" ) then
-									local keys = t2w( text )
-									for i,key in ipairs( keys ) do
-										out = out..( out == "" and out or " " )..GameTextGetTranslatedOrNot( key )
-									end
-								else
-									out = text()
-								end
-								return out
-							end
 							
-							uid, clicked, r_clicked = new_button( gui, uid, t_x, t_y, pic_z - 0.01, "mods/mnee/pics/button_74_A.png" )
-							uid = new_tooltip( gui, uid, pic_z - 200, ( is_axis and ( "[AXIS]"..( is_static and "" or " @ " )) or "" )..( is_static and "[STATIC] @ " or "" )..get_translated( bind.name )..": "..get_translated( bind.desc ).." @ "..bind2string( bind.keys )..( is_axis and " @ LMB to bind analog stick. RMB to bind buttons." or "" ))
-							new_text( gui, t_x + 2, t_y, pic_z - 0.02, liner( get_translated( bind.name ), 70 ), is_static and 3 or 1 )
+							uid, clicked, r_clicked = new_button( gui, uid, t_x, t_y, pic_z - 0.01, "mods/mnee/pics/button_74_"..( is_static and "B" or "A" )..".png" )
+							catch(function()
+								uid = new_tooltip( gui, uid, pic_z - 200, ( is_axis and ( GameTextGetTranslatedOrNot( "$mnee_axis" )..( is_static and "" or " @ " )) or "" )..( is_static and GameTextGetTranslatedOrNot( "$mnee_static" ).." @ " or "" )..get_translated_line( bind.name )..": "..get_translated_line( bind.desc ).." @ "..bind2string( bind.keys )..( is_axis and " @ "..GameTextGetTranslatedOrNot( "$mnee_lmb_axis" ) or "" ))
+								new_text( gui, t_x + 2, t_y, pic_z - 0.02, liner( get_translated_line( bind.name ), 70 ), is_static and 2 or 1 )
+							end)
 							if( clicked or ( is_axis and r_clicked )) then
 								if( not( is_static )) then
 									current_binding = id
@@ -289,13 +282,13 @@ function OnWorldPreUpdate()
 									btn_axis_mode = r_clicked
 									play_sound( "select" )
 								else
-									GamePrint( "[ERROR] This binding cannot be changed!" )
+									GamePrint( GameTextGetTranslatedOrNot( "$mnee_error" ).." "..GameTextGetTranslatedOrNot( "$mnee_no_change" ))
 									play_sound( "error" )
 								end
 							end
 							
 							uid, clicked, r_clicked = new_button( gui, uid, t_x + 75, t_y, pic_z - 0.01, "mods/mnee/pics/key_delete.png" )
-							uid = new_tooltip( gui, uid, pic_z - 200, "RMB to set to default." )
+							uid = new_tooltip( gui, uid, pic_z - 200, GameTextGetTranslatedOrNot( "$mnee_rmb_default" ))
 							if( r_clicked ) then
 								dofile_once( "mods/mnee/bindings.lua" )
 								keys[ current_mod ][ id ].keys = bindings[ current_mod ][ id ].keys
@@ -313,10 +306,10 @@ function OnWorldPreUpdate()
 					end
 					
 					uid = new_button( gui, uid, pic_x + 101, pic_y + 99, pic_z - 0.01, "mods/mnee/pics/help.png" )
-					uid = new_tooltip( gui, uid, pic_z - 200, "LMB the binding name to change it." )-- @ RMB to toggle active." )
+					uid = new_tooltip( gui, uid, pic_z - 200, GameTextGetTranslatedOrNot( "$mnee_lmb_bind" ))-- @ RMB to toggle active." )
 					
 					uid, clicked, r_clicked = new_button( gui, uid, pic_x + 112, pic_y + 99, pic_z - 0.01, "mods/mnee/pics/button_dft.png" )
-					uid = new_tooltip( gui, uid, pic_z - 200, "RMB to set selected mod's current profile to default." )
+					uid = new_tooltip( gui, uid, pic_z - 200, GameTextGetTranslatedOrNot( "$mnee_rmb_mod" ))
 					if( r_clicked ) then
 						dofile_once( "mods/mnee/bindings.lua" )
 						keys[ current_mod ] = bindings[ current_mod ]
@@ -325,7 +318,7 @@ function OnWorldPreUpdate()
 					end
 					
 					uid, clicked = new_button( gui, uid, pic_x + 136, pic_y + 11, pic_z - 0.01, "mods/mnee/pics/button_tgl_"..( is_disabled and "A" or "B" )..".png" )
-					uid = new_tooltip( gui, uid, pic_z - 200, "LMB to "..( is_disabled and "en" or "dis" ).."able custom inputs." )
+					uid = new_tooltip( gui, uid, pic_z - 200, GameTextGetTranslatedOrNot( "$mnee_lmb_input"..( is_disabled and "A" or "B" )))
 					if( clicked ) then
 						if( is_disabled ) then
 							GameRemoveFlagRun( MNEE_TOGGLER )
@@ -337,7 +330,7 @@ function OnWorldPreUpdate()
 					end
 					
 					uid, clicked, r_clicked = new_button( gui, uid, pic_x + 136, pic_y + 22, pic_z - 0.01, "mods/mnee/pics/button_rst.png" )
-					uid = new_tooltip( gui, uid, pic_z - 200, "RMB to completely reset the settings." )
+					uid = new_tooltip( gui, uid, pic_z - 200, GameTextGetTranslatedOrNot( "$mnee_rmb_reset" ))
 					if( r_clicked ) then
 						for i = 1,3 do
 							ModSettingSetNextValue( "mnee.BINDINGS_"..i, "&", false )
@@ -348,7 +341,7 @@ function OnWorldPreUpdate()
 
 					if( io ~= nil ) then
 						uid, clicked, r_clicked = new_button( gui, uid, pic_x + 136, pic_y + 66, pic_z - 0.01, "mods/mnee/pics/button_bkp.png" )
-						uid = new_tooltip( gui, uid, pic_z - 200, "LMB to backup all the data. @ RMB to load last backup." )
+						uid = new_tooltip( gui, uid, pic_z - 200, GameTextGetTranslatedOrNot( "$mnee_lmb_backup" ))
 						if( clicked ) then
 							local cout = "@"
 							for i = 1,3 do
@@ -360,7 +353,7 @@ function OnWorldPreUpdate()
 								file:close()
 								play_sound( "minimize" )
 							else
-								GamePrint( "[ERROR]: ", err )
+								GamePrint( GameTextGetTranslatedOrNot( "$mnee_error" )..": ", err )
 								play_sound( "error" )
 							end
 						end
@@ -378,18 +371,18 @@ function OnWorldPreUpdate()
 									end
 									play_sound( "unminimize" )
 								else
-									GamePrint( "[NO BACKUPS FOUND]" )
+									GamePrint( GameTextGetTranslatedOrNot( "$mnee_no_backups" ))
 									play_sound( "error" )
 								end
 							else
-								GamePrint( "[ERROR]: ", err )
+								GamePrint( GameTextGetTranslatedOrNot( "$mnee_error" )..": ", err )
 								play_sound( "error" )
 							end
 						end
 					end
 
 					uid, clicked = new_button( gui, uid, pic_x + 136, pic_y + 77, pic_z - 0.01, "mods/mnee/pics/button_ctl_"..( ctl_panel and "B" or "A" )..".png" )
-					uid = new_tooltip( gui, uid, pic_z - 200, "LMB to toggle controller mapping panel." )
+					uid = new_tooltip( gui, uid, pic_z - 200, GameTextGetTranslatedOrNot( "$mnee_lmb_jpads" ))
 					if( clicked ) then
 						if( ctl_panel ) then
 							ctl_panel = false
@@ -406,7 +399,7 @@ function OnWorldPreUpdate()
 							uid = new_image( gui, uid, pic_x + 160, pic_y + 55, pic_z, "mods/mnee/pics/scan/0.png" )
 						end
 						uid, clicked, r_clicked = new_button( gui, uid, pic_x + 160, pic_y + 55, pic_z - 0.01, "mods/mnee/pics/scan/_hitbox.png" )
-						uid = new_tooltip( gui, uid, pic_z - 200, "["..jpad_count.."] gamepads detected. @ RMB to "..( is_auto and "dis" or "en" ).."able automatic detection." )
+						uid = new_tooltip( gui, uid, pic_z - 200, GameTextGet( "$mnee_jpad_count", jpad_count ).." @ "..GameTextGetTranslatedOrNot( "$mnee_rmb_scan"..( is_auto and "B" or "A" )))  
 						if( r_clicked ) then
 							ModSettingSetNextValue( "mnee.CTRL_AUTOMAPPING", not( is_auto ), false )
 							play_sound( "button_special" )
@@ -415,7 +408,7 @@ function OnWorldPreUpdate()
 						for i = 1,4 do
 							local is_real = jpad[i]
 							uid, clicked, r_clicked = new_button( gui, uid, pic_x + 160, pic_y + 66 + 11*( i - 1 ), pic_z, "mods/mnee/pics/button_10_"..( is_real and "B" or "A" )..".png" )
-							uid = new_tooltip( gui, uid, pic_z - 200, is_real and "CURRENT CTRL ID: "..is_real.." @ RMB to remove this controller." or "LMB to map new controller." )
+							uid = new_tooltip( gui, uid, pic_z - 200, is_real and GameTextGetTranslatedOrNot( "$mnee_jpad_id" )..tostring( is_real ).." @ "..GameTextGetTranslatedOrNot( "$mnee_rmb_unmap" ) or GameTextGetTranslatedOrNot( "$mnee_lmb_map" ))
 							new_text( gui, pic_x + 162, pic_y + 66 + 11*( i - 1 ), pic_z - 0.01, i, is_real and 3 or 1 )
 							
 							if( clicked ) then
@@ -426,7 +419,7 @@ function OnWorldPreUpdate()
 									jpad_update( -i )
 									play_sound( "delete" )
 								else
-									GamePrint( "No controller is present!" )
+									GamePrint( GameTextGetTranslatedOrNot( "$mnee_no_jpads" ))
 									play_sound( "error" )
 								end
 							end
@@ -502,7 +495,7 @@ function OnWorldPreUpdate()
 										end
 									end
 									if( this_one == #active ) then
-										tip_text = tip_text.." @ CONFLICT - ["..mod.."; "..stff.name.."]"
+										tip_text = tip_text.." @ "..GameTextGetTranslatedOrNot( "$mnee_conflict" ).."["..mod.."; "..stff.name.."]"
 										break
 									end
 								end
@@ -512,7 +505,7 @@ function OnWorldPreUpdate()
 					
 					if( gui_retoggler ) then
 						uid, clicked = new_button( gui, uid, pic_x, pic_y, pic_z, "mods/mnee/pics/continue.png" )
-						uid = new_tooltip( gui, uid, pic_z - 200, "do it" )
+						uid = new_tooltip( gui, uid, pic_z - 200, GameTextGetTranslatedOrNot( "$mnee_doit" ))
 						if( clicked ) then
 							if(( btn_axis_counter or 3 ) == 3 ) then
 								current_binding = ""
@@ -527,7 +520,7 @@ function OnWorldPreUpdate()
 						end
 					else
 						uid, clicked, r_clicked = new_button( gui, uid, pic_x, pic_y, pic_z, "mods/mnee/pics/rebinder"..( doing_what and "_axis" or "" )..".png" )
-						uid = new_tooltip( gui, uid, pic_z - 200, doing_what and "Waiting for Input..." or ( "Keys detected: @ "..( tip_text == "[" and "[NONE]" or tip_text )))
+						uid = new_tooltip( gui, uid, pic_z - 200, doing_what and GameTextGetTranslatedOrNot( "$mnee_waiting" ) or ( GameTextGetTranslatedOrNot( "$mnee_keys" ).." @ "..( tip_text == "[" and GameTextGetTranslatedOrNot( "$mnee_nil" ) or tip_text )))
 						if( r_clicked ) then
 							current_binding = ""
 							doing_axis = false
@@ -537,7 +530,6 @@ function OnWorldPreUpdate()
 						
 						if( doing_what ) then
 							local axes = get_axes()
-							
 							local champ = { 0, 0 }
 							for ax,val in pairs( axes ) do
 								if( val ~= 0 ) then
@@ -591,12 +583,12 @@ function OnWorldPreUpdate()
 							if( ctl ) then
 								play_sound( "confirm" )
 							else
-								GamePrint( "ERROR" )
+								GamePrint( GameTextGetTranslatedOrNot( "$mnee_error" ))
 								play_sound( "error" )
 							end
 						end
 					elseif( not( is_auto )) then
-						GamePrint( "This slot is already binded!" )
+						GamePrint( GameTextGetTranslatedOrNot( "$mnee_no_slot" ))
 						play_sound( "error" )
 					end
 				end

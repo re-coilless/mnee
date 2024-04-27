@@ -124,6 +124,15 @@ function liner( text, length, height, length_k, clean_mode, forced_reverse )
 	return formated
 end
 
+function get_translated_line( text )
+	local out = ""
+	local markers = t2w( get_hybrid_function( text ))
+	for i,mark in ipairs( markers ) do
+		out = out..( out == "" and out or " " )..GameTextGetTranslatedOrNot( mark )
+	end
+	return out
+end
+
 function world2gui( gui, x, y )
 	local w, h = GuiGetScreenDimensions( gui )
 	local cam_x, cam_y = GameGetCameraPos()
@@ -315,7 +324,7 @@ function new_pager( gui, uid, pic_x, pic_y, pic_z, page, max_page, profile_mode 
 	end
 	uid = new_button( gui, uid, pic_x, pic_y, pic_z, "mods/mnee/pics/button_21_B.png" )
 	if( profile_mode ) then
-		uid = new_tooltip( gui, uid, pic_z - 200, "Current Profile." )
+		uid = new_tooltip( gui, uid, pic_z - 200, GameTextGetTranslatedOrNot( "$mnee_this_profile" ).."." )
 	end
 	new_text( gui, pic_x + 2, pic_y, pic_z - 0.01, tostring( profile_mode and string.char( page + 64 ) or page ), 2 )
 	

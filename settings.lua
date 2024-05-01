@@ -6,6 +6,7 @@ function mod_setting_full_resetter( mod_id, gui, in_main_menu, im_id, setting )
 		for i = 1,3 do
 			ModSettingSetNextValue( "mnee.BINDINGS_"..i, "&", false )
 		end
+		print( "IT IS GONE" )
 	end
 	
 	mod_setting_tooltip( mod_id, gui, in_main_menu, setting )
@@ -56,6 +57,15 @@ mod_settings =
 		scope = MOD_SETTING_SCOPE_RUNTIME,
 	},
 	{
+		id = "BINDINGS_ALT_1",
+		ui_name = "Bindings Alt",
+		ui_description = "",
+		hidden = true,
+		value_default = "&",
+		text_max_length = 100000,
+		scope = MOD_SETTING_SCOPE_RUNTIME,
+	},
+	{
 		id = "BINDINGS_2",
 		ui_name = "Bindings",
 		ui_description = "",
@@ -65,8 +75,26 @@ mod_settings =
 		scope = MOD_SETTING_SCOPE_RUNTIME,
 	},
 	{
+		id = "BINDINGS_ALT_2",
+		ui_name = "Bindings Alt",
+		ui_description = "",
+		hidden = true,
+		value_default = "&",
+		text_max_length = 100000,
+		scope = MOD_SETTING_SCOPE_RUNTIME,
+	},
+	{
 		id = "BINDINGS_3",
 		ui_name = "Bindings",
+		ui_description = "",
+		hidden = true,
+		value_default = "&",
+		text_max_length = 100000,
+		scope = MOD_SETTING_SCOPE_RUNTIME,
+	},
+	{
+		id = "BINDINGS_ALT_3",
+		ui_name = "Bindings Alt",
 		ui_description = "",
 		hidden = true,
 		value_default = "&",

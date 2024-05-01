@@ -4,30 +4,15 @@ get_active_keys = get_active_keys or ( function() return "huh?" end )
 function OnModInit()
 	dofile_once( "mods/mnee/lib.lua" )
 	set_translations( "mods/mnee/translations.csv" )
-	
-	-- move ui to the right (leave space for the controllers)
-	
-	-- two layers of binds, can be defined via keys_alt table
-	-- add button to switch main/alt binding rebind modes
-	-- save all alt shit in a separate setting and just append the stuff to the main list
-	-- the actual binding checking thing checks if the stuff is real and does all the things as usual
-	-- include the alt binds in conflict checking
-	-- make sure that if alt matches main or if alt is not real - the alt is not considered
+	GameRemoveFlagRun( MNEE_SERVICE_MODE )
 
-	-- refactor and fix var naming
-	
-	-- simple bindings (only one button can be binded)
-	-- simple bindings should ignore the no special keys limitation
-	-- simple bindings is default unless there's is_advanced marker or user is using rmb to rebind
-	-- buttoned analog stick can only ever be a simple bind
-
-	-- rewrite doc
-	-- add dirty_check that will check conflicts for dirty stuff
-
-	-- add unbinding button to rebinding screen (sets key to "_")
-	-- add global service_mode toggle that checks for the presence of mnee_ignore_service_mode global variable and disables all controls if this is not found; mnee_this_is_vip is the same (vip ignores both service mode and global custom keybind toggle)
-	-- make procedural pause screen keyboard that shows the single-key binds on hover (only if the moddev marked the binding as show_on_pause)
+	-- make setting reset button less shit
 	-- add default alt buttoned kappa bind
+	
+	-- rewrite doc
+	-- always check conflicts assuming the shit is dirty + add alt binds to the check
+	
+	-- make procedural pause screen keyboard that highlights all the bind's keys on hover of one of them (only if the moddev marked the binding as show_on_pause)
 
 	local lists = dofile_once( "mods/mnee/lists.lua" )
 	local keycaps = lists[1]
@@ -140,17 +125,20 @@ function OnModInit()
 	end
 end
 
-pic_x = pic_x or 2
+pic_x = pic_x or nil
 pic_y = pic_y or 246
 grab_x = grab_x or nil
 grab_y = grab_y or nil
 
+show_alt = show_alt or false
 mod_page = mod_page or 1
 current_mod = current_mod or "mnee"
 binding_page = binding_page or 1
 current_binding = current_binding or ""
 doing_axis = doing_axis or false
-btn_axis_mode = btn_axis_mode or 0
+btn_axis_mode = btn_axis_mode or false
+advanced_mode = advanced_mode or false
+advanced_timer = advanced_timer or 0
 
 gui_active = gui_active or false
 gui_retoggler = gui_retoggler or false
@@ -177,7 +165,7 @@ function OnWorldPreUpdate()
 			
 			clean_disarmer()
 			
-			if( get_binding_pressed( "mnee", "menu", current_binding == "" )) then
+			if( get_binding_pressed( "mnee", "menu", true )) then
 				if( gui_active ) then
 					gui_active = false
 					play_sound( "close_window" )
@@ -186,10 +174,15 @@ function OnWorldPreUpdate()
 					play_sound( "open_window" )
 				end
 			end
-			if( get_binding_pressed( "mnee", "off" )) then
-				GameAddFlagRun( MNEE_TOGGLER )
-				GamePrint( GameTextGetTranslatedOrNot( "$mnee_no_input" ))
-				play_sound( "uncapture" )
+			if( get_binding_pressed( "mnee", "off", true )) then
+				local has_flag = GameHasFlagRun( MNEE_TOGGLER )
+				if( has_flag ) then
+					GameRemoveFlagRun( MNEE_TOGGLER )
+				else
+					GameAddFlagRun( MNEE_TOGGLER )
+				end
+				GamePrint( GameTextGetTranslatedOrNot( "$mnee_"..( has_flag and "" or "no_" ).."input" ))
+				play_sound( has_flag and "capture" or "uncapture" )
 			end
 			if( get_binding_pressed( "mnee", "profile_change" )) then
 				local prf = ModSettingGetNextValue( "mnee.PROFILE" ) + 1
@@ -215,19 +208,31 @@ function OnWorldPreUpdate()
 
 			local keys = get_bindings()
 			local is_disabled = GameHasFlagRun( MNEE_TOGGLER )
-			
+			local key_type = show_alt and "keys_alt" or "keys"
+
 			local clicked, r_clicked, pic_z = 0, 0, -50
 			local uid = 0
 			if( gui_active ) then
 				if( current_binding == "" ) then
 					local pic = "mods/mnee/pics/window.png"
 					local pic_w, pic_h = GuiGetImageDimensions( gui, pic, 1 )
-					
+					if( pic_x == nil ) then
+						local screen_w, screen_h = GuiGetScreenDimensions( gui )
+						pic_x = ( screen_w - pic_w )/2
+					end
+
 					uid, clicked = new_button( gui, uid, pic_x + pic_w - 8, pic_y + 2, pic_z - 0.01, "mods/mnee/pics/key_close.png" )
 					uid = new_tooltip( gui, uid, pic_z - 200, GameTextGetTranslatedOrNot( "$mnee_close" ))
 					if( clicked ) then
 						gui_active = false
 						play_sound( "close_window" )
+					end
+
+					uid, clicked = new_button( gui, uid, pic_x + pic_w - 15, pic_y + 2, pic_z - 0.01, "mods/mnee/pics/key_"..( show_alt and "B" or "A" )..".png" )
+					uid = new_tooltip( gui, uid, pic_z - 200, GameTextGetTranslatedOrNot( "$mnee_alt"..( show_alt and "B" or "A" )))
+					if( clicked ) then
+						show_alt = not( show_alt )
+						play_sound( "button_special" )
 					end
 					
 					local counter = 1
@@ -238,9 +243,11 @@ function OnWorldPreUpdate()
 						if( counter > starter and counter < ender ) then
 							t_y = t_y + 11
 							
+							local is_fancy = metadata[mod] ~= nil
+							local name = get_translated_line( is_fancy and metadata[mod].name or mod )
 							uid, clicked = new_button( gui, uid, t_x, t_y, pic_z - 0.01, "mods/mnee/pics/button_43_"..( current_mod == mod and "B" or "A" )..".png" )
-							uid = new_tooltip( gui, uid, pic_z - 200, current_mod == mod and mod or GameTextGetTranslatedOrNot( "$mnee_lmb_keys" ))
-							new_text( gui, t_x + 2, t_y, pic_z - 0.02, liner( mod, 39 ), current_mod == mod and 3 or 1 )
+							uid = new_tooltip( gui, uid, pic_z - 200, name..( current_mod == mod and ( is_fancy and " @ "..get_translated_line( metadata[mod].desc ) or "" ) or " @ "..GameTextGetTranslatedOrNot( "$mnee_lmb_keys" )))
+							new_text( gui, t_x + 2, t_y, pic_z - 0.02, liner( name, 39 ), current_mod == mod and 3 or 1 )
 							if( clicked ) then
 								current_mod = mod
 								play_sound( "button_special" )
@@ -259,44 +266,61 @@ function OnWorldPreUpdate()
 					starter = 8*binding_page - 8
 					ender = 8*binding_page + 1
 					t_x, t_y = pic_x + 48, pic_y
-					for id,bind in axis_sorter( keys[ current_mod ]) do
-						local will_show = counter > starter and counter < ender
-						if( will_show ) then
-							will_show = not( get_hybrid_function( bind.is_hidden ))
+					if( metadata[current_mod] ~= nil and metadata[current_mod].func ~= nil ) then
+						local result = false
+						uid, result = metadata[current_mod].func( gui, uid, t_x, t_y, pic_z - 0.01, {
+							a = starter,
+							b = ender,
+							ks = keys,
+							k_type = key_type,
+						})
+						if( result ) then
+							current_binding = result.set_bind
+							doing_axis = result.will_axis
+							btn_axis_mode = result.btn_axis
+							advanced_mode = result.set_advanced
 						end
-						if( will_show ) then
-							t_y = t_y + 11
-							
-							local is_static = get_hybrid_function( bind.is_locked ) or false
-							local is_axis = bind.keys[1] == "is_axis"
-							
-							uid, clicked, r_clicked = new_button( gui, uid, t_x, t_y, pic_z - 0.01, "mods/mnee/pics/button_74_"..( is_static and "B" or "A" )..".png" )
-							catch(function()
-								uid = new_tooltip( gui, uid, pic_z - 200, ( is_axis and ( GameTextGetTranslatedOrNot( "$mnee_axis" )..( is_static and "" or " @ " )) or "" )..( is_static and GameTextGetTranslatedOrNot( "$mnee_static" ).." @ " or "" )..get_translated_line( bind.name )..": "..get_translated_line( bind.desc ).." @ "..bind2string( bind.keys )..( is_axis and " @ "..GameTextGetTranslatedOrNot( "$mnee_lmb_axis" ) or "" ))
-								new_text( gui, t_x + 2, t_y, pic_z - 0.02, liner( get_translated_line( bind.name ), 70 ), is_static and 2 or 1 )
-							end)
-							if( clicked or ( is_axis and r_clicked )) then
-								if( not( is_static )) then
-									current_binding = id
-									doing_axis = is_axis
-									btn_axis_mode = r_clicked
-									play_sound( "select" )
-								else
-									GamePrint( GameTextGetTranslatedOrNot( "$mnee_error" ).." "..GameTextGetTranslatedOrNot( "$mnee_no_change" ))
-									play_sound( "error" )
+					else
+						for id,bind in axis_sorter( keys[ current_mod ]) do
+							local will_show = counter > starter and counter < ender
+							if( will_show ) then
+								will_show = not( get_hybrid_function( bind.is_hidden ))
+							end
+							if( will_show ) then
+								t_y = t_y + 11
+								
+								local is_static = get_hybrid_function( bind.is_locked ) or false
+								local is_axis = bind[key_type][1] == "is_axis"
+								
+								uid, clicked, r_clicked = new_button( gui, uid, t_x, t_y, pic_z - 0.01, "mods/mnee/pics/button_74_"..( is_static and "B" or "A" )..".png" )
+								catch(function()
+									uid = new_tooltip( gui, uid, pic_z - 200, ( is_axis and ( GameTextGetTranslatedOrNot( "$mnee_axis" )..( is_static and "" or " @ " )) or "" )..( is_static and GameTextGetTranslatedOrNot( "$mnee_static" ).." @ " or "" )..get_translated_line( bind.name )..": "..get_translated_line( bind.desc ).." @ "..bind2string( bind[key_type])..( is_axis and " @ "..GameTextGetTranslatedOrNot( "$mnee_lmb_axis" ) or "" ))
+									new_text( gui, t_x + 2, t_y, pic_z - 0.02, liner( get_translated_line( bind.name ), 70 ), is_static and 2 or 1 )
+								end)
+								if( clicked or r_clicked ) then
+									if( not( is_static )) then
+										current_binding = id
+										doing_axis = is_axis
+										btn_axis_mode = is_axis and r_clicked
+										advanced_mode = bind.is_advanced or ( r_clicked and not( is_axis ))
+										play_sound( "select" )
+									else
+										GamePrint( GameTextGetTranslatedOrNot( "$mnee_error" ).." "..GameTextGetTranslatedOrNot( "$mnee_no_change" ))
+										play_sound( "error" )
+									end
+								end
+								
+								uid, clicked, r_clicked = new_button( gui, uid, t_x + 75, t_y, pic_z - 0.01, "mods/mnee/pics/key_delete.png" )
+								uid = new_tooltip( gui, uid, pic_z - 200, GameTextGetTranslatedOrNot( "$mnee_rmb_default" ))
+								if( r_clicked ) then
+									dofile_once( "mods/mnee/bindings.lua" )
+									keys[ current_mod ][ id ][ key_type ] = bindings[ current_mod ][ id ][ key_type ]
+									set_bindings( keys )
+									play_sound( "clear_all" )
 								end
 							end
-							
-							uid, clicked, r_clicked = new_button( gui, uid, t_x + 75, t_y, pic_z - 0.01, "mods/mnee/pics/key_delete.png" )
-							uid = new_tooltip( gui, uid, pic_z - 200, GameTextGetTranslatedOrNot( "$mnee_rmb_default" ))
-							if( r_clicked ) then
-								dofile_once( "mods/mnee/bindings.lua" )
-								keys[ current_mod ][ id ].keys = bindings[ current_mod ][ id ].keys
-								set_bindings( keys )
-								play_sound( "clear_all" )
-							end
+							counter = counter + 1
 						end
-						counter = counter + 1
 					end
 					
 					page = binding_page
@@ -306,7 +330,7 @@ function OnWorldPreUpdate()
 					end
 					
 					uid = new_button( gui, uid, pic_x + 101, pic_y + 99, pic_z - 0.01, "mods/mnee/pics/help.png" )
-					uid = new_tooltip( gui, uid, pic_z - 200, GameTextGetTranslatedOrNot( "$mnee_lmb_bind" ))-- @ RMB to toggle active." )
+					uid = new_tooltip( gui, uid, pic_z - 200, GameTextGetTranslatedOrNot( "$mnee_lmb_bind" ).." @ "..GameTextGetTranslatedOrNot( "$mnee_rmb_advanced" ))
 					
 					uid, clicked, r_clicked = new_button( gui, uid, pic_x + 112, pic_y + 99, pic_z - 0.01, "mods/mnee/pics/button_dft.png" )
 					uid = new_tooltip( gui, uid, pic_z - 200, GameTextGetTranslatedOrNot( "$mnee_rmb_mod" ))
@@ -338,8 +362,8 @@ function OnWorldPreUpdate()
 						end
 						play_sound( "delete" )
 					end
-
-					if( io ~= nil ) then
+					
+					--[[if( io ~= nil ) then --does not backup the secondary binds
 						uid, clicked, r_clicked = new_button( gui, uid, pic_x + 136, pic_y + 66, pic_z - 0.01, "mods/mnee/pics/button_bkp.png" )
 						uid = new_tooltip( gui, uid, pic_z - 200, GameTextGetTranslatedOrNot( "$mnee_lmb_backup" ))
 						if( clicked ) then
@@ -379,7 +403,7 @@ function OnWorldPreUpdate()
 								play_sound( "error" )
 							end
 						end
-					end
+					end]]
 
 					uid, clicked = new_button( gui, uid, pic_x + 136, pic_y + 77, pic_z - 0.01, "mods/mnee/pics/button_ctl_"..( ctl_panel and "B" or "A" )..".png" )
 					uid = new_tooltip( gui, uid, pic_z - 200, GameTextGetTranslatedOrNot( "$mnee_lmb_jpads" ))
@@ -459,11 +483,11 @@ function OnWorldPreUpdate()
 					
 					if( GameHasFlagRun( MNEE_RETOGGLER )) then
 						GameRemoveFlagRun( MNEE_RETOGGLER )
-						GameRemoveFlagRun( MNEE_TOGGLER )
+						GameRemoveFlagRun( MNEE_SERVICE_MODE )
 					end
 				else
-					if( not( is_disabled )) then
-						GameAddFlagRun( MNEE_TOGGLER )
+					if( not( GameHasFlagRun( MNEE_RETOGGLER ))) then
+						GameAddFlagRun( MNEE_SERVICE_MODE )
 						GameAddFlagRun( MNEE_RETOGGLER )
 					end
 					
@@ -475,27 +499,37 @@ function OnWorldPreUpdate()
 					if( not( doing_what )) then
 						active = get_keys()
 						if( #active > 0 ) then
-							for i,key in ipairs( active ) do
-								if( key ~= "return" ) then
-									tip_text = tip_text..( i == 1 and "" or "; " )..key
-								else
-									enter_down = true
+							if( advanced_mode ) then
+								for i,key in ipairs( active ) do
+									if( key ~= "return" ) then
+										tip_text = tip_text..( i == 1 and "" or "; " )..key
+									else
+										enter_down = true
+									end
 								end
-							end
-							tip_text = tip_text.."]"
-							
-							local binds = get_bindings()
-							for mod,bnds in pairs( binds ) do
-								for bnd,stff in pairs( bnds ) do
-									local this_one = get_table_count( stff.keys )
-									for e,key in ipairs( active ) do
-										if( stff.keys[ key ] == nil ) then
-											this_one = -1
+								tip_text = tip_text.."]"
+
+								local binds = get_bindings()
+								for mod,bnds in pairs( binds ) do
+									for bnd,stff in pairs( bnds ) do
+										local this_one = get_table_count( stff[ key_type ])
+										for e,key in ipairs( active ) do
+											if( stff[ key_type ][ key ] == nil ) then
+												this_one = -1
+												break
+											end
+										end
+										if( this_one == #active ) then
+											tip_text = tip_text.." @ "..GameTextGetTranslatedOrNot( "$mnee_conflict" ).."["..mod.."; "..get_translated_line( stff.name ).."]"
 											break
 										end
 									end
-									if( this_one == #active ) then
-										tip_text = tip_text.." @ "..GameTextGetTranslatedOrNot( "$mnee_conflict" ).."["..mod.."; "..stff.name.."]"
+								end
+							else
+								for i,key in ipairs( active ) do
+									if( MNEE_SPECIAL_KEYS[key] == nil and key ~= "mouse_left" and key ~= "mouse_right" ) then
+										tip_text = key.."]"
+										enter_down = true
 										break
 									end
 								end
@@ -510,8 +544,9 @@ function OnWorldPreUpdate()
 							if(( btn_axis_counter or 3 ) == 3 ) then
 								current_binding = ""
 								doing_axis = false
-								btn_axis_mode = 0
+								btn_axis_mode = false
 								btn_axis_counter = nil
+								advanced_mode = false
 							else
 								btn_axis_counter = btn_axis_counter + 1
 							end
@@ -519,16 +554,58 @@ function OnWorldPreUpdate()
 							play_sound( "confirm" )
 						end
 					else
-						uid, clicked, r_clicked = new_button( gui, uid, pic_x, pic_y, pic_z, "mods/mnee/pics/rebinder"..( doing_what and "_axis" or "" )..".png" )
+						uid = new_button( gui, uid, pic_x + 3, pic_y + 71, pic_z - 0.01, "mods/mnee/pics/help.png" )
+						uid = new_tooltip( gui, uid, pic_z - 200, GameTextGetTranslatedOrNot( "$mnee_binding_"..( doing_what and "axis" or ( advanced_mode and "advanced" or "simple" ))))
+						
+						local nuke_em = false
+						uid, clicked = new_button( gui, uid, pic_x + 146, pic_y + 71, pic_z - 0.01, "mods/mnee/pics/key_unbind.png" )
+						uid = new_tooltip( gui, uid, pic_z - 200, GameTextGetTranslatedOrNot( "$mnee_unbind" ))
+						if( clicked ) then
+							nuke_em = true
+						end
+
+						if( advanced_mode ) then
+							if( #active > 0 ) then
+								advanced_timer = advanced_timer + 1
+								new_text( gui, pic_x + 77, pic_y + 73, pic_z - 0.01, tostring( math.ceil(( 300 - advanced_timer )/60 )), 3 )
+								if( advanced_timer >= 300 ) then
+									enter_down = true
+									advanced_timer = 0
+								end
+							else
+								advanced_timer = 0
+							end
+						end
+
+						uid, clicked, r_clicked = new_button( gui, uid, pic_x, pic_y, pic_z, "mods/mnee/pics/rebinder"..( doing_what and "_axis" or ( advanced_mode and "" or "_simple" ))..".png" )
 						uid = new_tooltip( gui, uid, pic_z - 200, doing_what and GameTextGetTranslatedOrNot( "$mnee_waiting" ) or ( GameTextGetTranslatedOrNot( "$mnee_keys" ).." @ "..( tip_text == "[" and GameTextGetTranslatedOrNot( "$mnee_nil" ) or tip_text )))
 						if( r_clicked ) then
 							current_binding = ""
 							doing_axis = false
-							btn_axis_mode = 0
+							btn_axis_mode = false
+							advanced_mode = false
 							play_sound( "error" )
 						end
-						
-						if( doing_what ) then
+
+						if( nuke_em ) then
+							if( doing_what ) then
+								keys[ current_mod ][ current_binding ][ key_type ] = { "is_axis", "_", }
+							else
+								local new_bind = {}
+								if( btn_axis_mode ) then
+									new_bind = keys[ current_mod ][ current_binding ][ key_type ]
+									new_bind[ 2 ] = "_"
+									new_bind[ 3 ] = "_"
+									btn_axis_counter = 3
+								else
+									new_bind[ "_" ] = 1
+								end
+								keys[ current_mod ][ current_binding ][ key_type ] = new_bind
+							end
+							set_bindings( keys )
+							gui_retoggler = true
+							play_sound( "delete" )
+						elseif( doing_what ) then
 							local axes = get_axes()
 							local champ = { 0, 0 }
 							for ax,val in pairs( axes ) do
@@ -537,7 +614,7 @@ function OnWorldPreUpdate()
 								end
 							end
 							if( champ[1] ~= 0 ) then
-								keys[ current_mod ][ current_binding ].keys = { "is_axis", champ[1], }
+								keys[ current_mod ][ current_binding ][ key_type ] = { "is_axis", champ[1], }
 								set_bindings( keys )
 								gui_retoggler = true
 								play_sound( "switch_dimension" )
@@ -550,16 +627,17 @@ function OnWorldPreUpdate()
 									changed = true
 									if( btn_axis_mode ) then
 										btn_axis_counter = btn_axis_counter or 2
-										new_bind = keys[ current_mod ][ current_binding ].keys
+										new_bind = keys[ current_mod ][ current_binding ][ key_type ]
 										new_bind[ btn_axis_counter ] = key
 										break
 									else
 										new_bind[ key ] = 1
+										if( not( advanced_mode )) then break end
 									end
 								end
 							end
 							if( changed ) then
-								keys[ current_mod ][ current_binding ].keys = new_bind
+								keys[ current_mod ][ current_binding ][ key_type ] = new_bind
 								set_bindings( keys )
 							end
 							gui_retoggler = true

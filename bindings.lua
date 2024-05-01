@@ -1,3 +1,4 @@
+metadata = {}
 bindings = {}
 
 --see mods/mnee/lists.lua for most of the key ids
@@ -35,23 +36,38 @@ bindings = {}
 
 ]]
 
+metadata["mnee"] = {
+	name = "mnee",
+	desc = "$mnee_desc",
+	-- func = function( gui, uid, pic_x, pic_y, pic_z, data ) return uid end,
+}
 bindings["mnee"] = {
 	menu = { --[ACTUAL BINDING ID]
 		order_id = "a", --[SORTING ORDER]
-		is_locked = function() return false end, --[PREVENT REBINDING]
+		is_locked = function() return true end, --[PREVENT REBINDING]
 		is_hidden = function() return false end, --[HIDE FROM MENU]
+		is_advanced = true, --[ALLOW MULTIPLE KEYS DURING BINDING]
+		
 		name = "$mnee_open", --[DISPLAYED NAME]
 		desc = "$mnee_open_desc", --[DISPLAYED DESCRIPTION]
+		
 		keys = { --[DEFAULT BINDING KEYS]
 			left_ctrl = 1, --number is just so the thing won't be nil
+			m = 1,
+		},
+		keys_alt = { --[SECONDARY KEYS]
+			right_ctrl = 1,
 			m = 1,
 		},
 	},
 	
 	off = {
 		order_id = "b",
+		is_advanced = true,
+
 		name = "$mnee_nope",
 		desc = "$mnee_nope_desc",
+
 		keys = {
 			left_ctrl = 1,
 			["keypad_-"] = 1,
@@ -60,8 +76,11 @@ bindings["mnee"] = {
 	
 	profile_change = {
 		order_id = "c",
+		is_advanced = true,
+
 		name = "$mnee_profile",
 		desc = "$mnee_profile_desc",
+
 		keys = {
 			left_ctrl = 1,
 			["keypad_+"] = 1,

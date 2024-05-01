@@ -39,6 +39,9 @@ bindings = {}
 metadata["mnee"] = {
 	name = "mnee",
 	desc = "$mnee_desc",
+	is_advanced = false,
+	is_locked = function() return false end,
+	is_hidden = function() return false end,
 	-- func = function( gui, uid, pic_x, pic_y, pic_z, data ) return uid end,
 }
 bindings["mnee"] = {
@@ -47,7 +50,7 @@ bindings["mnee"] = {
 		is_locked = function() return true end, --[PREVENT REBINDING]
 		is_hidden = function() return false end, --[HIDE FROM MENU]
 		is_advanced = true, --[ALLOW MULTIPLE KEYS DURING BINDING]
-		
+
 		name = "$mnee_open", --[DISPLAYED NAME]
 		desc = "$mnee_open_desc", --[DISPLAYED DESCRIPTION]
 		

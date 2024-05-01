@@ -8,7 +8,7 @@ function OnModInit()
 
 	-- make setting reset button less shit
 	-- add default alt buttoned kappa bind
-	
+
 	-- rewrite doc
 	-- always check conflicts assuming the shit is dirty + add alt binds to the check
 	
@@ -241,16 +241,18 @@ function OnWorldPreUpdate()
 					local t_x, t_y = pic_x + 2, pic_y
 					for mod in magic_sorter( keys ) do
 						if( counter > starter and counter < ender ) then
-							t_y = t_y + 11
-							
 							local is_fancy = metadata[mod] ~= nil
-							local name = get_translated_line( is_fancy and metadata[mod].name or mod )
-							uid, clicked = new_button( gui, uid, t_x, t_y, pic_z - 0.01, "mods/mnee/pics/button_43_"..( current_mod == mod and "B" or "A" )..".png" )
-							uid = new_tooltip( gui, uid, pic_z - 200, name..( current_mod == mod and ( is_fancy and " @ "..get_translated_line( metadata[mod].desc ) or "" ) or " @ "..GameTextGetTranslatedOrNot( "$mnee_lmb_keys" )))
-							new_text( gui, t_x + 2, t_y, pic_z - 0.02, liner( name, 39 ), current_mod == mod and 3 or 1 )
-							if( clicked ) then
-								current_mod = mod
-								play_sound( "button_special" )
+							if( not( is_fancy ) or ( is_fancy and not( get_hybrid_function( metadata[mod].is_hidden )))) then
+								t_y = t_y + 11
+
+								local name = get_translated_line( is_fancy and metadata[mod].name or mod )
+								uid, clicked = new_button( gui, uid, t_x, t_y, pic_z - 0.01, "mods/mnee/pics/button_43_"..( current_mod == mod and "B" or "A" )..".png" )
+								uid = new_tooltip( gui, uid, pic_z - 200, name..( current_mod == mod and ( is_fancy and " @ "..get_translated_line( metadata[mod].desc ) or "" ) or " @ "..GameTextGetTranslatedOrNot( "$mnee_lmb_keys" )))
+								new_text( gui, t_x + 2, t_y, pic_z - 0.02, liner( name, 39 ), current_mod == mod and 3 or 1 )
+								if( clicked ) then
+									current_mod = mod
+									play_sound( "button_special" )
+								end
 							end
 						end
 						counter = counter + 1
@@ -262,13 +264,20 @@ function OnWorldPreUpdate()
 						mod_page = page
 					end
 					
+					local meta = {}
+					if( metadata[current_mod] ~= nil ) then
+						meta.func = metadata[current_mod].func
+						meta.is_locked = get_hybrid_function( metadata[current_mod].is_locked ) or false
+						meta.is_advanced = metadata[current_mod].is_advanced or false
+					end
+
 					counter = 1
 					starter = 8*binding_page - 8
 					ender = 8*binding_page + 1
 					t_x, t_y = pic_x + 48, pic_y
-					if( metadata[current_mod] ~= nil and metadata[current_mod].func ~= nil ) then
+					if( meta.func ~= nil ) then
 						local result = false
-						uid, result = metadata[current_mod].func( gui, uid, t_x, t_y, pic_z - 0.01, {
+						uid, result = meta.func( gui, uid, t_x, t_y, pic_z - 0.01, {
 							a = starter,
 							b = ender,
 							ks = keys,
@@ -289,7 +298,7 @@ function OnWorldPreUpdate()
 							if( will_show ) then
 								t_y = t_y + 11
 								
-								local is_static = get_hybrid_function( bind.is_locked ) or false
+								local is_static = get_hybrid_function( bind.is_locked ) or meta.is_locked
 								local is_axis = bind[key_type][1] == "is_axis"
 								
 								uid, clicked, r_clicked = new_button( gui, uid, t_x, t_y, pic_z - 0.01, "mods/mnee/pics/button_74_"..( is_static and "B" or "A" )..".png" )
@@ -302,7 +311,7 @@ function OnWorldPreUpdate()
 										current_binding = id
 										doing_axis = is_axis
 										btn_axis_mode = is_axis and r_clicked
-										advanced_mode = bind.is_advanced or ( r_clicked and not( is_axis ))
+										advanced_mode = ( meta.is_advanced or bind.is_advanced ) or ( r_clicked and not( is_axis ))
 										play_sound( "select" )
 									else
 										GamePrint( GameTextGetTranslatedOrNot( "$mnee_error" ).." "..GameTextGetTranslatedOrNot( "$mnee_no_change" ))

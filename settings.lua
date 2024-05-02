@@ -1,12 +1,23 @@
 dofile( "data/scripts/lib/mod_settings.lua" )
 
 function mod_setting_full_resetter( mod_id, gui, in_main_menu, im_id, setting )
-	local clicked, right_clicked = GuiButton( gui, im_id, mod_setting_group_x_offset, 0, setting.ui_name )
+	local clicked, right_clicked = GuiButton( gui, im_id, mod_setting_group_x_offset, 0, GameTextGetTranslatedOrNot( setting.ui_name )..(( mnee_it_is_done or false ) and " - "..GameTextGetTranslatedOrNot( "$mnee_done" ) or "" ))
 	if( right_clicked ) then
+		local is_proper = GameHasFlagRun( "MNEE_IS_GOING" )
+		if( is_proper ) then dofile_once( "mods/mnee/lib.lua" ) end
+		
 		for i = 1,3 do
 			ModSettingSetNextValue( "mnee.BINDINGS_"..i, "&", false )
+			ModSettingSetNextValue( "mnee.BINDINGS_ALT_"..i, "&", false )
+			if( is_proper ) then
+				update_bindings( i )
+			end
 		end
+
+		mnee_it_is_done = true
 		print( "IT IS GONE" )
+		if( is_proper ) then GamePrint( GameTextGetTranslatedOrNot( "$mnee_done" )) end
+		GamePlaySound( "data/audio/Desktop/ui.bank", "ui/button_click", 0, 0 )
 	end
 	
 	mod_setting_tooltip( mod_id, gui, in_main_menu, setting )

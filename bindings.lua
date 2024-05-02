@@ -1,4 +1,4 @@
-metadata = {}
+mneedata = {}
 bindings = {}
 
 --see mods/mnee/lists.lua for most of the key ids
@@ -36,7 +36,7 @@ bindings = {}
 
 ]]
 
-metadata["mnee"] = {
+mneedata["mnee"] = {
 	name = "mnee",
 	desc = "$mnee_desc",
 	is_advanced = false,
@@ -50,7 +50,7 @@ bindings["mnee"] = {
 		is_locked = function() return true end, --[PREVENT REBINDING]
 		is_hidden = function() return false end, --[HIDE FROM MENU]
 		is_advanced = true, --[ALLOW MULTIPLE KEYS DURING BINDING]
-
+		
 		name = "$mnee_open", --[DISPLAYED NAME]
 		desc = "$mnee_open_desc", --[DISPLAYED DESCRIPTION]
 		

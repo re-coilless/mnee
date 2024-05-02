@@ -357,6 +357,7 @@ function get_bindings( profile, binds_only )
 							data[ mod_name ][ binding_name ][ "order_id" ] = bindings[ mod_name ][ binding_name ].order_id
 							data[ mod_name ][ binding_name ][ "is_locked" ] = bindings[ mod_name ][ binding_name ].is_locked
 							data[ mod_name ][ binding_name ][ "is_hidden" ] = bindings[ mod_name ][ binding_name ].is_hidden
+							data[ mod_name ][ binding_name ][ "is_advanced" ] = bindings[ mod_name ][ binding_name ].is_advanced
 							data[ mod_name ][ binding_name ][ "name" ] = bindings[ mod_name ][ binding_name ].name
 							data[ mod_name ][ binding_name ][ "desc" ] = bindings[ mod_name ][ binding_name ].desc
 						end
@@ -582,7 +583,7 @@ function is_binding_down( mod_id, name, dirty_mode, pressed_mode, is_vip, loose_
 			out = false
 			for i = 1,2 do
 				bind = binding[ i == 1 and "keys" or "keys_alt" ]
-				if( bind["_"] ~= nil ) then return end
+				if( bind["_"] ~= nil ) then return false, true end
 
 				local high_score, score = get_table_count( bind ), 0
 				if( high_score < 1 or ( high_score > 1 and not( loose_mode ) and high_score ~= #keys_down )) then
@@ -645,7 +646,7 @@ function get_axis_state( mod_id, name, dirty_mode, pressed_mode, is_vip )
 			or not( is_priority_mod( mod_id ))
 			or ( GameHasFlagRun( MNEE_TOGGLER ) and not( is_vip ))
 		) then
-		return 0, false
+		return 0, false, false
 	end
 	
 	local update_frame = tonumber( GlobalsGetValue( MNEE_UPDATER, "0" ))
@@ -661,7 +662,7 @@ function get_axis_state( mod_id, name, dirty_mode, pressed_mode, is_vip )
 		local out, is_buttoned = 0, false
 		for i = 1,2 do
 			bind = binding[ i == 1 and "keys" or "keys_alt" ]
-			if( bind[2] == "_" ) then return end
+			if( bind[2] == "_" ) then return 0, true, false end
 
 			is_buttoned = bind[3] ~= nil
 			if( is_buttoned ) then
@@ -688,7 +689,7 @@ function get_axis_state( mod_id, name, dirty_mode, pressed_mode, is_vip )
 			end
 			if( out ~= 0 ) then break end
 		end
-		return out, is_buttoned
+		return out, false, is_buttoned
 	end
 end
 
@@ -741,4 +742,25 @@ function get_keyboard_input( no_shifting )
 			return string.sub( tostring( i ), -1 )
 		end
 	end
+end
+
+function mnee( mode, id_data, data )
+	local map = {
+		key = { is_key_down, {1}, { "dirty", "pressed", "vip" }},
+		bind = { is_binding_down, {1,2}, { "dirty", "pressed", "vip", "loose" }},
+		axis = { get_axis_state, {1,2}, { "dirty", "pressed", "vip" }},
+	}
+	data = data or {}
+	func = map[ mode ]
+
+	local inval = {}
+	for i,v in ipairs( func[2]) do
+		if( id_data[v] ~= nil ) then table.insert( inval, id_data[v]) end
+	end
+	for i,v in ipairs( func[3]) do
+		if( data[v] ~= nil ) then table.insert( inval, data[v]) end
+	end
+
+	local a,b,c,d = func[1]( inval[1], inval[2], inval[3], inval[4], inval[5], inval[6], inval[7], inval[8], inval[9])
+	return a,b,c,d
 end

@@ -6,11 +6,10 @@ function OnModInit()
 	set_translations( "mods/mnee/translations.csv" )
 	GameRemoveFlagRun( MNEE_SERVICE_MODE )
 
-	-- make setting reset button less shit
-	-- add default alt buttoned kappa bind
-
+	-- add "dirty_check" param that controls the type of compat check + add alt binds to the check
 	-- rewrite doc
-	-- always check conflicts assuming the shit is dirty + add alt binds to the check
+	-- actually transition to penman
+	-- add default alt buttoned kappa bind
 	
 	-- make procedural pause screen keyboard that highlights all the bind's keys on hover of one of them (only if the moddev marked the binding as show_on_pause)
 
@@ -164,8 +163,7 @@ function OnWorldPreUpdate()
 			ComponentSetValue2( storage, "value_string", active_core )
 			
 			clean_disarmer()
-			
-			if( get_binding_pressed( "mnee", "menu", true )) then
+			if( mnee( "bind", { "mnee", "menu" }, { pressed = true, vip = true })) then
 				if( gui_active ) then
 					gui_active = false
 					play_sound( "close_window" )
@@ -174,7 +172,7 @@ function OnWorldPreUpdate()
 					play_sound( "open_window" )
 				end
 			end
-			if( get_binding_pressed( "mnee", "off", true )) then
+			if( mnee( "bind", { "mnee", "off" }, { pressed = true, vip = true })) then
 				local has_flag = GameHasFlagRun( MNEE_TOGGLER )
 				if( has_flag ) then
 					GameRemoveFlagRun( MNEE_TOGGLER )
@@ -184,7 +182,7 @@ function OnWorldPreUpdate()
 				GamePrint( GameTextGetTranslatedOrNot( "$mnee_"..( has_flag and "" or "no_" ).."input" ))
 				play_sound( has_flag and "capture" or "uncapture" )
 			end
-			if( get_binding_pressed( "mnee", "profile_change" )) then
+			if( mnee( "bind", { "mnee", "profile_change" }, { pressed = true })) then
 				local prf = ModSettingGetNextValue( "mnee.PROFILE" ) + 1
 				prf = prf > 3 and 1 or prf
 				ModSettingSetNextValue( "mnee.PROFILE", prf, false )
@@ -241,13 +239,13 @@ function OnWorldPreUpdate()
 					local t_x, t_y = pic_x + 2, pic_y
 					for mod in magic_sorter( keys ) do
 						if( counter > starter and counter < ender ) then
-							local is_fancy = metadata[mod] ~= nil
-							if( not( is_fancy ) or ( is_fancy and not( get_hybrid_function( metadata[mod].is_hidden )))) then
+							local is_fancy = mneedata[mod] ~= nil
+							if( not( is_fancy ) or ( is_fancy and not( get_hybrid_function( mneedata[mod].is_hidden )))) then
 								t_y = t_y + 11
 
-								local name = get_translated_line( is_fancy and metadata[mod].name or mod )
+								local name = get_translated_line( is_fancy and mneedata[mod].name or mod )
 								uid, clicked = new_button( gui, uid, t_x, t_y, pic_z - 0.01, "mods/mnee/pics/button_43_"..( current_mod == mod and "B" or "A" )..".png" )
-								uid = new_tooltip( gui, uid, pic_z - 200, name..( current_mod == mod and ( is_fancy and " @ "..get_translated_line( metadata[mod].desc ) or "" ) or " @ "..GameTextGetTranslatedOrNot( "$mnee_lmb_keys" )))
+								uid = new_tooltip( gui, uid, pic_z - 200, name..( current_mod == mod and ( is_fancy and " @ "..get_translated_line( mneedata[mod].desc ) or "" ) or " @ "..GameTextGetTranslatedOrNot( "$mnee_lmb_keys" )))
 								new_text( gui, t_x + 2, t_y, pic_z - 0.02, liner( name, 39 ), current_mod == mod and 3 or 1 )
 								if( clicked ) then
 									current_mod = mod
@@ -265,10 +263,10 @@ function OnWorldPreUpdate()
 					end
 					
 					local meta = {}
-					if( metadata[current_mod] ~= nil ) then
-						meta.func = metadata[current_mod].func
-						meta.is_locked = get_hybrid_function( metadata[current_mod].is_locked ) or false
-						meta.is_advanced = metadata[current_mod].is_advanced or false
+					if( mneedata[current_mod] ~= nil ) then
+						meta.func = mneedata[current_mod].func
+						meta.is_locked = get_hybrid_function( mneedata[current_mod].is_locked ) or false
+						meta.is_advanced = mneedata[current_mod].is_advanced or false
 					end
 
 					counter = 1
@@ -367,6 +365,7 @@ function OnWorldPreUpdate()
 					if( r_clicked ) then
 						for i = 1,3 do
 							ModSettingSetNextValue( "mnee.BINDINGS_"..i, "&", false )
+							ModSettingSetNextValue( "mnee.BINDINGS_ALT_"..i, "&", false )
 							update_bindings( i )
 						end
 						play_sound( "delete" )
@@ -568,7 +567,7 @@ function OnWorldPreUpdate()
 						
 						local nuke_em = false
 						uid, clicked = new_button( gui, uid, pic_x + 146, pic_y + 71, pic_z - 0.01, "mods/mnee/pics/key_unbind.png" )
-						uid = new_tooltip( gui, uid, pic_z - 200, GameTextGetTranslatedOrNot( "$mnee_unbind" ))
+						uid = new_tooltip( gui, uid, pic_z - 200, GameTextGetTranslatedOrNot( "$mnee_lmb_unbind" ))
 						if( clicked ) then
 							nuke_em = true
 						end

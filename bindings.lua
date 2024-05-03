@@ -39,7 +39,8 @@ bindings = {}
 mneedata["mnee"] = {
 	name = "mnee",
 	desc = "$mnee_desc",
-	is_advanced = false,
+	is_dirty = false,
+	is_advanced = true,
 	is_locked = function() return false end,
 	is_hidden = function() return false end,
 	-- func = function( gui, uid, pic_x, pic_y, pic_z, data ) return uid end,
@@ -47,9 +48,10 @@ mneedata["mnee"] = {
 bindings["mnee"] = {
 	menu = { --[ACTUAL BINDING ID]
 		order_id = "a", --[SORTING ORDER]
+		is_dirty = false, --[CONFLICT CHECKING MODE TOGGLE]
+		is_advanced = true, --[ALLOW MULTIPLE KEYS DURING BINDING]
 		is_locked = function() return true end, --[PREVENT REBINDING]
 		is_hidden = function() return false end, --[HIDE FROM MENU]
-		is_advanced = true, --[ALLOW MULTIPLE KEYS DURING BINDING]
 		
 		name = "$mnee_open", --[DISPLAYED NAME]
 		desc = "$mnee_open_desc", --[DISPLAYED DESCRIPTION]
@@ -66,26 +68,24 @@ bindings["mnee"] = {
 	
 	off = {
 		order_id = "b",
-		is_advanced = true,
 
 		name = "$mnee_nope",
 		desc = "$mnee_nope_desc",
 
 		keys = {
-			left_ctrl = 1,
+			right_ctrl = 1,
 			["keypad_-"] = 1,
 		},
 	},
 	
 	profile_change = {
 		order_id = "c",
-		is_advanced = true,
 
 		name = "$mnee_profile",
 		desc = "$mnee_profile_desc",
 
 		keys = {
-			left_ctrl = 1,
+			right_ctrl = 1,
 			["keypad_+"] = 1,
 		},
 	},

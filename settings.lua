@@ -1,7 +1,8 @@
 dofile( "data/scripts/lib/mod_settings.lua" )
 
 function mod_setting_full_resetter( mod_id, gui, in_main_menu, im_id, setting )
-	local clicked, right_clicked = GuiButton( gui, im_id, mod_setting_group_x_offset, 0, GameTextGetTranslatedOrNot( setting.ui_name )..(( mnee_it_is_done or false ) and " - "..GameTextGetTranslatedOrNot( "$mnee_done" ) or "" ))
+	GuiColorSetForNextWidget( gui, 245/255, 132/255, 132/255, 1 )
+	local clicked, right_clicked = GuiButton( gui, im_id, mod_setting_group_x_offset, 0, "<<"..GameTextGetTranslatedOrNot( setting.ui_name )..">>"..(( mnee_it_is_done or false ) and " - "..GameTextGetTranslatedOrNot( setting.ui_extra ) or "" ))
 	if( right_clicked ) then
 		local is_proper = GameHasFlagRun( "MNEE_IS_GOING" )
 		if( is_proper ) then dofile_once( "mods/mnee/lib.lua" ) end
@@ -16,7 +17,7 @@ function mod_setting_full_resetter( mod_id, gui, in_main_menu, im_id, setting )
 
 		mnee_it_is_done = true
 		print( "IT IS GONE" )
-		if( is_proper ) then GamePrint( GameTextGetTranslatedOrNot( "$mnee_done" )) end
+		if( is_proper ) then GamePrint( GameTextGetTranslatedOrNot( setting.ui_extra )) end
 		GamePlaySound( "data/audio/Desktop/ui.bank", "ui/button_click", 0, 0 )
 	end
 	
@@ -41,9 +42,27 @@ mod_settings =
 		not_setting = true,
 	},
 	{
+		id = "JPAD_DEADZONE",
+		ui_name = "Additional Joystick Deadzone",
+		ui_description = "Controls the radius of the zone near the rest position where the inputs do not count.",
+		value_default = 1,
+		
+		value_min = 0,
+		value_max = 19,
+		value_display_multiplier = 5,
+		value_display_formatting = " $0% ",
+		scope = MOD_SETTING_SCOPE_RUNTIME,
+	},
+	{
+		id = "NEWLINE",
+		ui_name = " ",
+		not_setting = true,
+	},
+	{
 		id = "NUKE_EM",
 		ui_name = text_with_no_mod( "$mnee_reset", "Complete Reset" ),
 		ui_description = text_with_no_mod( "$mnee_rmb_reset", "RMB to reset all the saved M-Nee bindings." ),
+		ui_extra = text_with_no_mod( "$mnee_done", "[IT IS DONE]" ),
 		value_default = false,
 		hidden = false,
 		scope = MOD_SETTING_SCOPE_RUNTIME,

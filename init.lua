@@ -4,12 +4,10 @@ get_active_keys = get_active_keys or ( function() return "huh?" end )
 function OnModInit()
 	dofile_once( "mods/mnee/lib.lua" )
 	set_translations( "mods/mnee/translations.csv" )
-	GameRemoveFlagRun( MNEE_SERVICE_MODE )
-
-	-- add "dirty_check" param that controls the type of compat check + add alt binds to the check
+	
 	-- rewrite doc
-	-- actually transition to penman
 	-- add default alt buttoned kappa bind
+	-- actually transition to penman
 	
 	-- make procedural pause screen keyboard that highlights all the bind's keys on hover of one of them (only if the moddev marked the binding as show_on_pause)
 
@@ -17,6 +15,7 @@ function OnModInit()
 	local keycaps = lists[1]
 	local mouse = lists[2]
 	local jcaps = lists[3]
+	local processing = lists[6]
 
 	jpad_count = 0
 	jpad_states = jpad_states or { -1, -1, -1, -1 }
@@ -99,7 +98,7 @@ function OnModInit()
 		if( #jpad > 0 ) then
 			local gpd_axis = { "_lh", "_lv", "_rh", "_rv", }
 			local total = 1000
-			local deadzone = total/20
+			local deadzone = total*( ModSettingGetNextValue( "mnee.JPAD_DEADZONE" )/20 )
 
 			for i,real_num in ipairs( jpad ) do
 				if( real_num ) then
@@ -147,11 +146,12 @@ function OnWorldPreUpdate()
 	dofile_once( "mods/mnee/gui_lib.lua" )
 
 	if( GameHasFlagRun( MNEE_INITER )) then
-		local storage = get_storage( GameGetWorldStateEntity(), "mnee_down" ) or 0
+		local ctrl_body = get_hooman_child( GameGetWorldStateEntity(), "mnee_ctrl" )
+		local storage = get_storage( ctrl_body, "mnee_down" ) or 0
 		if( storage ~= 0 ) then
 			get_next_jpad( true )
-			ComponentSetValue2( get_storage( GameGetWorldStateEntity(), "mnee_axis" ), "value_string", get_current_axes())
-			ComponentSetValue2( get_storage( GameGetWorldStateEntity(), "mnee_triggers" ), "value_string", get_current_triggers())
+			ComponentSetValue2( get_storage( ctrl_body, "mnee_axis" ), "value_string", get_current_axes())
+			ComponentSetValue2( get_storage( ctrl_body, "mnee_triggers" ), "value_string", get_current_triggers())
 
 			local active_core = get_active_keys()
 			local axis_core = get_axes()
@@ -159,6 +159,18 @@ function OnWorldPreUpdate()
 				if( v ~= 0 ) then
 					active_core = active_core..string.gsub( bnd, "gpd_axis", "gpd_btn" ).."_"..( v > 0 and "+" or "-" ).."&"
 				end
+			end
+			for mode,func in pairs( MNEE_INMODES ) do
+				local name = "mnee_down_"..mode
+				local stg = get_storage( ctrl_body, name ) or 0
+				if( stg == 0 ) then
+					stg = EntityAddComponent( ctrl_body, "VariableStorageComponent", 
+					{
+						name = name,
+						value_string = MNEE_DIV_1,
+					})
+				end
+				ComponentSetValue2( stg, "value_string", func( ctrl_body, active_core ))
 			end
 			ComponentSetValue2( storage, "value_string", active_core )
 			
@@ -265,8 +277,8 @@ function OnWorldPreUpdate()
 					local meta = {}
 					if( mneedata[current_mod] ~= nil ) then
 						meta.func = mneedata[current_mod].func
-						meta.is_locked = get_hybrid_function( mneedata[current_mod].is_locked ) or false
 						meta.is_advanced = mneedata[current_mod].is_advanced or false
+						meta.is_locked = get_hybrid_function( mneedata[current_mod].is_locked ) or false
 					end
 
 					counter = 1
@@ -296,8 +308,13 @@ function OnWorldPreUpdate()
 							if( will_show ) then
 								t_y = t_y + 11
 								
-								local is_static = get_hybrid_function( bind.is_locked ) or meta.is_locked
 								local is_axis = bind[key_type][1] == "is_axis"
+								local is_static = bind.is_locked
+								if( is_static == nil ) then
+									is_static = meta.is_locked or false
+								else
+									is_static = get_hybrid_function( is_static )
+								end
 								
 								uid, clicked, r_clicked = new_button( gui, uid, t_x, t_y, pic_z - 0.01, "mods/mnee/pics/button_74_"..( is_static and "B" or "A" )..".png" )
 								catch(function()
@@ -309,8 +326,11 @@ function OnWorldPreUpdate()
 										current_binding = id
 										doing_axis = is_axis
 										btn_axis_mode = is_axis and r_clicked
-										advanced_mode = ( meta.is_advanced or bind.is_advanced ) or ( r_clicked and not( is_axis ))
 										play_sound( "select" )
+
+										advanced_mode = bind.is_advanced
+										if( advanced_mode == nil ) then advanced_mode = meta.is_advanced or false end
+										advanced_mode = advanced_mode or ( r_clicked and not( is_axis ))
 									else
 										GamePrint( GameTextGetTranslatedOrNot( "$mnee_error" ).." "..GameTextGetTranslatedOrNot( "$mnee_no_change" ))
 										play_sound( "error" )
@@ -505,7 +525,7 @@ function OnWorldPreUpdate()
 					local tip_text = "["
 					local active = {}
 					if( not( doing_what )) then
-						active = get_keys()
+						active = get_keys( "guied" )
 						if( #active > 0 ) then
 							if( advanced_mode ) then
 								for i,key in ipairs( active ) do
@@ -518,14 +538,29 @@ function OnWorldPreUpdate()
 								tip_text = tip_text.."]"
 
 								local binds = get_bindings()
+								local is_dirty = binds[ current_mod ][ current_binding ].is_dirty
+								if( is_dirty == nil and mneedata[ current_mod ] ~= nil ) then
+									is_dirty = mneedata[ current_mod ].is_dirty or false
+								end
+								
 								for mod,bnds in pairs( binds ) do
 									for bnd,stff in pairs( bnds ) do
-										local this_one = get_table_count( stff[ key_type ])
-										for e,key in ipairs( active ) do
-											if( stff[ key_type ][ key ] == nil ) then
-												this_one = -1
-												break
+										local this_one = 0
+										for i = 1,2 do
+											local k_type = i == 1 and "keys" or "keys_alt"
+											this_one = is_dirty and -1 or get_table_count( stff[ k_type ])
+											for e,key in ipairs( active ) do
+												if( is_dirty ) then
+													if( stff[ k_type ][ key ] ~= nil ) then
+														this_one = #active
+														break
+													end
+												elseif( stff[ k_type ][ key ] == nil ) then
+													this_one = -1
+													break
+												end
 											end
+											if( this_one > 0 ) then break end
 										end
 										if( this_one == #active ) then
 											tip_text = tip_text.." @ "..GameTextGetTranslatedOrNot( "$mnee_conflict" ).."["..mod.."; "..get_translated_line( stff.name ).."]"
@@ -535,7 +570,7 @@ function OnWorldPreUpdate()
 								end
 							else
 								for i,key in ipairs( active ) do
-									if( MNEE_SPECIAL_KEYS[key] == nil and key ~= "mouse_left" and key ~= "mouse_right" ) then
+									if( MNEE_SPECIAL_KEYS[key] == nil and key ~= "mouse_left_gui" and key ~= "mouse_right_gui" ) then
 										tip_text = key.."]"
 										enter_down = true
 										break
@@ -688,14 +723,17 @@ end
 
 function OnPlayerSpawned( hooman )
 	dofile_once( "mods/mnee/lib.lua" )
-	
+	GameRemoveFlagRun( MNEE_SERVICE_MODE )
+	GlobalsSetValue( MNEE_PRIO, "0" )
+
 	if( GameHasFlagRun( MNEE_INITER )) then
 		return
 	end
 	GameAddFlagRun( MNEE_INITER )
 	GlobalsSetValue( "PROSPERO_IS_REAL", "1" )
 	
-	local entity_id = GameGetWorldStateEntity()
+	local entity_id = EntityLoad( "mods/mnee/ctrl_body.xml" )
+	EntityAddChild( GameGetWorldStateEntity(), entity_id )
 	EntityAddComponent( entity_id, "VariableStorageComponent", 
 	{
 		name = "mnee_down",

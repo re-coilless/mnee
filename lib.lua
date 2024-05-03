@@ -3,6 +3,7 @@ MNEE_TOGGLER = "MNEE_DISABLED"
 MNEE_RETOGGLER = "MNEE_REDO"
 MNEE_UPDATER = "MNEE_RELOAD"
 MNEE_SERVICE_MODE = "MNEE_HOLD_UP"
+MNEE_PRIO = "MNEE_PRIORITY_MOD"
 
 MNEE_DIV_0 = "@"
 MNEE_DIV_1 = "&"
@@ -23,6 +24,21 @@ MNEE_SPECIAL_KEYS = {
 	right_alt = 1,
 	-- left_windows = 1,
 	-- right_windows = 1,
+}
+
+MNEE_INMODES = {
+	guied = function( ctrl_body, active )
+		if( active ~= MNEE_DIV_1 ) then
+			local ctrl_comp = EntityGetFirstComponentIncludingDisabled( ctrl_body, "ControlsComponent" )
+			if( not( ComponentGetValue2( ctrl_comp, "mButtonDownLeftClick" ))) then
+				active = string.gsub( active, "mouse_left", "mouse_left_gui" )
+			end
+			if( not( ComponentGetValue2( ctrl_comp, "mButtonDownRightClick" ))) then
+				active = string.gsub( active, "mouse_right", "mouse_right_gui" )
+			end
+		end
+		return active
+	end,
 }
 
 function catch( f )
@@ -94,6 +110,23 @@ function get_storage( hooman, name )
 	return nil
 end
 
+function get_hooman_child( hooman, tag, ignore_id )
+	if( hooman == nil ) then
+		return -1
+	end
+	
+	local children = EntityGetAllChildren( hooman ) or {}
+	if( #children > 0 ) then
+		for i,child in ipairs( children ) do
+			if( child ~= ignore_id and ( EntityGetName( child ) == tag or EntityHasTag( child, tag ))) then
+				return child
+			end
+		end
+	end
+	
+	return nil
+end
+
 function get_hybrid_function( func, input )
 	if( func == nil ) then return end
 	if( type( func ) == "function" ) then
@@ -133,17 +166,18 @@ function get_next_jpad( init_only )
 	return false
 end
 
-function get_keys()
-	local storage = get_storage( GameGetWorldStateEntity(), "mnee_down" ) or 0
-	if( storage == 0 ) then
+function get_keys( mode )
+	mode = mode or false
+	
+	local storage = get_storage( get_hooman_child( GameGetWorldStateEntity(), "mnee_ctrl" ), mode and "mnee_down_"..mode or "mnee_down" )
+	if(( storage or 0 ) == 0 ) then
 		return {}
 	end
-	
 	return mnee_extractor( ComponentGetValue2( storage, "value_string" ))
 end
 
 function get_disarmer()
-	local storage = get_storage( GameGetWorldStateEntity(), "mnee_disarmer" ) or 0
+	local storage = get_storage( get_hooman_child( GameGetWorldStateEntity(), "mnee_ctrl" ), "mnee_disarmer" ) or 0
 	if( storage == 0 ) then
 		return {}
 	end
@@ -180,13 +214,13 @@ function clean_disarmer()
 			end
 		end
 		
-		local storage = get_storage( GameGetWorldStateEntity(), "mnee_disarmer" )
+		local storage = get_storage( get_hooman_child( GameGetWorldStateEntity(), "mnee_ctrl" ), "mnee_disarmer" )
 		ComponentSetValue2( storage, "value_string", new_disarmer )
 	end
 end
 
 function add_disarmer( value )
-	local storage = get_storage( GameGetWorldStateEntity(), "mnee_disarmer" ) or 0
+	local storage = get_storage( get_hooman_child( GameGetWorldStateEntity(), "mnee_ctrl" ), "mnee_disarmer" ) or 0
 	if( storage == 0 ) then
 		return
 	end
@@ -194,7 +228,7 @@ function add_disarmer( value )
 end
 
 function get_triggers()
-	local storage = get_storage( GameGetWorldStateEntity(), "mnee_triggers" ) or 0
+	local storage = get_storage( get_hooman_child( GameGetWorldStateEntity(), "mnee_ctrl" ), "mnee_triggers" ) or 0
 	if( storage == 0 ) then
 		return {}
 	end
@@ -219,7 +253,7 @@ function get_triggers()
 end
 
 function get_axes()
-	local storage = get_storage( GameGetWorldStateEntity(), "mnee_axis" ) or 0
+	local storage = get_storage( get_hooman_child( GameGetWorldStateEntity(), "mnee_ctrl" ), "mnee_axis" ) or 0
 	if( storage == 0 ) then
 		return {}
 	end
@@ -244,7 +278,7 @@ function get_axes()
 end
 
 function get_axis_memo()
-	local storage = get_storage( GameGetWorldStateEntity(), "mnee_axis_memo" ) or 0
+	local storage = get_storage( get_hooman_child( GameGetWorldStateEntity(), "mnee_ctrl" ), "mnee_axis_memo" ) or 0
 	if( storage == 0 ) then
 		return {}
 	end
@@ -262,7 +296,7 @@ function get_axis_memo()
 end
 
 function toggle_axis_memo( name )
-	local storage = get_storage( GameGetWorldStateEntity(), "mnee_axis_memo" ) or 0
+	local storage = get_storage( get_hooman_child( GameGetWorldStateEntity(), "mnee_ctrl" ), "mnee_axis_memo" ) or 0
 	if( storage == 0 ) then
 		return
 	end
@@ -335,58 +369,43 @@ function get_bindings( profile, binds_only )
 	end
 	
 	local data = {}
-	for mod in string.gmatch( data_raw[1], MNEE_PTN_1 ) do
-		local mod_name = ""
-		for v in string.gmatch( mod, MNEE_PTN_2 ) do
-			if( mod_name ~= "" ) then
-				local binding_name = ""
-				for b in string.gmatch( v, MNEE_PTN_3 ) do
-					if( binding_name ~= "" ) then
-						if( b == "is_axis" or data[ mod_name ][ binding_name ][ "keys" ][1] == "is_axis" ) then
-							table.insert( data[ mod_name ][ binding_name ][ "keys" ], b )
-						else
-							data[ mod_name ][ binding_name ].keys[ b ] = 1
-						end
-					elseif( binds_only or bindings[ mod_name ][ b ] ~= nil ) then
-						binding_name = b
-						data[ mod_name ][ binding_name ] = {}
-						data[ mod_name ][ binding_name ][ "keys" ] = {}
-						data[ mod_name ][ binding_name ][ "keys_alt" ] = {}
-						
-						if( not( binds_only )) then
-							data[ mod_name ][ binding_name ][ "order_id" ] = bindings[ mod_name ][ binding_name ].order_id
-							data[ mod_name ][ binding_name ][ "is_locked" ] = bindings[ mod_name ][ binding_name ].is_locked
-							data[ mod_name ][ binding_name ][ "is_hidden" ] = bindings[ mod_name ][ binding_name ].is_hidden
-							data[ mod_name ][ binding_name ][ "is_advanced" ] = bindings[ mod_name ][ binding_name ].is_advanced
-							data[ mod_name ][ binding_name ][ "name" ] = bindings[ mod_name ][ binding_name ].name
-							data[ mod_name ][ binding_name ][ "desc" ] = bindings[ mod_name ][ binding_name ].desc
+	for i = 1,2 do
+		for mod in string.gmatch( data_raw[i], MNEE_PTN_1 ) do
+			local mod_name = ""
+			for v in string.gmatch( mod, MNEE_PTN_2 ) do
+				if( mod_name ~= "" ) then
+					local binding_name = ""
+					for b in string.gmatch( v, MNEE_PTN_3 ) do
+						if( binding_name ~= "" ) then
+							local key_type = i == 1 and "keys" or "keys_alt"
+							if( b == "is_axis" or data[ mod_name ][ binding_name ][ key_type ][1] == "is_axis" ) then
+								table.insert( data[ mod_name ][ binding_name ][ key_type ], b )
+							else
+								data[ mod_name ][ binding_name ][ key_type ][ b ] = 1
+							end
+						elseif( binds_only or bindings[ mod_name ][ b ] ~= nil ) then
+							binding_name = b
+							if( i == 1 ) then
+								data[ mod_name ][ binding_name ] = {}
+								data[ mod_name ][ binding_name ][ "keys" ] = {}
+								data[ mod_name ][ binding_name ][ "keys_alt" ] = {}
+								
+								if( not( binds_only )) then
+									data[ mod_name ][ binding_name ][ "order_id" ] = bindings[ mod_name ][ binding_name ].order_id
+									data[ mod_name ][ binding_name ][ "is_dirty" ] = bindings[ mod_name ][ binding_name ].is_dirty
+									data[ mod_name ][ binding_name ][ "is_advanced" ] = bindings[ mod_name ][ binding_name ].is_advanced
+									data[ mod_name ][ binding_name ][ "is_locked" ] = bindings[ mod_name ][ binding_name ].is_locked
+									data[ mod_name ][ binding_name ][ "is_hidden" ] = bindings[ mod_name ][ binding_name ].is_hidden
+									data[ mod_name ][ binding_name ][ "name" ] = bindings[ mod_name ][ binding_name ].name
+									data[ mod_name ][ binding_name ][ "desc" ] = bindings[ mod_name ][ binding_name ].desc
+								end
+							end
 						end
 					end
+				elseif( binds_only or bindings[ v ] ~= nil ) then
+					mod_name = v
+					if( i == 1 ) then data[ mod_name ] = {} end
 				end
-			elseif( binds_only or bindings[ v ] ~= nil ) then
-				mod_name = v
-				data[ mod_name ] = {}
-			end
-		end
-	end
-	for mod in string.gmatch( data_raw[2], MNEE_PTN_1 ) do
-		local mod_name = ""
-		for v in string.gmatch( mod, MNEE_PTN_2 ) do
-			if( mod_name ~= "" ) then
-				local binding_name = ""
-				for b in string.gmatch( v, MNEE_PTN_3 ) do
-					if( binding_name ~= "" ) then
-						if( b == "is_axis" or data[ mod_name ][ binding_name ][ "keys_alt" ][1] == "is_axis" ) then
-							table.insert( data[ mod_name ][ binding_name ][ "keys_alt" ], b )
-						else
-							data[ mod_name ][ binding_name ].keys_alt[ b ] = 1
-						end
-					elseif( binds_only or bindings[ mod_name ][ b ] ~= nil ) then
-						binding_name = b
-					end
-				end
-			elseif( binds_only or bindings[ v ] ~= nil ) then
-				mod_name = v
 			end
 		end
 	end
@@ -461,11 +480,11 @@ function update_bindings( profile, reset )
 end
 
 function set_priority_mode( mod_id )
-	GlobalsSetValue( "MNEE_PRIORITY_MOD", mod_id )
+	GlobalsSetValue( MNEE_PRIO, tostring( mod_id ))
 end
 
 function is_priority_mod( mod_id )
-	local vip_mod = GlobalsGetValue( "MNEE_PRIORITY_MOD", "0" )
+	local vip_mod = GlobalsGetValue( MNEE_PRIO, "0" )
 	if( vip_mod == "0" ) then
 		return true
 	end
@@ -473,10 +492,11 @@ function is_priority_mod( mod_id )
 	return mod_id ~= vip_mod
 end
 
-function is_key_down( name, dirty_mode, pressed_mode, is_vip )
+function is_key_down( name, dirty_mode, pressed_mode, is_vip, is_guiless, key_mode )
 	dirty_mode = dirty_mode or false
 	pressed_mode = pressed_mode or false
 	is_vip = is_vip or false
+	is_guiless = is_guiless or false
 	
 	if(( GameHasFlagRun( MNEE_SERVICE_MODE ) and not( mnee_ignore_service_mode ))
 			or ( GameHasFlagRun( MNEE_TOGGLER ) and not( is_vip ))
@@ -484,7 +504,7 @@ function is_key_down( name, dirty_mode, pressed_mode, is_vip )
 		return false
 	end
 	
-	local keys_down = get_keys()
+	local keys_down = get_keys( key_mode )
 	if( #keys_down > 0 ) then
 		if( not( dirty_mode )) then
 			for i,key in ipairs( keys_down ) do
@@ -510,12 +530,12 @@ function is_key_down( name, dirty_mode, pressed_mode, is_vip )
 	return false
 end
 
-function get_key_pressed( name, dirty_mode, is_vip )
-	return is_key_down( name, dirty_mode, true, is_vip or false )
+function get_key_pressed( name, dirty_mode, is_vip, is_guiless )
+	return is_key_down( name, dirty_mode, true, is_vip or false, is_guiless or false )
 end
 
-function get_key_vip( name )
-	return get_key_pressed( name, true, true )
+function get_key_vip( name, is_guiless )
+	return get_key_pressed( name, true, true, is_guiless or false )
 end
 
 function get_fancy_key( key )
@@ -555,11 +575,12 @@ function get_binding_keys( mod_id, name, is_compact )
 	return out
 end
 
-function is_binding_down( mod_id, name, dirty_mode, pressed_mode, is_vip, loose_mode )
+function is_binding_down( mod_id, name, dirty_mode, pressed_mode, is_vip, loose_mode, is_guiless, key_mode )
 	dirty_mode = dirty_mode or false
 	pressed_mode = pressed_mode or false
 	is_vip = is_vip or false
 	loose_mode = loose_mode or false
+	is_guiless = is_guiless or false
 	
 	if(( GameHasFlagRun( MNEE_SERVICE_MODE ) and not( mnee_ignore_service_mode ))
 			or not( is_priority_mod( mod_id ))
@@ -568,7 +589,7 @@ function is_binding_down( mod_id, name, dirty_mode, pressed_mode, is_vip, loose_
 		return false
 	end
 	
-	local keys_down = get_keys()
+	local keys_down = get_keys( key_mode )
 	if( #keys_down > 0 ) then
 		local update_frame = tonumber( GlobalsGetValue( MNEE_UPDATER, "0" ))
 		mnee_updater = mnee_updater or 0
@@ -583,9 +604,16 @@ function is_binding_down( mod_id, name, dirty_mode, pressed_mode, is_vip, loose_
 			out = false
 			for i = 1,2 do
 				bind = binding[ i == 1 and "keys" or "keys_alt" ]
-				if( bind["_"] ~= nil ) then return false, true end
-
 				local high_score, score = get_table_count( bind ), 0
+
+				if( bind["_"] ~= nil ) then
+					if( i == 1 ) then
+						return false, true
+					else
+						goto continue
+					end
+				end
+
 				if( high_score < 1 or ( high_score > 1 and not( loose_mode ) and high_score ~= #keys_down )) then
 					goto continue
 				end
@@ -629,18 +657,19 @@ function is_binding_down( mod_id, name, dirty_mode, pressed_mode, is_vip, loose_
 	return false
 end
 
-function get_binding_pressed( mod_id, name, is_vip, dirty_mode, loose_mode )
-	return is_binding_down( mod_id, name, dirty_mode or false, true, is_vip or false, loose_mode or false )
+function get_binding_pressed( mod_id, name, is_vip, dirty_mode, loose_mode, is_guiless )
+	return is_binding_down( mod_id, name, dirty_mode or false, true, is_vip or false, loose_mode or false, is_guiless or false )
 end
 
-function get_binding_vip( mod_id, name )
-	return get_binding_pressed( mod_id, name, true, true, true )
+function get_binding_vip( mod_id, name, is_guiless )
+	return get_binding_pressed( mod_id, name, true, true, true, is_guiless or false )
 end
 
-function get_axis_state( mod_id, name, dirty_mode, pressed_mode, is_vip )
+function get_axis_state( mod_id, name, dirty_mode, pressed_mode, is_vip, is_guiless, key_mode )
 	dirty_mode = dirty_mode or false
 	pressed_mode = pressed_mode or false
 	is_vip = is_vip or false
+	is_guiless = is_guiless or false
 	
 	if(( GameHasFlagRun( MNEE_SERVICE_MODE ) and not( mnee_ignore_service_mode ))
 			or not( is_priority_mod( mod_id ))
@@ -662,13 +691,19 @@ function get_axis_state( mod_id, name, dirty_mode, pressed_mode, is_vip )
 		local out, is_buttoned = 0, false
 		for i = 1,2 do
 			bind = binding[ i == 1 and "keys" or "keys_alt" ]
-			if( bind[2] == "_" ) then return 0, true, false end
-
+			if( bind[2] == "_" ) then
+				if( i == 1 ) then
+					return 0, true, false
+				else
+					goto continue
+				end
+			end
+			
 			is_buttoned = bind[3] ~= nil
 			if( is_buttoned ) then
-				if( is_key_down( bind[2], dirty_mode, pressed_mode, is_vip )) then
+				if( is_key_down( bind[2], dirty_mode, pressed_mode, is_vip, is_guiless, key_mode )) then
 					out = -1
-				elseif( is_key_down( bind[3], dirty_mode, pressed_mode, is_vip )) then
+				elseif( is_key_down( bind[3], dirty_mode, pressed_mode, is_vip, is_guiless, key_mode )) then
 					out = 1
 				end
 			else
@@ -687,18 +722,20 @@ function get_axis_state( mod_id, name, dirty_mode, pressed_mode, is_vip )
 					out = value
 				end
 			end
+
+			::continue::
 			if( out ~= 0 ) then break end
 		end
 		return out, false, is_buttoned
 	end
 end
 
-function get_axis_pressed( mod_id, name, dirty_mode, is_vip )
-	return get_axis_state( mod_id, name, dirty_mode or false, true, is_vip or false )
+function get_axis_pressed( mod_id, name, dirty_mode, is_vip, is_guiless )
+	return get_axis_state( mod_id, name, dirty_mode or false, true, is_vip or false, is_guiless or false )
 end
 
-function get_axis_vip( mod_id, name )
-	return get_axis_pressed( mod_id, name, true, true )
+function get_axis_vip( mod_id, name, is_guiless )
+	return get_axis_pressed( mod_id, name, true, true, is_guiless or false )
 end
 
 function get_shifted_value( c )
@@ -746,10 +783,11 @@ end
 
 function mnee( mode, id_data, data )
 	local map = {
-		key = { is_key_down, {1}, { "dirty", "pressed", "vip" }},
-		bind = { is_binding_down, {1,2}, { "dirty", "pressed", "vip", "loose" }},
-		axis = { get_axis_state, {1,2}, { "dirty", "pressed", "vip" }},
+		key = { is_key_down, {1}, { "dirty", "pressed", "vip", "guiless", "key_mode" }},
+		bind = { is_binding_down, {1,2}, { "dirty", "pressed", "vip", "loose", "guiless", "key_mode" }},
+		axis = { get_axis_state, {1,2}, { "dirty", "pressed", "vip", "guiless", "key_mode" }},
 	}
+	if( type( id_data ) ~= "table" ) then id_data = {id_data} end
 	data = data or {}
 	func = map[ mode ]
 
@@ -758,9 +796,9 @@ function mnee( mode, id_data, data )
 		if( id_data[v] ~= nil ) then table.insert( inval, id_data[v]) end
 	end
 	for i,v in ipairs( func[3]) do
-		if( data[v] ~= nil ) then table.insert( inval, data[v]) end
+		table.insert( inval, data[v] or false )
 	end
-
+	
 	local a,b,c,d = func[1]( inval[1], inval[2], inval[3], inval[4], inval[5], inval[6], inval[7], inval[8], inval[9])
 	return a,b,c,d
 end

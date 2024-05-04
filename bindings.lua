@@ -50,6 +50,7 @@ bindings["mnee"] = {
 		order_id = "a", --[SORTING ORDER]
 		is_dirty = false, --[CONFLICT CHECKING MODE TOGGLE]
 		is_advanced = true, --[ALLOW MULTIPLE KEYS DURING BINDING]
+		allow_special = false, --[ALLOW BINDING SPECIAL KEYS WHEN IS IN SIMPLE BINDING MODE]
 		is_locked = function() return true end, --[PREVENT REBINDING]
 		is_hidden = function() return false end, --[HIDE FROM MENU]
 		

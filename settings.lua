@@ -1,5 +1,12 @@
 dofile( "data/scripts/lib/mod_settings.lua" )
 
+function mod_setting_blinking_text( mod_id, gui, in_main_menu, im_id, setting )
+	anim_frame = ( anim_frame or 0 ) + 1
+	local val = math.cos(( anim_frame%60 )/60 )
+	GuiColorSetForNextWidget( gui, val, val, val*174/255, 1 )
+	GuiText( gui, mod_setting_group_x_offset, 0, GameTextGetTranslatedOrNot( setting.ui_name ))
+end
+
 function mod_setting_full_resetter( mod_id, gui, in_main_menu, im_id, setting )
 	GuiColorSetForNextWidget( gui, 245/255, 132/255, 132/255, 1 )
 	local clicked, right_clicked = GuiButton( gui, im_id, mod_setting_group_x_offset, 0, "<<"..GameTextGetTranslatedOrNot( setting.ui_name )..">>"..(( mnee_it_is_done or false ) and " - "..GameTextGetTranslatedOrNot( setting.ui_extra ) or "" ))
@@ -11,7 +18,7 @@ function mod_setting_full_resetter( mod_id, gui, in_main_menu, im_id, setting )
 			ModSettingSetNextValue( "mnee.BINDINGS_"..i, "&", false )
 			ModSettingSetNextValue( "mnee.BINDINGS_ALT_"..i, "&", false )
 			if( is_proper ) then
-				update_bindings( i )
+				mnee.update_bindings( i )
 			end
 		end
 
@@ -39,7 +46,7 @@ mod_settings =
 	{
 		id = "READ_ME",
 		ui_name = text_with_no_mod( "$mnee_tutorial", "[PRESS LEFT_CTRL+M IN-GAME TO OPEN THE MENU]" ),
-		not_setting = true,
+		ui_fn = mod_setting_blinking_text,
 	},
 	{
 		id = "JPAD_DEADZONE",

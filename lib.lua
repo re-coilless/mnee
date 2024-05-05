@@ -286,6 +286,7 @@ function mnee.get_bindings( profile, binds_only )
 									data[ mod_name ][ binding_name ][ "allow_special" ] = bindings[ mod_name ][ binding_name ].allow_special
 									data[ mod_name ][ binding_name ][ "is_locked" ] = bindings[ mod_name ][ binding_name ].is_locked
 									data[ mod_name ][ binding_name ][ "is_hidden" ] = bindings[ mod_name ][ binding_name ].is_hidden
+									data[ mod_name ][ binding_name ][ "jpad_type" ] = bindings[ mod_name ][ binding_name ].jpad_type
 									data[ mod_name ][ binding_name ][ "name" ] = bindings[ mod_name ][ binding_name ].name
 									data[ mod_name ][ binding_name ][ "desc" ] = bindings[ mod_name ][ binding_name ].desc
 								end
@@ -767,7 +768,7 @@ function mnee.mnin_axis( mod_id, name, dirty_mode, pressed_mode, is_vip, is_guil
 					out = value
 				end
 			end
-
+			
 			::continue::
 			if( out ~= 0 ) then break end
 		end

@@ -50,7 +50,19 @@ mod_settings =
 	},
 	{
 		id = "DEADZONE_AIM",
-		ui_name = text_with_no_mod( "$mnee_deadzone", "Analog Stick Deadzone" ).." [AIM]",
+		ui_name = GameTextGetTranslatedOrNot( text_with_no_mod( "$mnee_deadzone", "Analog Stick Deadzone" )).." [AIM]",
+		ui_description = text_with_no_mod( "$mnee_deadzone_desc", "Controls the radius of the zone near the rest position where the inputs do not count." ),
+		value_default = 0,
+		
+		value_min = 0,
+		value_max = 19,
+		value_display_multiplier = 5,
+		value_display_formatting = " $0% ",
+		scope = MOD_SETTING_SCOPE_RUNTIME,
+	},
+	{
+		id = "DEADZONE_MOTION",
+		ui_name = GameTextGetTranslatedOrNot( text_with_no_mod( "$mnee_deadzone", "Analog Stick Deadzone" )).." [MOTION]",
 		ui_description = text_with_no_mod( "$mnee_deadzone_desc", "Controls the radius of the zone near the rest position where the inputs do not count." ),
 		value_default = 1,
 		
@@ -61,20 +73,8 @@ mod_settings =
 		scope = MOD_SETTING_SCOPE_RUNTIME,
 	},
 	{
-		id = "DEADZONE_MOTION",
-		ui_name = text_with_no_mod( "$mnee_deadzone", "Analog Stick Deadzone" ).." [MOTION]",
-		ui_description = text_with_no_mod( "$mnee_deadzone_desc", "Controls the radius of the zone near the rest position where the inputs do not count." ),
-		value_default = 5,
-		
-		value_min = 0,
-		value_max = 19,
-		value_display_multiplier = 5,
-		value_display_formatting = " $0% ",
-		scope = MOD_SETTING_SCOPE_RUNTIME,
-	},
-	{
 		id = "DEADZONE_EXTRA",
-		ui_name = text_with_no_mod( "$mnee_deadzone", "Analog Stick Deadzone" ).." [EXTRA]",
+		ui_name = GameTextGetTranslatedOrNot( text_with_no_mod( "$mnee_deadzone", "Analog Stick Deadzone" )).." [EXTRA]",
 		ui_description = text_with_no_mod( "$mnee_deadzone_desc", "Controls the radius of the zone near the rest position where the inputs do not count." ),
 		value_default = 1,
 		

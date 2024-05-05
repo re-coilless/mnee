@@ -6,7 +6,6 @@ function OnModInit()
 	pen.set_translations( "mods/mnee/translations.csv" )
 	
 	-- rewrite doc
-	-- add default alt buttoned kappa bind
 	-- make procedural pause screen keyboard that highlights all the bind's keys on hover of one of them (only if the moddev marked the binding as show_on_pause)
 
 	local lists = dofile_once( "mods/mnee/lists.lua" )
@@ -94,22 +93,13 @@ function OnModInit()
 		local state = divider
 		if( #jpad > 0 ) then
 			local gpd_axis = { "_lh", "_lv", "_rh", "_rv", }
-			local total = 1000
-			local deadzone = total*( ModSettingGetNextValue( "mnee.JPAD_DEADZONE" )/20 )
-
 			for i,real_num in ipairs( jpad ) do
 				if( real_num ) then
 					for e = 0,1 do
 						local value = { InputGetJoystickAnalogStick( real_num, e )}
 						for k = 1,2 do
-							local v = math.floor( total*value[k] )
-							v = math.abs( v ) < deadzone and 0 or v
-							if( math.abs( v ) > 0 ) then
-								v = ( v - deadzone*pen.get_sign( v ))/( total - deadzone )
-							end
-							
 							local name = i.."gpd_axis"..gpd_axis[e*2 + k]
-							state = state.."|"..name.."|"..v.."|"..divider
+							state = state.."|"..name.."|"..value[k].."|"..divider
 						end
 					end
 				end
@@ -195,6 +185,7 @@ function OnWorldPreUpdate()
 				ModSettingSetNextValue( "mnee.PROFILE", prf, false )
 				GamePrint( GameTextGetTranslatedOrNot( "$mnee_this_profile" )..": "..string.char( prf + 64 ))
 				pen.play_sound( "switch_page" )
+				GlobalsSetValue( mnee.UPDATER, GameGetFrameNum())
 			end
 		end
 		
@@ -225,6 +216,10 @@ function OnWorldPreUpdate()
 						local screen_w, screen_h = GuiGetScreenDimensions( gui )
 						pic_x = ( screen_w - pic_w )/2
 					end
+
+					local txt = GameTextGetTranslatedOrNot( "$mnee_title"..( show_alt and "B" or "A" ))
+					if( show_alt ) then uid = pen.new_image( gui, uid, pic_x, pic_y, pic_z - 0.001, "mods/mnee/pics/title_bg.png" ) end
+					pen.new_text( gui, pic_x + 142 - GuiGetTextDimensions( gui, txt, 1, 2 ), pic_y, pic_z - 0.01, txt, show_alt and {136,121,247} or {238,226,206})
 
 					uid, clicked = pen.new_button( gui, uid, pic_x + pic_w - 8, pic_y + 2, pic_z - 0.01, "mods/mnee/pics/key_close.png" )
 					uid = mnee.new_tooltip( gui, uid, pic_z - 200, GameTextGetTranslatedOrNot( "$mnee_close" ))
@@ -313,7 +308,7 @@ function OnWorldPreUpdate()
 								
 								uid, clicked, r_clicked = pen.new_button( gui, uid, t_x, t_y, pic_z - 0.01, "mods/mnee/pics/button_74_"..( is_static and "B" or "A" )..".png" )
 								pen.catch(function()
-									uid = mnee.new_tooltip( gui, uid, pic_z - 200, ( is_axis and ( GameTextGetTranslatedOrNot( "$mnee_axis" )..( is_static and "" or " @ " )) or "" )..( is_static and GameTextGetTranslatedOrNot( "$mnee_static" ).." @ " or "" )..pen.get_translated_line( bind.name )..": "..pen.get_translated_line( bind.desc ).." @ "..mnee.bind2string( bind[key_type])..( is_axis and " @ "..GameTextGetTranslatedOrNot( "$mnee_lmb_axis" ) or "" ))
+									uid = mnee.new_tooltip( gui, uid, pic_z - 200, ( is_axis and ( GameTextGet( "$mnee_axis", bind.jpad_type or "EXTRA" )..( is_static and "" or " @ " )) or "" )..( is_static and GameTextGetTranslatedOrNot( "$mnee_static" ).." @ " or "" )..pen.get_translated_line( bind.name )..": "..pen.get_translated_line( bind.desc ).." @ "..mnee.bind2string( bind[key_type])..( is_axis and " @ "..GameTextGetTranslatedOrNot( "$mnee_lmb_axis" ) or "" ))
 									pen.new_text( gui, t_x + 2, t_y, pic_z - 0.02, pen.liner( pen.get_translated_line( bind.name ), 70 ), is_static and {136,121,247} or {238,226,206})
 								end)
 								if( clicked or r_clicked ) then
@@ -480,6 +475,7 @@ function OnWorldPreUpdate()
 					uid, page = mnee.new_pager( gui, uid, pic_x + 136, pic_y + 88, pic_z - 0.01, page, 3, true )
 					if( profile ~= page ) then
 						ModSettingSetNextValue( "mnee.PROFILE", page, false )
+						GlobalsSetValue( mnee.UPDATER, GameGetFrameNum())
 					end
 					
 					local old_x, old_y = pic_x, pic_y

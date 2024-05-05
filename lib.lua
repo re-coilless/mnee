@@ -696,6 +696,20 @@ function mnee.mnin_bind( mod_id, name, dirty_mode, pressed_mode, is_vip, loose_m
 	return false
 end
 
+function mnee.apply_deadzone( v, kind )
+	if( v == 0 ) then return 0 end
+	kind = kind or "EXTRA"
+
+	local total = 1000
+	local deadzone = total*( ModSettingGetNextValue( "mnee.DEADZONE_"..kind )/20 )
+	v = math.floor( total*v )
+	v = math.abs( v ) < deadzone and 0 or v
+	if( math.abs( v ) > 0 ) then
+		v = ( v - deadzone*pen.get_sign( v ))/( total - deadzone )
+	end
+	return v
+end
+
 function mnee.mnin_axis( mod_id, name, dirty_mode, pressed_mode, is_vip, is_guiless, key_mode )
 	dirty_mode = dirty_mode or false
 	pressed_mode = pressed_mode or false
@@ -738,7 +752,7 @@ function mnee.mnin_axis( mod_id, name, dirty_mode, pressed_mode, is_vip, is_guil
 					out = 1
 				end
 			else
-				local value = mnee.get_axes()[ bind[2]] or 0
+				local value = mnee.apply_deadzone( mnee.get_axes()[ bind[2]] or 0, binding.jpad_type )
 				if( pressed_mode ) then
 					local memo = mnee.get_axis_memo()
 					if( memo[ bind[2]] == nil ) then

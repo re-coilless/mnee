@@ -54,6 +54,7 @@ bindings["mnee"] = {
 		is_locked = function() return true end, --[PREVENT REBINDING]
 		is_hidden = function() return false end, --[HIDE FROM MENU]
 		
+		jpad_type = "AIM", --[SELECTS THE ANALOG STICK DEADZONE TYPE: AIM, MOTION, EXTRA]
 		name = "$mnee_open", --[DISPLAYED NAME]
 		desc = "$mnee_open_desc", --[DISPLAYED DESCRIPTION]
 		

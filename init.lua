@@ -242,12 +242,12 @@ function OnWorldPreUpdate()
 					for mod in pen.magic_sorter( keys ) do
 						if( counter > starter and counter < ender ) then
 							local is_fancy = mneedata[mod] ~= nil
-							if( not( is_fancy ) or ( is_fancy and not( pen.get_hybrid_function( mneedata[mod].is_hidden )))) then
+							if( not( is_fancy ) or ( is_fancy and not( pen.get_hybrid_function( mneedata[mod].is_hidden, {mod, jpad})))) then
 								t_y = t_y + 11
 								
 								local name = pen.get_translated_line( is_fancy and mneedata[mod].name or mod )
 								uid, clicked = pen.new_button( gui, uid, t_x, t_y, pic_z - 0.01, "mods/mnee/pics/button_43_"..( current_mod == mod and "B" or "A" )..".png" )
-								uid = mnee.new_tooltip( gui, uid, pic_z - 200, name..( current_mod == mod and ( is_fancy and " @ "..pen.get_translated_line( mneedata[mod].desc ) or "" ) or " @ "..GameTextGetTranslatedOrNot( "$mnee_lmb_keys" )))
+								uid = mnee.new_tooltip( gui, uid, pic_z - 200, name..( current_mod == mod and (( is_fancy and mneedata[mod].desc ~= nil ) and " @ "..pen.get_translated_line( mneedata[mod].desc ) or "" ) or " @ "..GameTextGetTranslatedOrNot( "$mnee_lmb_keys" )))
 								pen.new_text( gui, t_x + 2, t_y, pic_z - 0.02, pen.liner( name, 39 ), current_mod == mod and {245,132,132} or {238,226,206})
 								if( clicked ) then
 									current_mod = mod
@@ -268,7 +268,7 @@ function OnWorldPreUpdate()
 					if( mneedata[current_mod] ~= nil ) then
 						meta.func = mneedata[current_mod].func
 						meta.is_advanced = mneedata[current_mod].is_advanced or false
-						meta.is_locked = pen.get_hybrid_function( mneedata[current_mod].is_locked ) or false
+						meta.is_locked = pen.get_hybrid_function( mneedata[current_mod].is_locked, {current_mod, jpad}) or false
 					end
 
 					counter = 1
@@ -277,12 +277,12 @@ function OnWorldPreUpdate()
 					t_x, t_y = pic_x + 48, pic_y
 					if( meta.func ~= nil ) then
 						local result = false
-						uid, result = meta.func( gui, uid, t_x, t_y, pic_z - 0.01, {
+						uid, result = pen.catch( meta.func, { gui, uid, t_x, t_y, pic_z - 0.01, {
 							a = starter,
 							b = ender,
 							ks = keys,
 							k_type = key_type,
-						})
+						}}, {uid,false})
 						if( result ) then
 							current_binding = result.set_bind
 							doing_axis = result.will_axis
@@ -293,7 +293,7 @@ function OnWorldPreUpdate()
 						for id,bind in mnee.order_sorter( keys[ current_mod ]) do
 							local will_show = counter > starter and counter < ender
 							if( will_show ) then
-								will_show = not( pen.get_hybrid_function( bind.is_hidden ))
+								will_show = not( pen.get_hybrid_function( bind.is_hidden, {{current_mod,id}, jpad}))
 							end
 							if( will_show ) then
 								t_y = t_y + 11
@@ -303,7 +303,7 @@ function OnWorldPreUpdate()
 								if( is_static == nil ) then
 									is_static = meta.is_locked or false
 								else
-									is_static = pen.get_hybrid_function( is_static )
+									is_static = pen.get_hybrid_function( is_static, {{current_mod,id}, jpad})
 								end
 								
 								uid, clicked, r_clicked = pen.new_button( gui, uid, t_x, t_y, pic_z - 0.01, "mods/mnee/pics/button_74_"..( is_static and "B" or "A" )..".png" )

@@ -187,17 +187,20 @@ function pen.get_translated_line( text )
 end
 
 --[TECHNICAL]
-function pen.catch( f )
-	local is_good, stuff = pcall( f )
+function pen.catch( f, input, fallback )
+	local is_good,stuff,oa,ob,oc,od,oe,of,og,oh = pcall(f, unpack( input or {}))
 	if( not( is_good )) then
 		print( stuff )
+		return unpack( fallback or {false})
+	else
+		return stuff,oa,ob,oc,od,oe,of,og,oh
 	end
 end
 
 function pen.get_hybrid_function( func, input )
 	if( func == nil ) then return end
 	if( type( func ) == "function" ) then
-		return func( unpack( input or {}))
+		return pen.catch( func, input )
 	else
 		return func
 	end

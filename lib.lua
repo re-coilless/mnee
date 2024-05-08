@@ -1,6 +1,6 @@
 dofile_once( "mods/mnee/_penman.lua" )
 
-mnee = {}
+mnee = mnee or {}
 
 mnee.INITER = "MNEE_IS_GOING"
 mnee.TOGGLER = "MNEE_DISABLED"
@@ -278,7 +278,7 @@ function mnee.get_bindings( profile, binds_only )
 								data[ mod_name ][ binding_name ] = {}
 								data[ mod_name ][ binding_name ][ "keys" ] = {}
 								data[ mod_name ][ binding_name ][ "keys_alt" ] = {}
-								
+								data[ mod_name ][ binding_name ][ "jpad_type" ] = bindings[ mod_name ][ binding_name ].jpad_type
 								if( not( binds_only )) then
 									data[ mod_name ][ binding_name ][ "order_id" ] = bindings[ mod_name ][ binding_name ].order_id
 									data[ mod_name ][ binding_name ][ "is_dirty" ] = bindings[ mod_name ][ binding_name ].is_dirty
@@ -286,7 +286,6 @@ function mnee.get_bindings( profile, binds_only )
 									data[ mod_name ][ binding_name ][ "allow_special" ] = bindings[ mod_name ][ binding_name ].allow_special
 									data[ mod_name ][ binding_name ][ "is_locked" ] = bindings[ mod_name ][ binding_name ].is_locked
 									data[ mod_name ][ binding_name ][ "is_hidden" ] = bindings[ mod_name ][ binding_name ].is_hidden
-									data[ mod_name ][ binding_name ][ "jpad_type" ] = bindings[ mod_name ][ binding_name ].jpad_type
 									data[ mod_name ][ binding_name ][ "name" ] = bindings[ mod_name ][ binding_name ].name
 									data[ mod_name ][ binding_name ][ "desc" ] = bindings[ mod_name ][ binding_name ].desc
 								end
@@ -577,11 +576,10 @@ function mnee.get_keyboard_input( no_shifting )
 	end
 end
 
-function mnee.mnin_key( name, dirty_mode, pressed_mode, is_vip, is_guiless, key_mode )
+function mnee.mnin_key( name, dirty_mode, pressed_mode, is_vip, key_mode )
 	dirty_mode = dirty_mode or false
 	pressed_mode = pressed_mode or false
 	is_vip = is_vip or false
-	is_guiless = is_guiless or false
 	
 	if(( GameHasFlagRun( mnee.SERV_MODE ) and not( mnee_ignore_service_mode ))
 			or ( GameHasFlagRun( mnee.TOGGLER ) and not( is_vip ))
@@ -615,12 +613,11 @@ function mnee.mnin_key( name, dirty_mode, pressed_mode, is_vip, is_guiless, key_
 	return false
 end
 
-function mnee.mnin_bind( mod_id, name, dirty_mode, pressed_mode, is_vip, loose_mode, is_guiless, key_mode )
+function mnee.mnin_bind( mod_id, name, dirty_mode, pressed_mode, is_vip, loose_mode, key_mode )
 	dirty_mode = dirty_mode or false
 	pressed_mode = pressed_mode or false
 	is_vip = is_vip or false
 	loose_mode = loose_mode or false
-	is_guiless = is_guiless or false
 	
 	if(( GameHasFlagRun( mnee.SERV_MODE ) and not( mnee_ignore_service_mode ))
 			or not( mnee.is_priority_mod( mod_id ))
@@ -711,11 +708,10 @@ function mnee.apply_deadzone( v, kind )
 	return v
 end
 
-function mnee.mnin_axis( mod_id, name, dirty_mode, pressed_mode, is_vip, is_guiless, key_mode )
+function mnee.mnin_axis( mod_id, name, dirty_mode, pressed_mode, is_vip, key_mode )
 	dirty_mode = dirty_mode or false
 	pressed_mode = pressed_mode or false
 	is_vip = is_vip or false
-	is_guiless = is_guiless or false
 	
 	if(( GameHasFlagRun( mnee.SERV_MODE ) and not( mnee_ignore_service_mode ))
 			or not( mnee.is_priority_mod( mod_id ))
@@ -747,9 +743,9 @@ function mnee.mnin_axis( mod_id, name, dirty_mode, pressed_mode, is_vip, is_guil
 			
 			is_buttoned = bind[3] ~= nil
 			if( is_buttoned ) then
-				if( mnee.mnin_key( bind[2], dirty_mode, pressed_mode, is_vip, is_guiless, key_mode )) then
+				if( mnee.mnin_key( bind[2], dirty_mode, pressed_mode, is_vip, key_mode )) then
 					out = -1
-				elseif( mnee.mnin_key( bind[3], dirty_mode, pressed_mode, is_vip, is_guiless, key_mode )) then
+				elseif( mnee.mnin_key( bind[3], dirty_mode, pressed_mode, is_vip, key_mode )) then
 					out = 1
 				end
 			else
@@ -778,9 +774,9 @@ end
 
 function mnee.mnin( mode, id_data, data )
 	local map = {
-		key = { mnee.mnin_key, {1}, { "dirty", "pressed", "vip", "guiless", "key_mode" }},
-		bind = { mnee.mnin_bind, {1,2}, { "dirty", "pressed", "vip", "loose", "guiless", "key_mode" }},
-		axis = { mnee.mnin_axis, {1,2}, { "dirty", "pressed", "vip", "guiless", "key_mode" }},
+		key = { mnee.mnin_key, {1}, { "dirty", "pressed", "vip", "mode" }},
+		bind = { mnee.mnin_bind, {1,2}, { "dirty", "pressed", "vip", "loose", "mode" }},
+		axis = { mnee.mnin_axis, {1,2}, { "dirty", "pressed", "vip", "mode" }},
 	}
 	if( type( id_data ) ~= "table" ) then id_data = {id_data} end
 	data = data or {}
@@ -799,32 +795,32 @@ function mnee.mnin( mode, id_data, data )
 end
 
 --[LEGACY]
-function is_key_down( name, dirty_mode, pressed_mode, is_vip, is_guiless, key_mode )
-	return mnee.mnin_key( name, dirty_mode, pressed_mode, is_vip, is_guiless, key_mode )
+function is_key_down( name, dirty_mode, pressed_mode, is_vip, key_mode )
+	return mnee.mnin_key( name, dirty_mode, pressed_mode, is_vip, key_mode )
 end
-function get_key_pressed( name, dirty_mode, is_vip, is_guiless )
-	return is_key_down( name, dirty_mode, true, is_vip, is_guiless )
+function get_key_pressed( name, dirty_mode, is_vip )
+	return is_key_down( name, dirty_mode, true, is_vip )
 end
-function get_key_vip( name, is_guiless )
-	return get_key_pressed( name, true, true, is_guiless )
-end
-
-function is_binding_down( mod_id, name, dirty_mode, pressed_mode, is_vip, loose_mode, is_guiless, key_mode )
-	return mnee.mnin_bind( mod_id, name, dirty_mode, pressed_mode, is_vip, loose_mode, is_guiless, key_mode )
-end
-function get_binding_pressed( mod_id, name, is_vip, dirty_mode, loose_mode, is_guiless )
-	return is_binding_down( mod_id, name, dirty_mode, true, is_vip, loose_mode, is_guiless )
-end
-function get_binding_vip( mod_id, name, is_guiless )
-	return get_binding_pressed( mod_id, name, true, true, true, is_guiless )
+function get_key_vip( name )
+	return get_key_pressed( name, true, true )
 end
 
-function get_axis_state( mod_id, name, dirty_mode, pressed_mode, is_vip, is_guiless, key_mode )
-	return mnee.mnin_axis( mod_id, name, dirty_mode, pressed_mode, is_vip, is_guiless, key_mode )
+function is_binding_down( mod_id, name, dirty_mode, pressed_mode, is_vip, loose_mode, key_mode )
+	return mnee.mnin_bind( mod_id, name, dirty_mode, pressed_mode, is_vip, loose_mode, key_mode )
 end
-function get_axis_pressed( mod_id, name, dirty_mode, is_vip, is_guiless )
-	return get_axis_state( mod_id, name, dirty_mode, true, is_vip, is_guiless )
+function get_binding_pressed( mod_id, name, is_vip, dirty_mode, loose_mode )
+	return is_binding_down( mod_id, name, dirty_mode, true, is_vip, loose_mode )
 end
-function get_axis_vip( mod_id, name, is_guiless )
-	return get_axis_pressed( mod_id, name, true, true, is_guiless )
+function get_binding_vip( mod_id, name )
+	return get_binding_pressed( mod_id, name, true, true, true )
+end
+
+function get_axis_state( mod_id, name, dirty_mode, pressed_mode, is_vip, key_mode )
+	return mnee.mnin_axis( mod_id, name, dirty_mode, pressed_mode, is_vip, key_mode )
+end
+function get_axis_pressed( mod_id, name, dirty_mode, is_vip )
+	return get_axis_state( mod_id, name, dirty_mode, true, is_vip )
+end
+function get_axis_vip( mod_id, name )
+	return get_axis_pressed( mod_id, name, true, true )
 end

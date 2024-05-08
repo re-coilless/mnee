@@ -31,11 +31,51 @@ function mod_setting_full_resetter( mod_id, gui, in_main_menu, im_id, setting )
 	mod_setting_tooltip( mod_id, gui, in_main_menu, setting )
 end
 
-function text_with_no_mod( translation, default )
+function text_with_no_mod( key ) --inspired by Conga's approach
 	if( GameHasFlagRun( "MNEE_IS_GOING" )) then
-		return translation
+		return key
 	else
-		return default
+		local csv = {
+			["$mnee_tutorial"] = {
+				["English"] = "[PRESS CTRL+M IN-GAME TO OPEN THE MENU]",
+				["русский"] = "[НАЖМИ CTRL+Ь В ИГРЕ ЧТОБЫ ОТКРЫТЬ ГЛАВНОЕ ОКНО]",
+				-- ["Português (Brasil)"] = "",
+				-- ["Español"] = "",
+				-- ["Deutsch"] = "",
+				-- ["Français"] = "",
+				-- ["Italiano"] = "",
+				-- ["Polska"] = "",
+				["简体中文"] = "[在游戏内按下左CTRL+M以开启该菜单]",
+				-- ["日本語"] = "",
+				-- ["한국어"] = "",
+			},
+			["$mnee_deadzone"] = {
+				["English"] = "Analog Stick Deadzone",
+				-- ["русский"] = "",
+				-- ["简体中文"] = "",
+			},
+			["$mnee_deadzone_desc"] = {
+				["English"] = "Controls the radius of the zone near the rest position where the inputs do not count.",
+				-- ["русский"] = "",
+				-- ["简体中文"] = "",
+			},
+			["$mnee_reset"] = {
+				["English"] = "Complete Reset",
+				["русский"] = "Полный Сброс",
+				["简体中文"] = "完全重置",
+			},
+			["$mnee_rmb_reset"] = {
+				["English"] = "RMB to reset all the saved M-Nee bindings.",
+				["русский"] = "ПКМ чтобы полностью сбросить назначенные клавиши.",
+				["简体中文"] = "右键以重置所有保存的M-Nee按键绑定集合。",
+			},
+			["$mnee_done"] = {
+				["English"] = "[IT IS DONE]",
+				["русский"] = "[ГОТОВО]",
+				["简体中文"] = "[已完成]",
+			},
+		}
+		return csv[key][GameTextGetTranslatedOrNot("$current_language")] or csv[key]["English"]
 	end
 end
 
@@ -45,13 +85,13 @@ mod_settings =
 {
 	{
 		id = "READ_ME",
-		ui_name = text_with_no_mod( "$mnee_tutorial", "[PRESS LEFT_CTRL+M IN-GAME TO OPEN THE MENU]" ),
+		ui_name = text_with_no_mod( "$mnee_tutorial" ),
 		ui_fn = mod_setting_blinking_text,
 	},
 	{
 		id = "DEADZONE_AIM",
-		ui_name = GameTextGetTranslatedOrNot( text_with_no_mod( "$mnee_deadzone", "Analog Stick Deadzone" )).." [AIM]",
-		ui_description = text_with_no_mod( "$mnee_deadzone_desc", "Controls the radius of the zone near the rest position where the inputs do not count." ),
+		ui_name = GameTextGetTranslatedOrNot( text_with_no_mod( "$mnee_deadzone" )).." [AIM]",
+		ui_description = text_with_no_mod( "$mnee_deadzone_desc" ),
 		value_default = 0,
 		
 		value_min = 0,
@@ -62,8 +102,8 @@ mod_settings =
 	},
 	{
 		id = "DEADZONE_MOTION",
-		ui_name = GameTextGetTranslatedOrNot( text_with_no_mod( "$mnee_deadzone", "Analog Stick Deadzone" )).." [MOTION]",
-		ui_description = text_with_no_mod( "$mnee_deadzone_desc", "Controls the radius of the zone near the rest position where the inputs do not count." ),
+		ui_name = GameTextGetTranslatedOrNot( text_with_no_mod( "$mnee_deadzone" )).." [MOTION]",
+		ui_description = text_with_no_mod( "$mnee_deadzone_desc" ),
 		value_default = 1,
 		
 		value_min = 0,
@@ -74,8 +114,8 @@ mod_settings =
 	},
 	{
 		id = "DEADZONE_EXTRA",
-		ui_name = GameTextGetTranslatedOrNot( text_with_no_mod( "$mnee_deadzone", "Analog Stick Deadzone" )).." [EXTRA]",
-		ui_description = text_with_no_mod( "$mnee_deadzone_desc", "Controls the radius of the zone near the rest position where the inputs do not count." ),
+		ui_name = GameTextGetTranslatedOrNot( text_with_no_mod( "$mnee_deadzone" )).." [EXTRA]",
+		ui_description = text_with_no_mod( "$mnee_deadzone_desc" ),
 		value_default = 1,
 		
 		value_min = 0,
@@ -91,9 +131,9 @@ mod_settings =
 	},
 	{
 		id = "NUKE_EM",
-		ui_name = text_with_no_mod( "$mnee_reset", "Complete Reset" ),
-		ui_description = text_with_no_mod( "$mnee_rmb_reset", "RMB to reset all the saved M-Nee bindings." ),
-		ui_extra = text_with_no_mod( "$mnee_done", "[IT IS DONE]" ),
+		ui_name = text_with_no_mod( "$mnee_reset" ),
+		ui_description = text_with_no_mod( "$mnee_rmb_reset" ),
+		ui_extra = text_with_no_mod( "$mnee_done" ),
 		value_default = false,
 		hidden = false,
 		scope = MOD_SETTING_SCOPE_RUNTIME,

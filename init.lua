@@ -6,8 +6,9 @@ function OnModInit()
 	pen.set_translations( "mods/mnee/translations.csv" )
 	
 	-- rewrite doc
+	-- update translations in settings
 	-- make procedural pause screen keyboard that highlights all the bind's keys on hover of one of them (only if the moddev marked the binding as show_on_pause)
-
+	
 	local lists = dofile_once( "mods/mnee/lists.lua" )
 	local keycaps = lists[1]
 	local mouse = lists[2]
@@ -330,7 +331,7 @@ function OnWorldPreUpdate()
 								uid, clicked, r_clicked = pen.new_button( gui, uid, t_x + 75, t_y, pic_z - 0.01, "mods/mnee/pics/key_delete.png" )
 								uid = mnee.new_tooltip( gui, uid, pic_z - 200, GameTextGetTranslatedOrNot( "$mnee_rmb_default" ))
 								if( r_clicked ) then
-									dofile_once( "mods/mnee/bindings.lua" )
+									dofile( "mods/mnee/bindings.lua" )
 									keys[ current_mod ][ id ][ key_type ] = bindings[ current_mod ][ id ][ key_type ]
 									mnee.set_bindings( keys )
 									pen.play_sound( "clear_all" )
@@ -352,7 +353,7 @@ function OnWorldPreUpdate()
 					uid, clicked, r_clicked = pen.new_button( gui, uid, pic_x + 112, pic_y + 99, pic_z - 0.01, "mods/mnee/pics/button_dft.png" )
 					uid = mnee.new_tooltip( gui, uid, pic_z - 200, GameTextGetTranslatedOrNot( "$mnee_rmb_mod" ))
 					if( r_clicked ) then
-						dofile_once( "mods/mnee/bindings.lua" )
+						dofile( "mods/mnee/bindings.lua" )
 						keys[ current_mod ] = bindings[ current_mod ]
 						mnee.set_bindings( keys )
 						pen.play_sound( "clear_all" )

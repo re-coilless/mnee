@@ -253,9 +253,10 @@ function OnWorldPreUpdate()
 									current_mod = mod
 									pen.play_sound( "button_special" )
 								end
+								
+								counter = counter + 1
 							end
 						end
-						counter = counter + 1
 					end
 					
 					local page = mod_page
@@ -335,8 +336,9 @@ function OnWorldPreUpdate()
 									mnee.set_bindings( keys )
 									pen.play_sound( "clear_all" )
 								end
+
+								counter = counter + 1
 							end
-							counter = counter + 1
 						end
 					end
 					

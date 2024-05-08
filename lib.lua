@@ -278,7 +278,6 @@ function mnee.get_bindings( profile, binds_only )
 								data[ mod_name ][ binding_name ] = {}
 								data[ mod_name ][ binding_name ][ "keys" ] = {}
 								data[ mod_name ][ binding_name ][ "keys_alt" ] = {}
-								data[ mod_name ][ binding_name ][ "jpad_type" ] = bindings[ mod_name ][ binding_name ].jpad_type
 								if( not( binds_only )) then
 									data[ mod_name ][ binding_name ][ "order_id" ] = bindings[ mod_name ][ binding_name ].order_id
 									data[ mod_name ][ binding_name ][ "is_dirty" ] = bindings[ mod_name ][ binding_name ].is_dirty
@@ -288,6 +287,7 @@ function mnee.get_bindings( profile, binds_only )
 									data[ mod_name ][ binding_name ][ "is_hidden" ] = bindings[ mod_name ][ binding_name ].is_hidden
 									data[ mod_name ][ binding_name ][ "name" ] = bindings[ mod_name ][ binding_name ].name
 									data[ mod_name ][ binding_name ][ "desc" ] = bindings[ mod_name ][ binding_name ].desc
+									data[ mod_name ][ binding_name ][ "jpad_type" ] = bindings[ mod_name ][ binding_name ].jpad_type
 								end
 							end
 						end

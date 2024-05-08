@@ -51,12 +51,12 @@ function text_with_no_mod( key ) --inspired by Conga's approach
 			},
 			["$mnee_deadzone"] = {
 				["English"] = "Analog Stick Deadzone",
-				-- ["русский"] = "",
+				["русский"] = "Мёртвая Зона Геймпада",
 				-- ["简体中文"] = "",
 			},
 			["$mnee_deadzone_desc"] = {
 				["English"] = "Controls the radius of the zone near the rest position where the inputs do not count.",
-				-- ["русский"] = "",
+				["русский"] = "Изменяет радиус зоны около позиции покоя, где ввод не считывается.",
 				-- ["简体中文"] = "",
 			},
 			["$mnee_reset"] = {

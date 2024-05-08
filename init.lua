@@ -5,7 +5,6 @@ function OnModInit()
 	dofile_once( "mods/mnee/lib.lua" )
 	pen.set_translations( "mods/mnee/translations.csv" )
 	
-	-- rewrite doc
 	-- update translations in settings
 	-- make procedural pause screen keyboard that highlights all the bind's keys on hover of one of them (only if the moddev marked the binding as show_on_pause)
 	

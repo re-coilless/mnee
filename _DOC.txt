@@ -1,74 +1,74 @@
 [GENERAL]
-- This is an inputs framework, it allows developers to painlessly implement complex means of interfacing with the player and players to customize siad interfaces to their liking.
-- The system features translations: at the moment, English, Russian (thanks CrackbeardGunman) and Chinese (thanks ImmortalDamned) languages are supported. If there's a need for more, one can always offer their liguistical insight to fill in the blanks.
-- The absolute majority of user-accessible features is explained in form of the tooltips – make sure to read the text that pops up on hover. Additionally, seek "?" buttons, as they will provide some more insight on mousing over.
-- M-Nee is designed to allow seamless intergration of both keyboard+mouse and gamepad input within singular context. All the bindings can be assigned to both device categories interchangebly and analog input features button-driven emulation modes.
-- It is important to note that, while gamepad support is the part of the inherent design of this system, the actual interface still has to be used with mouse and keyboard. In fact, for the best experience it is recommended to turn of vanilla gamepad support in its entirety – this can be done through Options -> Input -> Gamepad -> set to "Off", else conflicts and critical bugs may be enountered.
-- To get started, it is recoomended to visit Options -> Mod Settings -> M-Nee and follow the intructions provided there. One may also notice deadzone customization options and full reset button.
-- To provide certain flexibility, the input customization is performed on per-profile case. There are 3 independent profiles in total and you may switch between them either through the listed hotkey or via the on-screen buttons in the M-Nee window. At the top right corner of the same window exists a global toggle button – go-to option to immediately and safely cut-off custom inputs.
-- Another feature worth mentioning are the rebinding modes. There are two of them, simple and advanced. Where former is the default straightforward way to assign a singular key to a basic action, the latter allows for any sort of complicated key groups yet is more involved during rebinding as a result.
-- The system supports secondary inputs for any action, allowing a seamless transition from gamepad to keyboard and the other way around or any sort of alternative buttons for the same action.
-- Finally, any key can be unbinded to be disabled permanently or at least until binded once again. One may find the toggle to do so at the bottom right of the rebinding menu.
+- This is an inputs framework, it allows developers to painlessly implement complex means of interfacing with the player and players to customize said interfaces to their liking.
+- The system features translations: at the moment, English, Russian (thanks CrackbeardGunman) and Chinese (thanks ImmortalDamned) languages are supported. If there's a need for more, one can always offer their linguistic insight to fill in the blanks.
+- The absolute majority of user-accessible features are explained in the form of the tooltips – make sure to read the text that pops up on hover. Additionally, seek "?" buttons, as they will provide some more explanations on mousing over.
+- M-Nee is designed to allow seamless integration of both keyboard+mouse and gamepad input within a singular context. All the bindings can be assigned to both device categories interchangeably and the gamepad-exclusive part of the input features button-driven emulation modes.
+- It is important to note that, while gamepad support is part of the inherent design of this system, the actual interface still has to be used with a mouse and keyboard. In fact, for the best experience, it is recommended to turn off vanilla gamepad support in its entirety – this can be done through Options -> Input -> Gamepad -> set to "Off", else conflicts and critical bugs may be encountered.
+- To get started, it is recommended to visit Options -> Mod Settings -> M-Nee and follow the instructions provided there. One may also notice dead zone customization options and a full reset button.
+- To provide certain flexibility, the input customization is performed on a per-profile case. There are 3 independent profiles in total and you may switch between them either through the listed hotkey or via the on-screen buttons in the M-Nee window. At the top right corner of the same window exists a global toggle button – a go-to option to immediately and safely cut off custom inputs.
+- Another feature worth mentioning is the rebinding modes. There are two of them, simple and advanced. Where the former is the default straightforward way to assign a singular key to a basic action, the latter allows for any sort of complicated key groupings yet is more involved during rebinding as a result.
+- Any action within the system supports secondary inputs, allowing a seamless transition from gamepad to keyboard and the other way around or any sort of alternative buttons to be assigned to the same input.
+- Finally, any key can be unbound to be disabled permanently or at least disabled until bound once again. One may find the toggle to do so at the bottom right of the rebinding menu.
 
 [SETUP]
 - First and foremost, please, consult this example of the reasonably advanced M-Nee setup: https://github.com/re-coilless/kappa
 - Then, before the actual mnee.lua file structure will be elaborated upon, let us list some overarching utilities.
-   - In the mnee/lib.lua, at the top of the file, one will find a whole lot of globally-relevant constants. Some of them are of no significance outside the internal context of the system itself, some of them will be discussed later (see [MACRO] chapter), but two of such, mnee.SPECIAL_KEYS and mnee.INMODES, are of particular importance as they can and should be modified by appending to the lib.lua itself.
-   - SPECIAL_KEYS is supposed to separate normal and "special" inputs, where a "special" input is handled in a unique way; if one is interested in mimicking the kind of functionality a key like "ctrl" or "alt" has, this is the very table one should write to.
-   - INMODES is of another yet no less fundamental purpose – it is the way to modify the global input itself; internally, it is used to create a parallel version of the key stream that only allows GUI-filtered LMB/RMB clicks and can be modified to implement any sort of interfacing, even allowing phantom and totally custom keys to injected.
+   - In the mnee/lib.lua, at the top of the file, one will find a whole lot of globally relevant constants. Some of them are of no significance outside the internal context of the system itself, and some of them will be discussed later (see [MACRO] chapter), but two of such, mnee.SPECIAL_KEYS and mnee.INMODES, are of particular importance, as they can and should be modified by appending to the lib.lua itself.
+   - SPECIAL_KEYS is supposed to separate normal and "special" inputs, where a "special" input is handled in a rather particular way; if one is interested in mimicking the kind of functionality a key like "ctrl" or "alt" has, this is the very table one should write to.
+   - INMODES is of another yet no less fundamental purpose – it is the way to modify the global input itself; internally, this subsystem is used to create a parallel version of the key stream that only allows GUI-filtered LMB/RMB clicks and can be modified to implement any sort of interfacing, allowing phantom and custom keys to be injected.
    - It must be noted that even with all the new fancy additions, the system is still fully backwards compatible: the Legacy section at the very bottom of the lib.lua is responsible for making sure it is so.
-   - Last but not least, seek mnee/lists.lua file – it has all of the internal key IDs / "encoding" layers written within itself and even features a very helpful controller inputs cheatsheets.
-- Finally, it is time to consider how one would apporoach setting up a mnee-enabled mod. To begin, familiarize oneself with mnee/bindings.lua, which consists of two parts: mneedata and bindings.
-- mneedata is the metadata table of the entire tab of the rebinding menu and has several potential input values all of which can be set to nil. Actually, the entirety of this table can be skipped altogether with no detriment to the fuctionality of the rest of the system.
+   - Last but not least, seek mnee/lists.lua file – it has all of the internal key IDs / "encoding" layers written within itself and even contains a pair of handy controller inputs cheatsheets.
+- Finally, it is time to consider how one would approach setting up a mnee-enabled mod. To begin, familiarize oneself with mnee/bindings.lua, which consists of two parts: mneedata and bindings.
+- "mneedata" is the metadata table of the whole rebinding menu tab and has several fields all of which can be left empty. Actually, the entirety of this table can be skipped altogether with no detriment to the functionality of the rest of the system.
    - name: the displayed name of the tab.
-	- desc: the tooltip text that appears while hovering over the tab.
-	- is_dirty: a global toggle that forces is_dirty mode for all bindings within this tab, unless thier own is_dirty field is not set to nil.
-	- is_advanced: a global toggle that does the same as is_dirty but for is_advanced option.
-	- is_locked: a global toggle that does the same as is_dirty but for is_locked option. Can be either a boolean or a function.
-	- is_hidden: hides the entire tab from the menu. Can be either a boolean or a function.
-   - func: a full override of the tab contents allowing one to write fully custom implementation of one; (data.a+1) is the index of the first elements of the current page, (data.b-1) is the index of the last element of the current page, data.ks is the entirety of the bindings table, data.k_type is either "keys" or "keys_alt" string value that corresponds to table index within every bindings structure; must return the uid arguement followed by either nil or a result table where result.set_bind is the ID of the bind to be reassigned by user, result.will_axis is the value that controls whether the bind is axis or not, result.btn_axis is the toggle between emulated/real axis and result.set_advanced forces rebinding to be in the advanced mode.
-- bindings is the main table of the system that declares the bindings and all the relevant data that comes with them. This table must be defined for the system to function at all yet out of all the values only name, desc and keys are obligatory.
-   - order_id: used to set custom sorting order for the normally alphabetically arranged bindings.
-   - is_dirty: setting this to true will alter the conflic checking algorithm to compare bindings in a way like they had their is_dirty (see [INPUT] chapter) parameter enabled.
+   - desc: the tooltip text that appears while hovering over the tab.
+   - is_dirty: a global toggle that forces is_dirty mode for all bindings within this tab, unless their is_dirty field is not set to nil.
+   - is_advanced: a global toggle that does the same as is_dirty but for is_advanced option.
+   - is_locked: a global toggle that does the same as is_dirty but for is_locked option. Can be either a boolean or a function.
+   - is_hidden: hides the entire tab from the menu. Can be either a boolean or a function.
+   - func: a complete override of the tab contents allowing one to write a fully custom implementation; (data.a+1) is the index of the first elements at the current page, (data.b-1) is the index of the last element at the current page, data.ks is the entirety of the bindings table, "data.k_type" is either "keys" or "keys_alt" string value that corresponds to table index within every binding's structure; must return the uid argument followed by either nil or a result table where "result.set_bind" is the ID of the bind to be reassigned by the user, "result.will_axis" is the value that controls whether the bind is the axis or not, "result.btn_axis" is the toggle between emulated/real axis and "result.set_advanced" forces rebinding to be in the advanced mode.
+- "bindings" is the main table of the system that declares the binds and all the relevant data that comes with them. This table must be defined for the system to function at all, yet out of all the fields only name, desc and keys are obligatory.
+   - order_id: is used to set custom sorting order for the normally alphabetically arranged bindings.
+   - is_dirty: setting this to true will alter the conflict-checking algorithm to compare bindings in a way like they had their is_dirty (see [INPUT] chapter) parameter enabled.
    - is_advanced: will force the rebinding to be permanently in advanced mode (see [GENERAL] chapter).
-   - allow_special: despite algorithm's better judgement will force-allow special keys to be binded in the simple rebinding mode.
+   - allow_special: despite the algorithm's better judgement, will force-allow special keys to be bound in the simple rebinding mode.
    - is_locked: is used to prevent the setting from being changed by the user. Can be either a boolean or a function.
    - is_hidden: is used to hide the existence of the binding from the user. Can be either a boolean or a function.
    - name: the displayed name of the binding.
    - desc: the tooltip text that appears while hovering over the binding.
-   - jpad_type: the deadzone kind. There exists 3 (MOTION, AIM and EXTRA) and all can be changed in the normal settings. Only is relevant for the gamepad stick input.
+   - jpad_type: the deadzone kind. There exist 3 (MOTION, AIM and EXTRA) and all can be changed in the normal settings. Only is relevant for the gamepad stick input.
    - keys: a string-indexed table of the keys assigned to this bind by default.
    - keys_alt: same as keys but for secondary input option.
 
 [MACRO]
-- Aside from aforementioned SPECIAL_KEYS and INMODES there exists 3 another useful global constants: mnee.TOGGLER, mnee.SERV_MODE, mnee.PRIO_MODE.
-   - TOGGLER is the global user-accessible mnee-base dinput toggle. It can be manually initiated via GameAddFlagRun( mnee.TOGGLER ) but keep in mind that player always has the means of gettign rid of this limitation. Bindings is vip mode will ignore this toggle altogether.
-   - SERV_MODE is the same kind of the toggle yet this time it is reserved for the internal use. Call it the same way as TOGGLER. It will be cleared on game reload to prevent softlocks. Bindings within whose context a global called mnee_ignore_service_mode was set to true will ignore this toggle altogether.
-   - PRIO_MODE is the way to limit all input to a single mod alone. It can be enabled through mnee.set_priority_mode( mod_id ) and replace mod_id with 0 to turn it off. It will be cleared on game reload to prevent softlocks. This toggle has no failsaves so truly everything aside from the prioritized mod will be disabled no matter the case.
-- Besides from the constants, there exists a number of auxilliary functions, that cover niche use-cases:
-   - mnee.get_triggers()/mnee.get_axes(): return raw analog input data in the following format – {1gpd_left=value, 1gpd_right=value}
-   - mnee.get_bindings( profile, binds_only ): returns all the bibding data there is, basically the globalmost and complete mnee table; profile controls from which profile to compile the data and binds_only removes miscelanious fluff that is relevant only for visualization purposes. The structure is as follows – { mod_id = { bind_id = bind_table }}
-   - mnee.get_binding_keys( mod_id, name, is_compact ): probably the most useful of them all, returns the keys of the bindings in a nice UI-friendly way; mod_id and name are for the purposes of bidng ID and is_compact will make the return value take less text space.
+- Aside from the aforementioned SPECIAL_KEYS and INMODES, there exist 3 other useful global constants: mnee.TOGGLER, mnee.SERV_MODE and mnee.PRIO_MODE.
+   - TOGGLER is the global user-accessible mnee-base input toggle. It can be manually initiated via GameAddFlagRun( mnee.TOGGLER ) but keep in mind that the player always has the means of getting rid of this limitation. Bindings in VIP mode will ignore this toggle altogether.
+   - SERV_MODE is the same kind of toggle yet this time it is reserved for internal use. One may call it the same way as they did TOGGLER and it will be cleared on game reload to prevent softlocks. Bindings within whose context a global called mnee_ignore_service_mode was set to true will ignore this flag altogether.
+   - PRIO_MODE is the way to limit all input to a single mod alone. It can be enabled through mnee.set_priority_mode( mod_id ), replace "mod_id" with 0 to turn it off. It will be cleared on game reload to prevent softlocks. This toggle has no failsafe, so truly everything aside from the prioritized mod will be disabled no matter the case.
+- Besides the constants, there exists several auxiliary functions, that cover niche use cases:
+   - mnee.get_triggers()/mnee.get_axes(): return raw analog input data in the following format – {1gpd_left=value, 1gpd_right=value}.
+   - mnee.get_bindings( profile, binds_only ): returns all the binding data there is, basically the globalmost complete mnee table; "profile" controls from which profile to compile the data and "binds_only" removes miscellaneous fluff that is relevant only for visualization purposes. The structure is as follows – { mod_id = { bind_id = bind_table }}.
+   - mnee.get_binding_keys( mod_id, name, is_compact ): probably the most useful of them all, returns the keys of the bindings in a UI-friendly way; "mod_id" and "name" are for binding ID and "is_compact" will make the return value take less space.
 
 [INPUT]
 - mnee.get_keyboard_input( no_shifting ) - a streamlined way to get full keyboard input
-   - returns the first detected key, will only return one at a time
-   - supports shifting - will automatically detect the state change and return modified value (this will be disabled if no_shifting is true)
-   - additionally returns a set of special values for several func keys: return (3 normal, -3 shifted), escape (0 normal, nil shifted), backspace (2 normal, -2 shifted), tab (4 normal, -4 shifted).
+   - Returns the first detected key, will only return one at a time.
+   - Supports shifting - will automatically detect the state change and return modified value (this will be disabled if "no_shifting" is true).
+   - Additionally, returns a set of special values for several func keys: return (3 normal, -3 shifted), escape (0 normal, nil shifted), backspace (2 normal, -2 shifted), tab (4 normal, -4 shifted).
 - mnee.mnin( mode, id_data, data ) - a unified access point for the entirety of mnee input API
-   - mode: toggles the global behavior of this function
-   - id_data: serves to point to the binding in question
-   - data: the actual input of the function
+   - mode: toggles the global behaviour of this function.
+   - id_data: serves to point to the binding in question.
+   - data: the actual input of the function.
 - mnee.mnin( "key", {<key name>}, { dirty=dirty_mode, pressed=pressed_mode, vip=is_vip, mode=key_mode })
-   - Addresses the raw key by its internal name (see the list in bindings.lua), so isn't rebindable and does not show up in binding menu.
-   - dirty: will disable perma-false on special key press (normally it prevents conflicts between "ctrl+m" and "m" for example)
-   - pressed: will report "true" only once and then wait till the button is reset
-   - vip: will ignore the TOGGLER flag (see [MACRO] chapter)
-   - mode: will choose between different INMODES profiles, set it to "guied" to filter out in-gui LMB/RMB clicks.
+   - Addresses the raw key by its internal name (see the list in bindings.lua), so unmodifiable and does not show up in the binding menu.
+   - dirty: will disable perma-false return on special key press (normally, it prevents conflicts between "ctrl+m" and "m" for example).
+   - pressed: will report "true" only once and then wait until the button is reset.
+   - vip: will ignore the TOGGLER flag (see [MACRO] chapter).
+   - mode: will choose between different INMODES profiles, set it to "guied" to filter out in-GUI LMB/RMB clicks.
 - mnee.mnin( "bind", {<mod_id>, <binding name>}, { dirty=dirty_mode, pressed=pressed_mode, vip=is_vip, loose=loose_mode, mode=key_mode })
-   - Operates via flexible and rebindable single- or multi-keyed combinations, shows up in binding menu and is the recommendation for the main input source. Other than that, functions exactly like the one above.
-   - loose_mode: will allow a part of larger combination to trigger a smaller one (for instance, "shift+ctrl+e" and "ctrl+e" would both be engaged)
+   - Operates via flexible and rebindable single- or multi-keyed combinations, shows up in the binding menu and is a recommended way to set up the main input source. Other than that, functions exactly like the one above.
+   - loose_mode: will allow a part of a larger combination to trigger a smaller one (for instance, "shift+ctrl+e" and "ctrl+e" would both be engaged).
 - mnee.mnin( "axis", {<mod_id>, <binding name>}, { dirty=dirty_mode, pressed=pressed_mode, vip=is_vip, mode=key_mode })
-   - If binding is set to proper analog axis, the output will be a number from -1.000 to 1.000 with 0 starting at the edge of the deadzone.
-   - If binding is set to discrete, the output will be forced to only three states: -1, 0 and 1 according to the button presses.
-   - Never mind the above, all the modes behave exactly as described before.
+   - If binding is set to the proper analog axis, the output will be a number from -1.000 to 1.000 with 0 starting at the edge of the deadzone.
+   - If binding is set to discrete, the output will be forced to only three states(-1, 0 and 1), all according to the button presses.
+   - Ignoring the above, the mode behaves exactly as described before.

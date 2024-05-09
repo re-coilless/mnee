@@ -59,6 +59,16 @@ function text_with_no_mod( key ) --inspired by Conga's approach
 				["русский"] = "Изменяет радиус зоны около позиции покоя, где ввод не считывается.",
 				-- ["简体中文"] = "",
 			},
+			["$mnee_autoaim"] = {
+				["English"] = "Aim Assist Strength",
+				["русский"] = "Степень Помощи в Прицеливании",
+				-- ["简体中文"] = "",
+			},
+			["$mnee_autoaim_desc"] = {
+				["English"] = "Controls the degree to which you aim will be offsetted by aim assisting algorithm.",
+				["русский"] = "Изменяет степень отконения перекрестья алгоритмом помощи в прицеливании.",
+				-- ["简体中文"] = "",
+			},
 			["$mnee_reset"] = {
 				["English"] = "Complete Reset",
 				["русский"] = "Полный Сброс",
@@ -122,6 +132,18 @@ mod_settings =
 		value_max = 19,
 		value_display_multiplier = 5,
 		value_display_formatting = " $0% ",
+		scope = MOD_SETTING_SCOPE_RUNTIME,
+	},
+	{
+		id = "AUTOAIM",
+		ui_name = GameTextGetTranslatedOrNot( text_with_no_mod( "$mnee_autoaim" )),
+		ui_description = text_with_no_mod( "$mnee_autoaim_desc" ),
+		value_default = 5,
+		
+		value_min = 0,
+		value_max = 10,
+		value_display_multiplier = 1,
+		value_display_formatting = " $0 ",
 		scope = MOD_SETTING_SCOPE_RUNTIME,
 	},
 	{

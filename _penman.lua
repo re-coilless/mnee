@@ -20,6 +20,23 @@ function pen.limiter( value, limit, max_mode )
 	return value
 end
 
+function pen.get_angular_delta( a, b, get_max )
+	get_max = get_max or false
+
+	local pi, pi4 = math.rad( 90 ), math.rad( 360 )
+	local d360 = a - b
+	local d180 = ( a + pi )%pi4 - ( b + pi )%pi4
+	if( get_max ) then
+		return ( math.abs( d360 ) > math.abs( d180 ) and d360 or d180 )
+	else
+		return ( math.abs( d360 ) < math.abs( d180 ) and d360 or d180 )
+	end
+end
+
+function pen.angle_reset( angle )
+	return math.atan2( math.sin( angle ), math.cos( angle ))
+end
+
 function pen.world2gui( gui, x, y )
 	local w, h = GuiGetScreenDimensions( gui )
 	local cam_x, cam_y = GameGetCameraPos()
@@ -34,6 +51,29 @@ function pen.get_mouse_pos( gui )
 end
 
 --[UTILS]
+function pen.debug_dot( x, y, frames )
+	GameCreateSpriteForXFrames( "data/ui_gfx/debug_marker.png", x, y, true, 0, 0, frames or 1, true )
+end
+
+function pen.add_table( a, b )
+	if( #b > 0 ) then
+		table.sort( b )
+		if( #a > 0 ) then
+			for m,new in ipairs( b ) do 
+				if( binsearch( a, new ) == nil ) then
+					table.insert( a, new )
+				end
+			end
+			
+			table.sort( a )
+		else
+			a = b
+		end
+	end
+	
+	return a
+end
+
 function pen.get_table_count( tbl )
 	if( tbl == nil or type( tbl ) ~= "table" ) then
 		return 0
@@ -44,6 +84,36 @@ function pen.get_table_count( tbl )
 		table_count = table_count + 1
 	end
 	return table_count
+end
+
+function pen.closest_getter( x, y, stuff, check_sight, limits, extra_check )
+	check_sight = check_sight or false
+	limits = limits or { 0, 0, }
+	if( #( stuff or {}) == 0 ) then
+		return 0
+	end
+	
+	local actual_thing = 0
+	local min_dist = -1
+	for i,raw_thing in ipairs( stuff ) do
+		local thing = type( raw_thing ) == "table" and raw_thing[1] or raw_thing
+
+		local t_x, t_y = EntityGetTransform( thing )
+		if( not( check_sight ) or not( RaytracePlatforms( x, y, t_x, t_y ))) then
+			local d_x, d_y = math.abs( t_x - x ), math.abs( t_y - y )
+			if(( d_x < limits[1] or limits[1] == 0 ) and ( d_y < limits[2] or limits[2] == 0 )) then
+				local dist = math.sqrt( d_x^2 + d_y^2 )
+				if( min_dist == -1 or dist < min_dist ) then
+					if( extra_check == nil or extra_check( raw_thing )) then
+						min_dist = dist
+						actual_thing = raw_thing
+					end
+				end
+			end
+		end
+	end
+	
+	return actual_thing
 end
 
 function pen.set_translations( path )
@@ -260,6 +330,28 @@ function pen.get_hooman_child( hooman, tag, ignore_id )
 	end
 	
 	return nil
+end
+
+function pen.get_creature_centre( hooman, x, y )
+	local char_comp = EntityGetFirstComponentIncludingDisabled( hooman, "CharacterDataComponent" )
+	if( char_comp ~= nil ) then
+		y = y + ComponentGetValue2( char_comp, "buoyancy_check_offset_y" )
+	end
+	return x, y
+end
+
+function pen.get_creature_head( entity_id, x, y )
+	local ai_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "AnimalAIComponent" )
+	if( ai_comp ~= nil ) then
+		y = y + ComponentGetValue2( ai_comp, "eye_offset_y" )
+	else
+		local crouch_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "HotspotComponent", "crouch_sensor" )
+		if( crouch_comp ~= nil ) then
+			local off_x, off_y = ComponentGetValue2( crouch_comp, "offset" )
+			y = y + off_y + 3
+		end
+	end
+	return x, y
 end
 
 --[FRONTEND]

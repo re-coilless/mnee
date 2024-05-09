@@ -708,6 +708,72 @@ function mnee.apply_deadzone( v, kind )
 	return v
 end
 
+function mnee.aim_assist( hooman, pos, angle, is_active, data )
+	if( is_active ~= nil and not( is_active )) then
+		return angle, false
+	end
+
+	data = data or {}
+	data.setting = data.setting or "mnee.AUTOAIM"
+	data.tag_tbl = data.tag_tbl or {"enemy"}
+	data.pic = data.pic or "mods/mnee/pics/autoaim.png"
+	
+	local safe_zone = 50
+	local max_distance = 100
+	local ray_x, ray_y = max_distance*math.cos( angle ), max_distance*math.sin( angle )
+	local is_hit, hit_x, hit_y = RaytracePlatforms( pos[1], pos[2], pos[1] + ray_x, pos[2] + ray_y )
+	if( not( is_hit )) then
+		hit_x, hit_y = pos[1] + ray_x, pos[2] + ray_y
+	end
+	
+	local dir_x = pen.get_sign( hit_x - pos[1])
+	local dir_y = pen.get_sign( hit_y - pos[2])
+
+	local the_one = 0
+	local meats = {}
+	for i = 1,#data.tag_tbl do
+		meats = pen.add_table( meats, EntityGetInRadiusWithTag( hit_x, hit_y, max_distance, data.tag_tbl[i]) or {})
+	end
+	local min_dist = -1
+	for i,meat in ipairs( meats ) do
+		local t_x, t_y = pen.get_creature_head( meat, EntityGetTransform( meat ))
+		if( EntityGetRootEntity( meat ) == meat and hooman ~= meat and not( RaytracePlatforms( pos[1], pos[2], t_x, t_y ))) then
+			local t_delta_x = t_x - pos[1]
+			local t_delta_y = t_y - pos[2]
+			local dist_p = math.sqrt(( t_delta_x )^2 + ( t_delta_y )^2 )
+			local dist_h = math.sqrt(( t_x - hit_x )^2 + ( t_y - hit_y )^2 )
+			local dist = 0.75*dist_p + 0.25*dist_h
+			local t_dir_x, t_dir_y = pen.get_sign( t_delta_x ), pen.get_sign( t_delta_y )
+			if(( math.abs( t_delta_x ) < safe_zone or t_dir_x == dir_x ) and ( math.abs( t_delta_y ) < safe_zone or t_dir_y == dir_y )) then
+				if( min_dist == -1 or dist < min_dist ) then
+					min_dist = dist
+					the_one = meat
+				end
+			end
+		end
+	end
+	
+	local is_done = false
+	if( the_one > 0 ) then
+		local t_x, t_y = pen.get_creature_head( the_one, EntityGetTransform( the_one ))
+		local t_angle = math.atan2(( t_y - pos[2]), ( t_x - pos[1]))
+		local delta_a = pen.get_angular_delta( t_angle, angle )
+		
+		local autoaim = ModSettingGetNextValue( data.setting )
+		if( autoaim > 0.1 ) then
+			is_done = true
+			local strength = 0.1*autoaim
+			local min_offset = math.rad( 0.5 )*autoaim
+			angle = angle + pen.limiter( pen.limiter( strength*delta_a, min_offset, true ), delta_a )
+			if( data.pic ~= "" ) then
+				GameCreateSpriteForXFrames( data.pic, t_x, t_y, true, 0, 0, 1, true )
+			end
+		end
+	end
+
+	return angle, is_done
+end
+
 function mnee.mnin_axis( mod_id, name, dirty_mode, pressed_mode, is_vip, key_mode )
 	dirty_mode = dirty_mode or false
 	pressed_mode = pressed_mode or false

@@ -34,6 +34,8 @@ mnee_profile,Change Profile,Сменить профиль,,,,,,,更改控制配�
 mnee_profile_desc,Cycle through independed binding profiles.,Переключает между независимыми конфигурациями.,,,,,,,循环切换独立的按键绑定控制配置。,,,,,
 mnee_deadzone,Analog Stick Deadzone,Мёртвая Зона Геймпада,,,,,,,,,,,,
 mnee_deadzone_desc,Controls the radius of the zone near the rest position where the inputs do not count.,"Изменяет радиус зоны около позиции покоя, где ввод не считывается.",,,,,,,,,,,,
+mnee_autoaim,Aim Assist Strength,Степень Помощи в Прицеливании,,,,,,,,,,,,
+mnee_autoaim_desc,Controls the degree to which you aim will be offsetted by aim assisting algorithm.,Изменяет степень отконения перекрестья алгоритмом помощи в прицеливании.,,,,,,,,,,,,
 mnee_reset,Complete Reset,Полный Сброс,,,,,,,完全重置,,,,,
 mnee_alt_help,"For the secondary bindings, seek a button at the top right corner of this window.","Для дополнительных биндов, ищи кнопку в верхнем правом углу этого окна.",,,,,,,,,,,,
 mnee_doit,do it,давай,,,,,,,确认,,,,,

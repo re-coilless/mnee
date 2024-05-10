@@ -1,9 +1,9 @@
-ModRegisterAudioEventMappings( "mods/mnee/GUIDs.txt" )
+ModRegisterAudioEventMappings( "mods/mnee/files/sfx/GUIDs.txt" )
 get_active_keys = get_active_keys or ( function() return "huh?" end )
 
 function OnModInit()
 	dofile_once( "mods/mnee/lib.lua" )
-	pen.set_translations( "mods/mnee/translations.csv" )
+	pen.set_translations( "mods/mnee/files/translations.csv" )
 	
 	-- update translations in settings
 	-- make procedural pause screen keyboard that highlights all the bind's keys on hover of one of them (only if the moddev marked the binding as show_on_pause)
@@ -210,7 +210,7 @@ function OnWorldPreUpdate()
 			local uid = 0
 			if( gui_active ) then
 				if( current_binding == "" ) then
-					local pic = "mods/mnee/pics/window.png"
+					local pic = "mods/mnee/files/pics/window.png"
 					local pic_w, pic_h = GuiGetImageDimensions( gui, pic, 1 )
 					if( pic_x == nil ) then
 						local screen_w, screen_h = GuiGetScreenDimensions( gui )
@@ -218,17 +218,17 @@ function OnWorldPreUpdate()
 					end
 
 					local txt = GameTextGetTranslatedOrNot( "$mnee_title"..( show_alt and "B" or "A" ))
-					if( show_alt ) then uid = pen.new_image( gui, uid, pic_x, pic_y, pic_z - 0.001, "mods/mnee/pics/title_bg.png" ) end
+					if( show_alt ) then uid = pen.new_image( gui, uid, pic_x, pic_y, pic_z - 0.001, "mods/mnee/files/pics/title_bg.png" ) end
 					pen.new_text( gui, pic_x + 142 - GuiGetTextDimensions( gui, txt, 1, 2 ), pic_y, pic_z - 0.01, txt, show_alt and {136,121,247} or {238,226,206})
 
-					uid, clicked = pen.new_button( gui, uid, pic_x + pic_w - 8, pic_y + 2, pic_z - 0.01, "mods/mnee/pics/key_close.png" )
+					uid, clicked = pen.new_button( gui, uid, pic_x + pic_w - 8, pic_y + 2, pic_z - 0.01, "mods/mnee/files/pics/key_close.png" )
 					uid = mnee.new_tooltip( gui, uid, pic_z - 200, GameTextGetTranslatedOrNot( "$mnee_close" ))
 					if( clicked ) then
 						gui_active = false
 						pen.play_sound( "close_window" )
 					end
 
-					uid, clicked = pen.new_button( gui, uid, pic_x + pic_w - 15, pic_y + 2, pic_z - 0.01, "mods/mnee/pics/key_"..( show_alt and "B" or "A" )..".png" )
+					uid, clicked = pen.new_button( gui, uid, pic_x + pic_w - 15, pic_y + 2, pic_z - 0.01, "mods/mnee/files/pics/key_"..( show_alt and "B" or "A" )..".png" )
 					uid = mnee.new_tooltip( gui, uid, pic_z - 200, GameTextGetTranslatedOrNot( "$mnee_alt"..( show_alt and "B" or "A" )))
 					if( clicked ) then
 						show_alt = not( show_alt )
@@ -246,7 +246,7 @@ function OnWorldPreUpdate()
 								t_y = t_y + 11
 								
 								local name = pen.get_translated_line( is_fancy and mneedata[mod].name or mod )
-								uid, clicked = pen.new_button( gui, uid, t_x, t_y, pic_z - 0.01, "mods/mnee/pics/button_43_"..( current_mod == mod and "B" or "A" )..".png" )
+								uid, clicked = pen.new_button( gui, uid, t_x, t_y, pic_z - 0.01, "mods/mnee/files/pics/button_43_"..( current_mod == mod and "B" or "A" )..".png" )
 								uid = mnee.new_tooltip( gui, uid, pic_z - 200, name..( current_mod == mod and (( is_fancy and mneedata[mod].desc ~= nil ) and " @ "..pen.get_translated_line( mneedata[mod].desc ) or "" ) or " @ "..GameTextGetTranslatedOrNot( "$mnee_lmb_keys" )))
 								pen.new_text( gui, t_x + 2, t_y, pic_z - 0.02, pen.liner( name, 39 ), current_mod == mod and {245,132,132} or {238,226,206})
 								if( clicked ) then
@@ -307,7 +307,7 @@ function OnWorldPreUpdate()
 									is_static = pen.get_hybrid_function( is_static, {{current_mod,id}, jpad})
 								end
 								
-								uid, clicked, r_clicked = pen.new_button( gui, uid, t_x, t_y, pic_z - 0.01, "mods/mnee/pics/button_74_"..( is_static and "B" or "A" )..".png" )
+								uid, clicked, r_clicked = pen.new_button( gui, uid, t_x, t_y, pic_z - 0.01, "mods/mnee/files/pics/button_74_"..( is_static and "B" or "A" )..".png" )
 								pen.catch(function()
 									uid = mnee.new_tooltip( gui, uid, pic_z - 200, ( is_axis and ( GameTextGet( "$mnee_axis", bind.jpad_type or "EXTRA" )..( is_static and "" or " @ " )) or "" )..( is_static and GameTextGetTranslatedOrNot( "$mnee_static" ).." @ " or "" )..pen.get_translated_line( bind.name )..": "..pen.get_translated_line( bind.desc ).." @ "..mnee.bind2string( bind[key_type])..( is_axis and " @ "..GameTextGetTranslatedOrNot( "$mnee_lmb_axis" ) or "" ))
 									pen.new_text( gui, t_x + 2, t_y, pic_z - 0.02, pen.liner( pen.get_translated_line( bind.name ), 70 ), is_static and {136,121,247} or {238,226,206})
@@ -328,7 +328,7 @@ function OnWorldPreUpdate()
 									end
 								end
 								
-								uid, clicked, r_clicked = pen.new_button( gui, uid, t_x + 75, t_y, pic_z - 0.01, "mods/mnee/pics/key_delete.png" )
+								uid, clicked, r_clicked = pen.new_button( gui, uid, t_x + 75, t_y, pic_z - 0.01, "mods/mnee/files/pics/key_delete.png" )
 								uid = mnee.new_tooltip( gui, uid, pic_z - 200, GameTextGetTranslatedOrNot( "$mnee_rmb_default" ))
 								if( r_clicked ) then
 									dofile( "mods/mnee/bindings.lua" )
@@ -348,10 +348,10 @@ function OnWorldPreUpdate()
 						binding_page = page
 					end
 					
-					uid = pen.new_button( gui, uid, pic_x + 101, pic_y + 99, pic_z - 0.01, "mods/mnee/pics/help.png" )
+					uid = pen.new_button( gui, uid, pic_x + 101, pic_y + 99, pic_z - 0.01, "mods/mnee/files/pics/help.png" )
 					uid = mnee.new_tooltip( gui, uid, pic_z - 200, GameTextGetTranslatedOrNot( "$mnee_lmb_bind" ).." @ "..GameTextGetTranslatedOrNot( "$mnee_rmb_advanced" ).." @ "..GameTextGetTranslatedOrNot( "$mnee_alt_help" ))
 					
-					uid, clicked, r_clicked = pen.new_button( gui, uid, pic_x + 112, pic_y + 99, pic_z - 0.01, "mods/mnee/pics/button_dft.png" )
+					uid, clicked, r_clicked = pen.new_button( gui, uid, pic_x + 112, pic_y + 99, pic_z - 0.01, "mods/mnee/files/pics/button_dft.png" )
 					uid = mnee.new_tooltip( gui, uid, pic_z - 200, GameTextGetTranslatedOrNot( "$mnee_rmb_mod" ))
 					if( r_clicked ) then
 						dofile( "mods/mnee/bindings.lua" )
@@ -360,7 +360,7 @@ function OnWorldPreUpdate()
 						pen.play_sound( "clear_all" )
 					end
 					
-					uid, clicked = pen.new_button( gui, uid, pic_x + 136, pic_y + 11, pic_z - 0.01, "mods/mnee/pics/button_tgl_"..( is_disabled and "A" or "B" )..".png" )
+					uid, clicked = pen.new_button( gui, uid, pic_x + 136, pic_y + 11, pic_z - 0.01, "mods/mnee/files/pics/button_tgl_"..( is_disabled and "A" or "B" )..".png" )
 					uid = mnee.new_tooltip( gui, uid, pic_z - 200, GameTextGetTranslatedOrNot( "$mnee_lmb_input"..( is_disabled and "A" or "B" )))
 					if( clicked ) then
 						if( is_disabled ) then
@@ -372,7 +372,7 @@ function OnWorldPreUpdate()
 						end
 					end
 					
-					uid, clicked, r_clicked = pen.new_button( gui, uid, pic_x + 136, pic_y + 22, pic_z - 0.01, "mods/mnee/pics/button_rst.png" )
+					uid, clicked, r_clicked = pen.new_button( gui, uid, pic_x + 136, pic_y + 22, pic_z - 0.01, "mods/mnee/files/pics/button_rst.png" )
 					uid = mnee.new_tooltip( gui, uid, pic_z - 200, GameTextGetTranslatedOrNot( "$mnee_rmb_reset" ))
 					if( r_clicked ) then
 						for i = 1,3 do
@@ -384,7 +384,7 @@ function OnWorldPreUpdate()
 					end
 					
 					--[[if( io ~= nil ) then --does not backup the secondary binds
-						uid, clicked, r_clicked = new_button( gui, uid, pic_x + 136, pic_y + 66, pic_z - 0.01, "mods/mnee/pics/button_bkp.png" )
+						uid, clicked, r_clicked = new_button( gui, uid, pic_x + 136, pic_y + 66, pic_z - 0.01, "mods/mnee/files/pics/button_bkp.png" )
 						uid = new_tooltip( gui, uid, pic_z - 200, GameTextGetTranslatedOrNot( "$mnee_lmb_backup" ))
 						if( clicked ) then
 							local cout = "@"
@@ -425,7 +425,7 @@ function OnWorldPreUpdate()
 						end
 					end]]
 
-					uid, clicked = pen.new_button( gui, uid, pic_x + 136, pic_y + 77, pic_z - 0.01, "mods/mnee/pics/button_ctl_"..( ctl_panel and "B" or "A" )..".png" )
+					uid, clicked = pen.new_button( gui, uid, pic_x + 136, pic_y + 77, pic_z - 0.01, "mods/mnee/files/pics/button_ctl_"..( ctl_panel and "B" or "A" )..".png" )
 					uid = mnee.new_tooltip( gui, uid, pic_z - 200, GameTextGetTranslatedOrNot( "$mnee_lmb_jpads" ))
 					if( clicked ) then
 						if( ctl_panel ) then
@@ -438,11 +438,11 @@ function OnWorldPreUpdate()
 					end
 					if( ctl_panel ) then
 						if( is_auto ) then
-							uid = pen.new_anim( gui, uid, 1, pic_x + 160, pic_y + 55, pic_z, "mods/mnee/pics/scan/", 20, 5 )
+							uid = pen.new_anim( gui, uid, 1, pic_x + 160, pic_y + 55, pic_z, "mods/mnee/files/pics/scan/", 20, 5 )
 						else
-							uid = pen.new_image( gui, uid, pic_x + 160, pic_y + 55, pic_z, "mods/mnee/pics/scan/0.png" )
+							uid = pen.new_image( gui, uid, pic_x + 160, pic_y + 55, pic_z, "mods/mnee/files/pics/scan/0.png" )
 						end
-						uid, clicked, r_clicked = pen.new_button( gui, uid, pic_x + 160, pic_y + 55, pic_z - 0.01, "mods/mnee/pics/scan/_hitbox.png" )
+						uid, clicked, r_clicked = pen.new_button( gui, uid, pic_x + 160, pic_y + 55, pic_z - 0.01, "mods/mnee/files/pics/scan/_hitbox.png" )
 						uid = mnee.new_tooltip( gui, uid, pic_z - 200, GameTextGet( "$mnee_jpad_count", jpad_count ).." @ "..GameTextGetTranslatedOrNot( "$mnee_rmb_scan"..( is_auto and "B" or "A" )))  
 						if( r_clicked ) then
 							ModSettingSetNextValue( "mnee.CTRL_AUTOMAPPING", not( is_auto ), false )
@@ -451,7 +451,7 @@ function OnWorldPreUpdate()
 						
 						for i = 1,4 do
 							local is_real = jpad[i]
-							uid, clicked, r_clicked = pen.new_button( gui, uid, pic_x + 160, pic_y + 66 + 11*( i - 1 ), pic_z, "mods/mnee/pics/button_10_"..( is_real and "B" or "A" )..".png" )
+							uid, clicked, r_clicked = pen.new_button( gui, uid, pic_x + 160, pic_y + 66 + 11*( i - 1 ), pic_z, "mods/mnee/files/pics/button_10_"..( is_real and "B" or "A" )..".png" )
 							uid = mnee.new_tooltip( gui, uid, pic_z - 200, is_real and GameTextGetTranslatedOrNot( "$mnee_jpad_id" )..tostring( is_real ).." @ "..GameTextGetTranslatedOrNot( "$mnee_rmb_unmap" ) or GameTextGetTranslatedOrNot( "$mnee_lmb_map" ))
 							pen.new_text( gui, pic_x + 162, pic_y + 66 + 11*( i - 1 ), pic_z - 0.01, i, is_real and {245,132,132} or {238,226,206})
 							
@@ -469,7 +469,7 @@ function OnWorldPreUpdate()
 							end
 						end
 						
-						uid = pen.new_button( gui, uid, pic_x + 158, pic_y + 53, pic_z + 0.01, "mods/mnee/pics/controller_panel.png" )
+						uid = pen.new_button( gui, uid, pic_x + 158, pic_y + 53, pic_z + 0.01, "mods/mnee/files/pics/controller_panel.png" )
 					end
 					
 					local profile = ModSettingGetNextValue( "mnee.PROFILE" )
@@ -483,7 +483,7 @@ function OnWorldPreUpdate()
 					local old_x, old_y = pic_x, pic_y
 					
 					GuiOptionsAddForNextWidget( gui, 51 ) --IsExtraDraggable
-					pen.new_button( gui, 1020, pic_x, pic_y, pic_z - 0.02, "mods/mnee/pics/button_drag.png" )
+					pen.new_button( gui, 1020, pic_x, pic_y, pic_z - 0.02, "mods/mnee/files/pics/button_drag.png" )
 					local clicked, r_clicked, _, _, _, _, _, d_x, d_y = GuiGetPreviousWidgetInfo( gui )
 					if( d_x ~= pic_x and d_y ~= pic_y and d_x ~= 0 and d_y ~= 0 ) then
 						if( grab_x == nil ) then
@@ -577,7 +577,7 @@ function OnWorldPreUpdate()
 					end
 					
 					if( gui_retoggler ) then
-						uid, clicked = pen.new_button( gui, uid, pic_x, pic_y, pic_z, "mods/mnee/pics/continue.png" )
+						uid, clicked = pen.new_button( gui, uid, pic_x, pic_y, pic_z, "mods/mnee/files/pics/continue.png" )
 						uid = mnee.new_tooltip( gui, uid, pic_z - 200, GameTextGetTranslatedOrNot( "$mnee_doit" ))
 						if( clicked ) then
 							if(( btn_axis_counter or 3 ) == 3 ) then
@@ -593,12 +593,12 @@ function OnWorldPreUpdate()
 							pen.play_sound( "confirm" )
 						end
 					else
-						uid = pen.new_button( gui, uid, pic_x + 3, pic_y + 71, pic_z - 0.01, "mods/mnee/pics/help.png" )
+						uid = pen.new_button( gui, uid, pic_x + 3, pic_y + 71, pic_z - 0.01, "mods/mnee/files/pics/help.png" )
 						uid = mnee.new_tooltip( gui, uid, pic_z - 200, GameTextGetTranslatedOrNot( "$mnee_binding_"..( doing_jpad and "axis" or ( advanced_mode and "advanced" or "simple" ))))
 						
 						local nuke_em = false
 						local doing_swap = key_type == "keys" and ((( doing_jpad or btn_axis_mode ) and keys[ current_mod ][ current_binding ].keys_alt[2] ~= "_" ) or ( keys[ current_mod ][ current_binding ].keys_alt[ "_" ] == nil ))
-						uid, clicked, r_clicked = pen.new_button( gui, uid, pic_x + 146, pic_y + 71, pic_z - 0.01, "mods/mnee/pics/key_unbind.png" )
+						uid, clicked, r_clicked = pen.new_button( gui, uid, pic_x + 146, pic_y + 71, pic_z - 0.01, "mods/mnee/files/pics/key_unbind.png" )
 						uid = mnee.new_tooltip( gui, uid, pic_z - 200, GameTextGetTranslatedOrNot( "$mnee_lmb_unbind" )..( doing_swap and " @ "..GameTextGetTranslatedOrNot( "$mnee_rmb_unbind" ) or "" ))
 						if( clicked ) then
 							nuke_em = true
@@ -619,7 +619,7 @@ function OnWorldPreUpdate()
 							end
 						end
 
-						uid, clicked, r_clicked = pen.new_button( gui, uid, pic_x, pic_y, pic_z, "mods/mnee/pics/rebinder"..( doing_jpad and "_axis" or ( advanced_mode and "" or "_simple" ))..".png" )
+						uid, clicked, r_clicked = pen.new_button( gui, uid, pic_x, pic_y, pic_z, "mods/mnee/files/pics/rebinder"..( doing_jpad and "_axis" or ( advanced_mode and "" or "_simple" ))..".png" )
 						uid = mnee.new_tooltip( gui, uid, pic_z - 200, doing_jpad and GameTextGetTranslatedOrNot( "$mnee_waiting" ) or ( GameTextGetTranslatedOrNot( "$mnee_keys" ).." @ "..( tip_text == "[" and GameTextGetTranslatedOrNot( "$mnee_nil" ) or tip_text )).."@"..GameTextGetTranslatedOrNot( "$mnee_rmb_cancel" ))
 						if( r_clicked ) then
 							current_binding = ""
@@ -738,7 +738,7 @@ function OnPlayerSpawned( hooman )
 	if( GameHasFlagRun( mnee.INITER )) then return end; GameAddFlagRun( mnee.INITER )
 	GlobalsSetValue( "PROSPERO_IS_REAL", "1" )
 	
-	local entity_id = EntityLoad( "mods/mnee/ctrl_body.xml" )
+	local entity_id = EntityLoad( "mods/mnee/files/ctrl_body.xml" )
 	EntityAddChild( GameGetWorldStateEntity(), entity_id )
 	EntityAddComponent( entity_id, "VariableStorageComponent", 
 	{

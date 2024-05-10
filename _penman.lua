@@ -359,7 +359,7 @@ function pen.play_sound( event )
 	if( not( sound_played )) then
 		sound_played = false
 		local c_x, c_y = GameGetCameraPos()
-		GamePlaySound( "mods/mnee/mnee.bank", event, c_x, c_y )
+		GamePlaySound( "mods/mnee/files/sfx/mnee.bank", event, c_x, c_y )
 	end
 end
 

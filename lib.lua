@@ -474,8 +474,8 @@ function mnee.new_tooltip( gui, uid, pic_z, text )
 			if( h < pic_y + y_offset ) then
 				pic_y = h - y_offset
 			end
-			uid = pen.new_image( gui, uid, pic_x, pic_y, pic_z, "mods/mnee/pics/dot_purple_dark.png", x_offset, y_offset )
-			uid = pen.new_image( gui, uid, pic_x + 1, pic_y + 1, pic_z - 0.01, "mods/mnee/pics/dot_white.png", x_offset - 2, y_offset - 2 )
+			uid = pen.new_image( gui, uid, pic_x, pic_y, pic_z, "mods/mnee/files/pics/dot_purple_dark.png", x_offset, y_offset )
+			uid = pen.new_image( gui, uid, pic_x + 1, pic_y + 1, pic_z - 0.01, "mods/mnee/files/pics/dot_white.png", x_offset - 2, y_offset - 2 )
 			
 			pen.new_text( gui, pic_x + 2, pic_y, pic_z - 0.02, text, {136,121,247})
 		end
@@ -488,7 +488,7 @@ function mnee.new_pager( gui, uid, pic_x, pic_y, pic_z, page, max_page, profile_
 	profile_mode = profile_mode or false
 
 	local clicked, r_clicked = 0, 0, 0
-	uid, clicked, r_clicked = pen.new_button( gui, uid, pic_x, pic_y, pic_z, "mods/mnee/pics/key_left.png" )
+	uid, clicked, r_clicked = pen.new_button( gui, uid, pic_x, pic_y, pic_z, "mods/mnee/files/pics/key_left.png" )
 	if( clicked and max_page > 1 ) then
 		pen.play_sound( "button_special" )
 		page = page - 1
@@ -509,7 +509,7 @@ function mnee.new_pager( gui, uid, pic_x, pic_y, pic_z, page, max_page, profile_
 	else
 		pic_x = pic_x + 11
 	end
-	uid = pen.new_button( gui, uid, pic_x, pic_y, pic_z, "mods/mnee/pics/button_21_B.png" )
+	uid = pen.new_button( gui, uid, pic_x, pic_y, pic_z, "mods/mnee/files/pics/button_21_B.png" )
 	if( profile_mode ) then
 		uid = mnee.new_tooltip( gui, uid, pic_z - 200, GameTextGetTranslatedOrNot( "$mnee_this_profile" ).."." )
 	end
@@ -520,7 +520,7 @@ function mnee.new_pager( gui, uid, pic_x, pic_y, pic_z, page, max_page, profile_
 		pic_x = pic_x - 11
 		pic_y = pic_y - 11
 	end
-	uid, clicked, r_clicked = pen.new_button( gui, uid, pic_x, pic_y, pic_z - 0.01, "mods/mnee/pics/key_right.png" )
+	uid, clicked, r_clicked = pen.new_button( gui, uid, pic_x, pic_y, pic_z - 0.01, "mods/mnee/files/pics/key_right.png" )
 	if( clicked and max_page > 1 ) then
 		pen.play_sound( "button_special" )
 		page = page + 1
@@ -716,7 +716,7 @@ function mnee.aim_assist( hooman, pos, angle, is_active, data )
 	data = data or {}
 	data.setting = data.setting or "mnee.AUTOAIM"
 	data.tag_tbl = data.tag_tbl or {"enemy"}
-	data.pic = data.pic or "mods/mnee/pics/autoaim.png"
+	data.pic = data.pic or "mods/mnee/files/pics/autoaim.png"
 	
 	local safe_zone = 50
 	local max_distance = 100

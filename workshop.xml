@@ -2,6 +2,6 @@
 	name="M-Néé"
 	description=""
 	tags="mod dependencies"
-	dont_upload_folders=""
+	dont_upload_folders=".git"
 	dont_upload_files=""
 ></Mod>

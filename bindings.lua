@@ -24,7 +24,9 @@ bindings["mnee"] = {
 		name = "$mnee_open", --[DISPLAYED NAME]
 		desc = "$mnee_open_desc", --[DISPLAYED DESCRIPTION]
 		
-		jpad_type = "AIM", --[SELECTS THE ANALOG STICK DEADZONE TYPE: AIM, MOTION, EXTRA]
+		jpad_type = "AIM", --[USER-ACCESSIBLE ANALOG STICK DEADZONE TYPE: AIM, MOTION, EXTRA]
+		deadzone = 0.5, --[INTERNAL USER-INACCESSIBLE DEADZONE THAT IS ADDED ON TOP]
+		
 		keys = { --[DEFAULT BINDING KEYS]
 			left_ctrl = 1, --number is just so the thing won't be nil
 			m = 1,

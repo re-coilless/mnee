@@ -49,6 +49,16 @@ function text_with_no_mod( key ) --inspired by Conga's approach
 				-- ["日本語"] = "",
 				-- ["한국어"] = "",
 			},
+			["$mnee_living"] = {
+				["English"] = "Disable Internal Deadzones",
+				-- ["русский"] = "",
+				-- ["简体中文"] = "",
+			},
+			["$mnee_living_desc"] = {
+				["English"] = "Enabling this will remove all the default developer-defined deadzones, only leaving user-accessible ones (can be changed right below).",
+				-- ["русский"] = "",
+				-- ["简体中文"] = "",
+			},
 			["$mnee_deadzone"] = {
 				["English"] = "Analog Stick Deadzone",
 				["русский"] = "Мёртвая Зона Геймпада",
@@ -99,6 +109,13 @@ mod_settings =
 		ui_fn = mod_setting_blinking_text,
 	},
 	{
+		id = "LIVING",
+		ui_name = GameTextGetTranslatedOrNot( text_with_no_mod( "$mnee_living" )),
+		ui_description = text_with_no_mod( "$mnee_living_desc" ),
+		value_default = false,
+		scope = MOD_SETTING_SCOPE_RUNTIME,
+	},
+	{
 		id = "DEADZONE_AIM",
 		ui_name = GameTextGetTranslatedOrNot( text_with_no_mod( "$mnee_deadzone" )).." [AIM]",
 		ui_description = text_with_no_mod( "$mnee_deadzone_desc" ),
@@ -114,7 +131,7 @@ mod_settings =
 		id = "DEADZONE_MOTION",
 		ui_name = GameTextGetTranslatedOrNot( text_with_no_mod( "$mnee_deadzone" )).." [MOTION]",
 		ui_description = text_with_no_mod( "$mnee_deadzone_desc" ),
-		value_default = 1,
+		value_default = 0,
 		
 		value_min = 0,
 		value_max = 19,

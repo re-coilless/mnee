@@ -37,8 +37,10 @@
    - name: the displayed name of the binding.
    - desc: the tooltip text that appears while hovering over the binding.
    - jpad_type: the deadzone kind. There exist 3 (MOTION, AIM and EXTRA) and all can be changed in the normal settings. Only is relevant for the gamepad stick input.
+   - deadzone: is used to set an internal deadzone. Unlike "jpad_type", this parameter is inaccessible for the user – use it to create an inherent sensitivity difference between the controls.
    - keys: a string-indexed table of the keys assigned to this bind by default.
    - keys_alt: same as keys but for secondary input option.
+   - axes: two pre-existing axis binding IDs put in a table. This will allow one to create a legitimate stick with a circular deadzone. See mnee/lists.lua for a setup example.
 
 [MACRO]
 - Aside from the aforementioned SPECIAL_KEYS and INMODES, there exist 3 other useful global constants: mnee.TOGGLER, mnee.SERV_MODE and mnee.PRIO_MODE.
@@ -67,9 +69,12 @@
    - vip: will ignore the TOGGLER flag (see [MACRO] chapter).
    - mode: will choose between different INMODES profiles, set it to "guied" to filter out in-GUI LMB/RMB clicks.
 - mnee.mnin( "bind", {<mod_id>, <binding name>}, { dirty=dirty_mode, pressed=pressed_mode, vip=is_vip, loose=loose_mode, mode=key_mode })
-   - Operates via flexible and rebindable single- or multi-keyed combinations, shows up in the binding menu and is a recommended way to set up the main input source. Other than that, functions exactly like the one above.
+   - Operates via flexible and rebindable single- or multi-keyed combinations, shows up in the binding menu and is a recommended way to set up the main input source. Other than that, functions exactly like the one above. The second return value is a boolean of whether this action was unbound.
    - loose_mode: will allow a part of a larger combination to trigger a smaller one (for instance, "shift+ctrl+e" and "ctrl+e" would both be engaged).
 - mnee.mnin( "axis", {<mod_id>, <binding name>}, { dirty=dirty_mode, pressed=pressed_mode, vip=is_vip, mode=key_mode })
    - If binding is set to the proper analog axis, the output will be a number from -1.000 to 1.000 with 0 starting at the edge of the deadzone.
-   - If binding is set to discrete, the output will be forced to only three states(-1, 0 and 1), all according to the button presses.
+   - If binding is set to discrete, the output will be forced to only three states(-1, 0 and 1), all according to the button presses. The third return value is a boolean of whether this action is button-emulated at the moment.
+   - Ignoring the above, the mode behaves exactly as described before.
+- mnee.mnin( "stick", {<mod_id>, <binding name>}, { dirty=dirty_mode, pressed=pressed_mode, vip=is_vip, mode=key_mode })
+   - The first return value is a two-element table of axis value, the third return value is a similarly-sized table of whether each of the axes is button-emulated and the fourth return value is the angle the stick is held at.
    - Ignoring the above, the mode behaves exactly as described before.

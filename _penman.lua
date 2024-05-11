@@ -37,12 +37,23 @@ function pen.angle_reset( angle )
 	return math.atan2( math.sin( angle ), math.cos( angle ))
 end
 
-function pen.world2gui( gui, x, y )
+function pen.rotate_offset( x, y, angle )
+	return x*math.cos( angle ) - y*math.sin( angle ), x*math.sin( angle ) + y*math.cos( angle )
+end
+
+function pen.world2gui( gui, x, y ) --thanks to ImmortalDamned for the fix
+	local view_x = ( MagicNumbersGetValue( "VIRTUAL_RESOLUTION_X" ) + MagicNumbersGetValue( "VIRTUAL_RESOLUTION_OFFSET_X" ))
+	local view_y = ( MagicNumbersGetValue( "VIRTUAL_RESOLUTION_Y" ) + MagicNumbersGetValue( "VIRTUAL_RESOLUTION_OFFSET_Y" ))
 	local w, h = GuiGetScreenDimensions( gui )
-	local cam_x, cam_y = GameGetCameraPos()
-	local shit_from_ass = w/( MagicNumbersGetValue( "VIRTUAL_RESOLUTION_X" ) + MagicNumbersGetValue( "VIRTUAL_RESOLUTION_OFFSET_X" ))
+	local massive_balls_x, massive_balls_y = w/view_x, h/view_y
 	
-	return w/2 + shit_from_ass*( x - cam_x ), h/2 + shit_from_ass*( y - cam_y ), shit_from_ass
+	local _,_, cancer_x, cancer_y = GameGetCameraBounds()
+	if( cancer_x/cancer_y < 1.7 ) then
+		massive_balls_x, massive_balls_y = massive_balls_x*massive_balls_y, massive_balls_x*massive_balls_y
+	end
+
+	local cam_x, cam_y = GameGetCameraPos()
+	return massive_balls_x*( x - ( cam_x - view_x/2 )), massive_balls_y*( y - ( cam_y - view_y/2 )), {massive_balls_x,massive_balls_y}
 end
 
 function pen.get_mouse_pos( gui )
@@ -394,7 +405,7 @@ function pen.new_text( gui, pic_x, pic_y, pic_z, text, colours )
 	end
 end
 
-function pen.new_image( gui, uid, pic_x, pic_y, pic_z, pic, s_x, s_y, alpha, interactive )
+function pen.new_image( gui, uid, pic_x, pic_y, pic_z, pic, s_x, s_y, alpha, interactive, angle )
 	if( s_x == nil ) then
 		s_x = 1
 	end
@@ -414,7 +425,7 @@ function pen.new_image( gui, uid, pic_x, pic_y, pic_z, pic, s_x, s_y, alpha, int
 	GuiZSetForNextWidget( gui, pic_z )
 	uid = uid + 1
 	GuiIdPush( gui, uid )
-	GuiImage( gui, uid, pic_x, pic_y, pic, alpha, s_x, s_y )
+	GuiImage( gui, uid, pic_x, pic_y, pic, alpha, s_x, s_y, angle )
 	return uid
 end
 

@@ -7,7 +7,8 @@ function OnModInit()
 	
 	-- update translations in settings
 	-- make procedural pause screen keyboard that highlights all the bind's keys on hover of one of them (only if the moddev marked the binding as show_on_pause)
-	
+	-- add separate full-sized fancy key name getter with full length names
+
 	local lists = dofile_once( "mods/mnee/lists.lua" )
 	local keycaps = lists[1]
 	local mouse = lists[2]
@@ -198,8 +199,8 @@ function OnWorldPreUpdate()
 			end
 			GuiStartFrame( gui )
 
-			if( ctl_panel == nil ) then
-				ctl_panel = jpad_count > 0
+			if( ctl_panel == nil and jpad_count > 0 ) then
+				ctl_panel = true
 			end
 
 			local keys = mnee.get_bindings()
@@ -240,23 +241,26 @@ function OnWorldPreUpdate()
 					local ender = 8*mod_page + 1
 					local t_x, t_y = pic_x + 2, pic_y
 					for mod in pen.magic_sorter( keys ) do
-						if( counter > starter and counter < ender ) then
-							local is_fancy = mneedata[mod] ~= nil
-							if( not( is_fancy ) or ( is_fancy and not( pen.get_hybrid_function( mneedata[mod].is_hidden, {mod, jpad})))) then
-								t_y = t_y + 11
-								
-								local name = pen.get_translated_line( is_fancy and mneedata[mod].name or mod )
-								uid, clicked = pen.new_button( gui, uid, t_x, t_y, pic_z - 0.01, "mods/mnee/files/pics/button_43_"..( current_mod == mod and "B" or "A" )..".png" )
-								uid = mnee.new_tooltip( gui, uid, pic_z - 200, name..( current_mod == mod and (( is_fancy and mneedata[mod].desc ~= nil ) and " @ "..pen.get_translated_line( mneedata[mod].desc ) or "" ) or " @ "..GameTextGetTranslatedOrNot( "$mnee_lmb_keys" )))
-								pen.new_text( gui, t_x + 2, t_y, pic_z - 0.02, pen.liner( name, 39 ), current_mod == mod and {245,132,132} or {238,226,206})
-								if( clicked ) then
-									current_mod = mod
-									pen.play_sound( "button_special" )
-								end
-								
-								counter = counter + 1
+						local is_fancy = mneedata[mod] ~= nil
+						local will_show = counter > starter and counter < ender
+						if( will_show ) then
+							will_show = not( is_fancy ) or ( is_fancy and not( pen.get_hybrid_function( mneedata[mod].is_hidden, {mod,jpad})))
+							if( not( will_show )) then counter = counter - 1 end
+						end
+						if( will_show ) then
+							t_y = t_y + 11
+							
+							local name = pen.get_translated_line( is_fancy and mneedata[mod].name or mod )
+							uid, clicked = pen.new_button( gui, uid, t_x, t_y, pic_z - 0.01, "mods/mnee/files/pics/button_43_"..( current_mod == mod and "B" or "A" )..".png" )
+							uid = mnee.new_tooltip( gui, uid, pic_z - 200, name..( current_mod == mod and (( is_fancy and mneedata[mod].desc ~= nil ) and " @ "..pen.get_translated_line( mneedata[mod].desc ) or "" ) or " @ "..GameTextGetTranslatedOrNot( "$mnee_lmb_keys" )))
+							pen.new_text( gui, t_x + 2, t_y, pic_z - 0.02, pen.liner( name, 39 ), current_mod == mod and {245,132,132} or {238,226,206})
+							if( clicked ) then
+								binding_page = 1
+								current_mod = mod
+								pen.play_sound( "button_special" )
 							end
 						end
+						counter = counter + 1
 					end
 					
 					local page = mod_page
@@ -273,7 +277,7 @@ function OnWorldPreUpdate()
 					end
 
 					counter = 1
-					starter = 8*binding_page - 8
+					starter = 8*( binding_page - 1 )
 					ender = 8*binding_page + 1
 					t_x, t_y = pic_x + 48, pic_y
 					if( meta.func ~= nil ) then
@@ -295,11 +299,12 @@ function OnWorldPreUpdate()
 							local will_show = counter > starter and counter < ender
 							if( will_show ) then
 								will_show = not( pen.get_hybrid_function( bind.is_hidden, {{current_mod,id}, jpad}))
+								if( not( will_show )) then counter = counter - 1 end
 							end
 							if( will_show ) then
 								t_y = t_y + 11
 								
-								local is_axis = bind[key_type][1] == "is_axis"
+								local is_axis = bind[key_type][1] == "is_axis" or bind.axes ~= nil
 								local is_static = bind.is_locked
 								if( is_static == nil ) then
 									is_static = meta.is_locked or false
@@ -309,7 +314,7 @@ function OnWorldPreUpdate()
 								
 								uid, clicked, r_clicked = pen.new_button( gui, uid, t_x, t_y, pic_z - 0.01, "mods/mnee/files/pics/button_74_"..( is_static and "B" or "A" )..".png" )
 								pen.catch(function()
-									uid = mnee.new_tooltip( gui, uid, pic_z - 200, ( is_axis and ( GameTextGet( "$mnee_axis", bind.jpad_type or "EXTRA" )..( is_static and "" or " @ " )) or "" )..( is_static and GameTextGetTranslatedOrNot( "$mnee_static" ).." @ " or "" )..pen.get_translated_line( bind.name )..": "..pen.get_translated_line( bind.desc ).." @ "..mnee.bind2string( bind[key_type])..( is_axis and " @ "..GameTextGetTranslatedOrNot( "$mnee_lmb_axis" ) or "" ))
+									uid = mnee.new_tooltip( gui, uid, pic_z - 200, ( is_axis and ( GameTextGet( "$mnee_axis", bind.jpad_type or "EXTRA" )..( is_static and "" or " @ " )) or "" )..( is_static and GameTextGetTranslatedOrNot( "$mnee_static" ).." @ " or "" )..pen.get_translated_line( bind.name )..": "..pen.get_translated_line( bind.desc ).." @ "..mnee.bind2string( keys[ current_mod ], bind, key_type )..( is_axis and " @ "..GameTextGetTranslatedOrNot( "$mnee_lmb_axis" ) or "" ))
 									pen.new_text( gui, t_x + 2, t_y, pic_z - 0.02, pen.liner( pen.get_translated_line( bind.name ), 70 ), is_static and {136,121,247} or {238,226,206})
 								end)
 								if( clicked or r_clicked ) then
@@ -332,16 +337,20 @@ function OnWorldPreUpdate()
 								uid = mnee.new_tooltip( gui, uid, pic_z - 200, GameTextGetTranslatedOrNot( "$mnee_rmb_default" ))
 								if( r_clicked ) then
 									dofile( "mods/mnee/bindings.lua" )
-									keys[ current_mod ][ id ][ key_type ] = bindings[ current_mod ][ id ][ key_type ]
+									if( bind.axes ~= nil ) then
+										keys[ current_mod ][ bind.axes[1]] = bindings[ current_mod ][ bind.axes[1]]
+										keys[ current_mod ][ bind.axes[2]] = bindings[ current_mod ][ bind.axes[2]]
+									else
+										keys[ current_mod ][ id ] = bindings[ current_mod ][ id ]
+									end
 									mnee.set_bindings( keys )
 									pen.play_sound( "clear_all" )
 								end
-
-								counter = counter + 1
 							end
+							counter = counter + 1
 						end
 					end
-					
+
 					page = binding_page
 					uid, page = mnee.new_pager( gui, uid, pic_x + 48, pic_y + 99, pic_z - 0.01, page, math.ceil(( counter - 1 )/8 ))
 					if( binding_page ~= page ) then
@@ -576,11 +585,12 @@ function OnWorldPreUpdate()
 						end
 					end
 					
+					local is_stick = keys[ current_mod ][ current_binding ].axes ~= nil
 					if( gui_retoggler ) then
 						uid, clicked = pen.new_button( gui, uid, pic_x, pic_y, pic_z, "mods/mnee/files/pics/continue.png" )
 						uid = mnee.new_tooltip( gui, uid, pic_z - 200, GameTextGetTranslatedOrNot( "$mnee_doit" ))
 						if( clicked ) then
-							if(( btn_axis_counter or 3 ) == 3 ) then
+							if(( btn_axis_counter or 4 ) >= (( is_stick and not( doing_jpad )) and 4 or 2 )) then
 								current_binding = ""
 								doing_axis = false
 								btn_axis_mode = false
@@ -598,12 +608,14 @@ function OnWorldPreUpdate()
 						
 						local nuke_em = false
 						local doing_swap = key_type == "keys" and ((( doing_jpad or btn_axis_mode ) and keys[ current_mod ][ current_binding ].keys_alt[2] ~= "_" ) or ( keys[ current_mod ][ current_binding ].keys_alt[ "_" ] == nil ))
-						uid, clicked, r_clicked = pen.new_button( gui, uid, pic_x + 146, pic_y + 71, pic_z - 0.01, "mods/mnee/files/pics/key_unbind.png" )
-						uid = mnee.new_tooltip( gui, uid, pic_z - 200, GameTextGetTranslatedOrNot( "$mnee_lmb_unbind" )..( doing_swap and " @ "..GameTextGetTranslatedOrNot( "$mnee_rmb_unbind" ) or "" ))
-						if( clicked ) then
-							nuke_em = true
-						elseif( doing_swap and r_clicked ) then
-							nuke_em = 1
+						if(( btn_axis_counter or 1 )%2 == 1 ) then
+							uid, clicked, r_clicked = pen.new_button( gui, uid, pic_x + 146, pic_y + 71, pic_z - 0.01, "mods/mnee/files/pics/key_unbind.png" )
+							uid = mnee.new_tooltip( gui, uid, pic_z - 200, GameTextGetTranslatedOrNot( "$mnee_lmb_unbind" )..( doing_swap and " @ "..GameTextGetTranslatedOrNot( "$mnee_rmb_unbind" ) or "" ))
+							if( clicked ) then
+								nuke_em = true
+							elseif( doing_swap and r_clicked ) then
+								nuke_em = 1
+							end
 						end
 
 						if( advanced_mode ) then
@@ -623,36 +635,54 @@ function OnWorldPreUpdate()
 						uid = mnee.new_tooltip( gui, uid, pic_z - 200, doing_jpad and GameTextGetTranslatedOrNot( "$mnee_waiting" ) or ( GameTextGetTranslatedOrNot( "$mnee_keys" ).." @ "..( tip_text == "[" and GameTextGetTranslatedOrNot( "$mnee_nil" ) or tip_text )).."@"..GameTextGetTranslatedOrNot( "$mnee_rmb_cancel" ))
 						if( r_clicked ) then
 							current_binding = ""
+							is_stick = false
 							doing_axis = false
 							btn_axis_mode = false
 							advanced_mode = false
 							pen.play_sound( "error" )
+						end
+						
+						local this_bind = current_binding
+						if( is_stick ) then
+							btn_axis_counter = btn_axis_counter or 1
+							this_bind = keys[ current_mod ][ this_bind ].axes[( btn_axis_counter - 1 )%2 + 1 ]
+							
+							local anim = ( math.sin( math.floor( GameGetFrameNum()/10 )%60 ) - 1 )/2
+							local offs = {{-1,0,90,-1},{0,-1,0,1},{1,0,90,1},{0,-1,180,1}}
+							local off = offs[btn_axis_counter]
+							for i = 1,2 do
+								local angle = math.rad( off[3])
+								local off_x, off_y = pen.rotate_offset( -8, -off[4]*8, angle )
+								local do_shift = ( i == 1 and btn_axis_counter == 1 ) or ( i == 2 and btn_axis_counter == 3 )
+								off_x, off_y = off_x + 2*anim*off[1] + ( do_shift and off[1] or 0 ), off_y + 2*anim*off[2]
+								uid = pen.new_image( gui, uid, pic_x + ( i == 1 and 12 or 147 ) + off_x, pic_y + 35 + off_y, pic_z - 0.01, "mods/mnee/files/pics/arrow.png", 1, off[4], 1, false, angle )
+							end
 						end
 
 						if( nuke_em ) then
 							local k_type = key_type
 							if( doing_swap ) then
 								if( nuke_em ~= 1 ) then
-									keys[ current_mod ][ current_binding ].keys = keys[ current_mod ][ current_binding ].keys_alt
+									keys[ current_mod ][ this_bind ].keys = keys[ current_mod ][ this_bind ].keys_alt
 								end
 								k_type = "keys_alt"
 							end
 							if( doing_jpad ) then
-								keys[ current_mod ][ current_binding ][ k_type ] = { "is_axis", "_", }
+								keys[ current_mod ][ this_bind ][ k_type ] = { "is_axis", "_", }
 							else
 								local new_bind = {}
 								if( btn_axis_mode ) then
-									new_bind = keys[ current_mod ][ current_binding ][ k_type ]
+									new_bind = keys[ current_mod ][ this_bind ][ k_type ]
 									new_bind[ 2 ] = "_"
 									new_bind[ 3 ] = "_"
-									btn_axis_counter = 3
+									btn_axis_counter = ( btn_axis_counter or 1 ) + 1
 								else
 									new_bind[ "_" ] = 1
 								end
-								keys[ current_mod ][ current_binding ][ k_type ] = new_bind
+								keys[ current_mod ][ this_bind ][ k_type ] = new_bind
 							end
 							if( nuke_em == 1 ) then
-								keys[ current_mod ][ current_binding ].keys = keys[ current_mod ][ current_binding ].keys_alt
+								keys[ current_mod ][ this_bind ].keys = keys[ current_mod ][ this_bind ].keys_alt
 							end
 							mnee.set_bindings( keys )
 							gui_retoggler = true
@@ -666,7 +696,7 @@ function OnWorldPreUpdate()
 								end
 							end
 							if( champ[1] ~= 0 ) then
-								keys[ current_mod ][ current_binding ][ key_type ] = { "is_axis", champ[1], }
+								keys[ current_mod ][ this_bind ][ key_type ] = { "is_axis", champ[1], }
 								mnee.set_bindings( keys )
 								gui_retoggler = true
 								pen.play_sound( "switch_dimension" )
@@ -678,9 +708,10 @@ function OnWorldPreUpdate()
 								if( key ~= "return" ) then
 									changed = true
 									if( btn_axis_mode ) then
-										btn_axis_counter = btn_axis_counter or 2
-										new_bind = keys[ current_mod ][ current_binding ][ key_type ]
-										new_bind[ btn_axis_counter ] = key
+										new_bind = keys[ current_mod ][ this_bind ][ key_type ]
+										btn_axis_counter = btn_axis_counter or 1
+										local btn_id = is_stick and ( btn_axis_counter > 2 and 3 or 2 ) or (( btn_axis_counter - 1 )%2 + 2 )
+										new_bind[btn_id] = key
 										break
 									else
 										new_bind[ key ] = 1
@@ -689,7 +720,7 @@ function OnWorldPreUpdate()
 								end
 							end
 							if( changed ) then
-								keys[ current_mod ][ current_binding ][ key_type ] = new_bind
+								keys[ current_mod ][ this_bind ][ key_type ] = new_bind
 								mnee.set_bindings( keys )
 							end
 							gui_retoggler = true

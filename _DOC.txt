@@ -52,6 +52,7 @@
    - mnee.get_bindings( profile, binds_only ): returns all the binding data there is, basically the globalmost complete mnee table; "profile" controls from which profile to compile the data and "binds_only" removes miscellaneous fluff that is relevant only for visualization purposes. The structure is as follows – { mod_id = { bind_id = bind_table }}.
    - mnee.get_binding_keys( mod_id, name, is_compact ): probably the most useful of them all, returns the keys of the bindings in a UI-friendly way; "mod_id" and "name" are for binding ID and "is_compact" will make the return value take less space.
    - mnee.aim_assist( hooman, p_vec, angle, is_active, data ): an all-in-one aim assist function that returns the aiming angle and whether it was affected by the target compared to the original, the strength can be altered in the settings; "hooman" and "pos" are character ID and a vector of their position, "angle" is the aiming direction, "is_active" toggles the function without a need for the if-case, "data.setting" dictates from which setting ID to pull strength value from, "data.tag_tbl" is the table of all the entity tags the autoaim will target, "data.pic" is the visualization of the target (set to "" to have none at all).
+   - mnee.is_jpad_real( id ): a basic utility for checking the connection state of a gamepad; "id" argument indicates the number of the controller and is equal to 1 by default.
 
 [INPUT]
 - mnee.get_keyboard_input( no_shifting ) - a streamlined way to get full keyboard input

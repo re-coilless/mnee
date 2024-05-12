@@ -1,4 +1,4 @@
-<Entity name="mnee_ctrl" tags="mnee_ctrl" >
+<Entity name="mnee_ctrl" tags="mnee_ctrl" serialize="0" >
 	<InheritTransformComponent
 		only_position="0"
 	></InheritTransformComponent>

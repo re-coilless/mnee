@@ -5,7 +5,6 @@ function OnModInit()
 	dofile_once( "mods/mnee/lib.lua" )
 	pen.set_translations( "mods/mnee/files/translations.csv" )
 	
-	-- fix main menu
 	-- update translations in settings
 	-- make procedural pause screen keyboard that highlights all the bind's keys on hover of one of them (only if the moddev marked the binding as show_on_pause)
 	-- add separate full-sized fancy key name getter with full length names
@@ -110,6 +109,14 @@ function OnModInit()
 		
 		return state
 	end
+
+	get_current_jpads = function()
+		local j = divider
+		for i,jp in ipairs( jpad ) do
+			j = j..pen.b2n( jp ~= false )..divider
+		end
+		return j
+	end
 end
 
 pic_x = pic_x or nil
@@ -139,6 +146,7 @@ function OnWorldPreUpdate()
 			mnee.get_next_jpad( true )
 			ComponentSetValue2( pen.get_storage( ctrl_body, "mnee_axis" ), "value_string", get_current_axes())
 			ComponentSetValue2( pen.get_storage( ctrl_body, "mnee_triggers" ), "value_string", get_current_triggers())
+			ComponentSetValue2( pen.get_storage( ctrl_body, "mnee_jpads" ), "value_string", get_current_jpads())
 
 			local active_core = get_active_keys()
 			local axis_core = mnee.get_axes()
@@ -764,11 +772,13 @@ function OnPlayerSpawned( hooman )
 	dofile_once( "mods/mnee/lib.lua" )
 	GameRemoveFlagRun( mnee.SERV_MODE )
 	GlobalsSetValue( mnee.PRIO_MODE, "0" )
-
-	if( GameHasFlagRun( mnee.INITER )) then return end; GameAddFlagRun( mnee.INITER )
+	GameAddFlagRun( mnee.INITER )
 	GlobalsSetValue( "PROSPERO_IS_REAL", "1" )
 	
-	local entity_id = EntityLoad( "mods/mnee/files/ctrl_body.xml" )
+	local world_id = GameGetWorldStateEntity()
+	local entity_id = pen.get_hooman_child( world_id, "mnee_ctrl" ) or 0
+	if( entity_id > 0 ) then EntityKill( entity_id ) end
+	entity_id = EntityLoad( "mods/mnee/files/ctrl_body.xml" )
 	EntityAddChild( GameGetWorldStateEntity(), entity_id )
 	EntityAddComponent( entity_id, "VariableStorageComponent", 
 	{
@@ -793,6 +803,11 @@ function OnPlayerSpawned( hooman )
 	EntityAddComponent( entity_id, "VariableStorageComponent", 
 	{
 		name = "mnee_axis_memo",
+		value_string = mnee.DIV_1,
+	})
+	EntityAddComponent( entity_id, "VariableStorageComponent", 
+	{
+		name = "mnee_jpads",
 		value_string = mnee.DIV_1,
 	})
 	

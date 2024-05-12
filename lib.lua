@@ -92,6 +92,29 @@ function mnee.get_next_jpad( init_only )
 	return false
 end
 
+function mnee.is_jpad_real( id )
+	id = id or 1
+	
+	local storage = pen.get_storage( mnee.get_ctrl(), "mnee_jpads" ) or 0
+	if( storage == 0 ) then
+		return false
+	end
+	local jpad_raw = ComponentGetValue2( storage, "value_string" )
+	if( jpad_raw == mnee.DIV_1 ) then
+		return false
+	end
+	
+	local counter = 1
+	for j in string.gmatch( jpad_raw, mnee.PTN_1 ) do
+		if( counter == id ) then
+			return j == "1"
+		end
+		counter = counter + 1
+	end
+	
+	return false
+end
+
 function mnee.get_keys( mode )
 	mode = mode or false
 

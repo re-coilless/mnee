@@ -51,12 +51,12 @@ function text_with_no_mod( key ) --inspired by Conga's approach
 			},
 			["$mnee_living"] = {
 				["English"] = "Disable Internal Deadzones",
-				-- ["русский"] = "",
+				["русский"] = "Отключить Постоянные Мёртвые Зоны",
 				-- ["简体中文"] = "",
 			},
 			["$mnee_living_desc"] = {
 				["English"] = "Enabling this will remove all the default developer-defined deadzones, only leaving user-accessible ones (can be changed right below).",
-				-- ["русский"] = "",
+				["русский"] = "При активации уберёт все заданные разработчиками мёртвые зоны, останутся только доступные игроку опции (которые могут быть изменены снизу).",
 				-- ["简体中文"] = "",
 			},
 			["$mnee_deadzone"] = {

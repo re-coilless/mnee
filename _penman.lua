@@ -1,6 +1,10 @@
 pen = pen or {}
 
 --[MATH]
+function pen.b2n( a )
+	return a and 1 or 0
+end
+
 function pen.get_sign( a )
 	if( a < 0 ) then
 		return -1

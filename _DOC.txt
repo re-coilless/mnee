@@ -69,12 +69,11 @@
    - vip: will ignore the TOGGLER flag (see [MACRO] chapter).
    - mode: will choose between different INMODES profiles, set it to "guied" to filter out in-GUI LMB/RMB clicks.
 - mnee.mnin( "bind", {<mod_id>, <binding name>}, { dirty=dirty_mode, pressed=pressed_mode, vip=is_vip, loose=loose_mode, mode=key_mode })
-   - Operates via flexible and rebindable single- or multi-keyed combinations, shows up in the binding menu and is a recommended way to set up the main input source. Other than that, functions exactly like the one above. The second return value is a boolean of whether this action was unbound.
+   - Operates via flexible and rebindable single- or multi-keyed combinations, shows up in the binding menu and is a recommended way to set up the main input source. The second return value is a boolean of whether this action was unbound and the third is a check of whether any of the keys was assigned to the gamepad. Other than that, functions exactly like the one above.
    - loose_mode: will allow a part of a larger combination to trigger a smaller one (for instance, "shift+ctrl+e" and "ctrl+e" would both be engaged).
 - mnee.mnin( "axis", {<mod_id>, <binding name>}, { dirty=dirty_mode, pressed=pressed_mode, vip=is_vip, mode=key_mode })
    - If binding is set to the proper analog axis, the output will be a number from -1.000 to 1.000 with 0 starting at the edge of the deadzone.
-   - If binding is set to discrete, the output will be forced to only three states(-1, 0 and 1), all according to the button presses. The third return value is a boolean of whether this action is button-emulated at the moment.
-   - Ignoring the above, the mode behaves exactly as described before.
+   - If binding is set to discrete, the output will be forced to only three states(-1, 0 and 1), all according to the button presses. The third return value is a boolean of whether this action is button-emulated at the moment and the fourth is the repeat of what the one above had for third. Ignoring this, the mode behaves exactly as described before.
 - mnee.mnin( "stick", {<mod_id>, <binding name>}, { dirty=dirty_mode, pressed=pressed_mode, vip=is_vip, mode=key_mode })
    - The first return value is a two-element table of axis value, the third return value is a similarly-sized table of whether each of the axes is button-emulated and the fourth return value is the angle the stick is held at.
    - Ignoring the above, the mode behaves exactly as described before.

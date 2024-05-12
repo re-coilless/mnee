@@ -5,6 +5,7 @@ function OnModInit()
 	dofile_once( "mods/mnee/lib.lua" )
 	pen.set_translations( "mods/mnee/files/translations.csv" )
 	
+	-- fix main menu
 	-- update translations in settings
 	-- make procedural pause screen keyboard that highlights all the bind's keys on hover of one of them (only if the moddev marked the binding as show_on_pause)
 	-- add separate full-sized fancy key name getter with full length names
@@ -242,10 +243,10 @@ function OnWorldPreUpdate()
 					local t_x, t_y = pic_x + 2, pic_y
 					for mod in pen.magic_sorter( keys ) do
 						local is_fancy = mneedata[mod] ~= nil
-						local will_show = counter > starter and counter < ender
+						local will_show = not( is_fancy ) or ( is_fancy and not( pen.get_hybrid_function( mneedata[mod].is_hidden, {mod,jpad})))
 						if( will_show ) then
-							will_show = not( is_fancy ) or ( is_fancy and not( pen.get_hybrid_function( mneedata[mod].is_hidden, {mod,jpad})))
-							if( not( will_show )) then counter = counter - 1 end
+							will_show = counter > starter and counter < ender
+							counter = counter + 1
 						end
 						if( will_show ) then
 							t_y = t_y + 11
@@ -260,7 +261,6 @@ function OnWorldPreUpdate()
 								pen.play_sound( "button_special" )
 							end
 						end
-						counter = counter + 1
 					end
 					
 					local page = mod_page
@@ -296,10 +296,10 @@ function OnWorldPreUpdate()
 						end
 					else
 						for id,bind in mnee.order_sorter( keys[ current_mod ]) do
-							local will_show = counter > starter and counter < ender
+							local will_show = not( pen.get_hybrid_function( bind.is_hidden, {{current_mod,id}, jpad}))
 							if( will_show ) then
-								will_show = not( pen.get_hybrid_function( bind.is_hidden, {{current_mod,id}, jpad}))
-								if( not( will_show )) then counter = counter - 1 end
+								will_show = counter > starter and counter < ender
+								counter = counter + 1
 							end
 							if( will_show ) then
 								t_y = t_y + 11
@@ -347,7 +347,6 @@ function OnWorldPreUpdate()
 									pen.play_sound( "clear_all" )
 								end
 							end
-							counter = counter + 1
 						end
 					end
 

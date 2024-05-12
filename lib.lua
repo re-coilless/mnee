@@ -901,11 +901,12 @@ function mnee.mnin_stick( mod_id, name, dirty_mode, pressed_mode, is_vip, key_mo
 	
 	local binding = mnee_binding_data[ mod_id ][ name ]
 	if( binding ~= nil ) then
+		local acc = 100
 		local val_x, gone_x, buttoned_x = mnee.mnin_axis( mod_id, binding.axes[1], dirty_mode, pressed_mode, is_vip, key_mode, true )
 		local val_y, gone_y, buttoned_y = mnee.mnin_axis( mod_id, binding.axes[2], dirty_mode, pressed_mode, is_vip, key_mode, true )
 		local magnitude = mnee.apply_deadzone( math.sqrt( val_x^2 + val_y^2 ), binding.jpad_type, binding.deadzone )
-		local direction = math.atan2( val_y, val_x )
-		val_x, val_y = magnitude*math.cos( direction ), magnitude*math.sin( direction )
+		local direction = math.rad( math.floor( math.deg( math.atan2( val_y, val_x )) + 0.5 ))
+		val_x, val_y = math.floor( acc*magnitude*math.cos( direction ))/acc, math.floor( acc*magnitude*math.sin( direction ))/acc
 		return {val_x,val_y}, gone_x or gone_y, {buttoned_x,buttoned_y}, direction
 	end
 

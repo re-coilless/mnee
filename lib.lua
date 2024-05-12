@@ -639,6 +639,15 @@ function mnee.mnin_key( name, dirty_mode, pressed_mode, is_vip, key_mode )
 	return false
 end
 
+function mnee.jpad_check( keys )
+	for key,val in pairs( keys ) do
+		if( string.find( type( key ) == "number" and val or key, "%dgpd_" ) ~= nil ) then
+			return true
+		end
+	end
+	return false
+end
+
 function mnee.mnin_bind( mod_id, name, dirty_mode, pressed_mode, is_vip, loose_mode, key_mode )
 	dirty_mode = dirty_mode or false
 	pressed_mode = pressed_mode or false
@@ -649,7 +658,7 @@ function mnee.mnin_bind( mod_id, name, dirty_mode, pressed_mode, is_vip, loose_m
 			or not( mnee.is_priority_mod( mod_id ))
 			or ( GameHasFlagRun( mnee.TOGGLER ) and not( is_vip ))
 		) then
-		return false
+		return false, false, false
 	end
 	
 	local keys_down = mnee.get_keys( key_mode )
@@ -664,7 +673,7 @@ function mnee.mnin_bind( mod_id, name, dirty_mode, pressed_mode, is_vip, loose_m
 		
 		local binding = mnee_binding_data[ mod_id ][ name ]
 		if( binding ~= nil ) then
-			local out, is_gone = false, true
+			local out, is_gone, is_jpad = false, true, false
 			for i = 1,2 do
 				local bind = binding[ i == 1 and "keys" or "keys_alt" ]
 				local high_score, score = pen.get_table_count( bind ), 0
@@ -699,7 +708,7 @@ function mnee.mnin_bind( mod_id, name, dirty_mode, pressed_mode, is_vip, loose_m
 					if( pressed_mode ) then
 						local check = mnee.get_disarmer()[ mod_id..name ] == nil
 						mnee.add_disarmer( mod_id..name )
-						if( not( check )) then return false end
+						if( not( check )) then return false, false, false end
 						out = check
 					else
 						out = true
@@ -707,13 +716,16 @@ function mnee.mnin_bind( mod_id, name, dirty_mode, pressed_mode, is_vip, loose_m
 				end
 				
 				::continue::
-				if( out ) then break end
+				if( out ) then
+					is_jpad = mnee.jpad_check( bind )
+					break
+				end
 			end
-			return out, is_gone
+			return out, is_gone, is_jpad
 		end
 	end
 	
-	return false, false
+	return false, false, false
 end
 
 function mnee.apply_deadzone( v, kind, zero_offset )
@@ -807,7 +819,7 @@ function mnee.mnin_axis( mod_id, name, dirty_mode, pressed_mode, is_vip, key_mod
 			or not( mnee.is_priority_mod( mod_id ))
 			or ( GameHasFlagRun( mnee.TOGGLER ) and not( is_vip ))
 		) then
-		return 0, false, false
+		return 0, false, false, false
 	end
 	
 	local update_frame = tonumber( GlobalsGetValue( mnee.UPDATER, "0" ))
@@ -820,7 +832,7 @@ function mnee.mnin_axis( mod_id, name, dirty_mode, pressed_mode, is_vip, key_mod
 	
 	local binding = mnee_binding_data[ mod_id ][ name ]
 	if( binding ~= nil ) then
-		local out, is_gone, is_buttoned = 0, true, false
+		local out, is_gone, is_buttoned, is_jpad = 0, true, false, false
 		for i = 1,2 do
 			local bind = binding[ i == 1 and "keys" or "keys_alt" ]
 			if( bind[2] == "_" ) then
@@ -856,12 +868,15 @@ function mnee.mnin_axis( mod_id, name, dirty_mode, pressed_mode, is_vip, key_mod
 			end
 			
 			::continue::
-			if( out ~= 0 ) then break end
+			if( out ~= 0 ) then
+				is_jpad = mnee.jpad_check( bind )
+				break
+			end
 		end
-		return out, is_gone, is_buttoned
+		return out, is_gone, is_buttoned, is_jpad
 	end
 
-	return 0, false, false
+	return 0, false, false, false
 end
 
 function mnee.mnin_stick( mod_id, name, dirty_mode, pressed_mode, is_vip, key_mode )
@@ -916,8 +931,8 @@ function mnee.mnin( mode, id_data, data )
 		table.insert( inval, data[v] or false )
 	end
 	
-	local a,b,c,d = func[1]( inval[1], inval[2], inval[3], inval[4], inval[5], inval[6], inval[7], inval[8], inval[9])
-	return a,b,c,d
+	local a,b,c,d,e = func[1]( inval[1], inval[2], inval[3], inval[4], inval[5], inval[6], inval[7], inval[8], inval[9])
+	return a,b,c,d,e
 end
 
 --[LEGACY]

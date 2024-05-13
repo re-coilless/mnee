@@ -173,10 +173,10 @@ function OnWorldPreUpdate()
 			if( mnee.mnin( "bind", { "mnee", "menu" }, { pressed = true, vip = true })) then
 				if( gui_active ) then
 					gui_active = false
-					pen.play_sound( "close_window" )
+					mnee.play_sound( "close_window" )
 				else
 					gui_active = true
-					pen.play_sound( "open_window" )
+					mnee.play_sound( "open_window" )
 				end
 			end
 			if( mnee.mnin( "bind", { "mnee", "off" }, { pressed = true, vip = true })) then
@@ -187,14 +187,14 @@ function OnWorldPreUpdate()
 					GameAddFlagRun( mnee.TOGGLER )
 				end
 				GamePrint( GameTextGetTranslatedOrNot( "$mnee_"..( has_flag and "" or "no_" ).."input" ))
-				pen.play_sound( has_flag and "capture" or "uncapture" )
+				mnee.play_sound( has_flag and "capture" or "uncapture" )
 			end
 			if( mnee.mnin( "bind", { "mnee", "profile_change" }, { pressed = true })) then
 				local prf = ModSettingGetNextValue( "mnee.PROFILE" ) + 1
 				prf = prf > 3 and 1 or prf
 				ModSettingSetNextValue( "mnee.PROFILE", prf, false )
 				GamePrint( GameTextGetTranslatedOrNot( "$mnee_this_profile" )..": "..string.char( prf + 64 ))
-				pen.play_sound( "switch_page" )
+				mnee.play_sound( "switch_page" )
 				GlobalsSetValue( mnee.UPDATER, GameGetFrameNum())
 			end
 		end
@@ -235,14 +235,14 @@ function OnWorldPreUpdate()
 					uid = mnee.new_tooltip( gui, uid, pic_z - 200, GameTextGetTranslatedOrNot( "$mnee_close" ))
 					if( clicked ) then
 						gui_active = false
-						pen.play_sound( "close_window" )
+						mnee.play_sound( "close_window" )
 					end
 
 					uid, clicked = pen.new_button( gui, uid, pic_x + pic_w - 15, pic_y + 2, pic_z - 0.01, "mods/mnee/files/pics/key_"..( show_alt and "B" or "A" )..".png" )
 					uid = mnee.new_tooltip( gui, uid, pic_z - 200, GameTextGetTranslatedOrNot( "$mnee_alt"..( show_alt and "B" or "A" )))
 					if( clicked ) then
 						show_alt = not( show_alt )
-						pen.play_sound( "button_special" )
+						mnee.play_sound( "button_special" )
 					end
 					
 					local counter = 1
@@ -266,7 +266,7 @@ function OnWorldPreUpdate()
 							if( clicked ) then
 								binding_page = 1
 								current_mod = mod
-								pen.play_sound( "button_special" )
+								mnee.play_sound( "button_special" )
 							end
 						end
 					end
@@ -330,14 +330,14 @@ function OnWorldPreUpdate()
 										current_binding = id
 										doing_axis = is_axis
 										btn_axis_mode = is_axis and r_clicked
-										pen.play_sound( "select" )
+										mnee.play_sound( "select" )
 
 										advanced_mode = bind.is_advanced
 										if( advanced_mode == nil ) then advanced_mode = meta.is_advanced or false end
 										advanced_mode = advanced_mode or ( r_clicked and not( is_axis ))
 									else
 										GamePrint( GameTextGetTranslatedOrNot( "$mnee_error" ).." "..GameTextGetTranslatedOrNot( "$mnee_no_change" ))
-										pen.play_sound( "error" )
+										mnee.play_sound( "error" )
 									end
 								end
 								
@@ -352,7 +352,7 @@ function OnWorldPreUpdate()
 										keys[ current_mod ][ id ] = bindings[ current_mod ][ id ]
 									end
 									mnee.set_bindings( keys )
-									pen.play_sound( "clear_all" )
+									mnee.play_sound( "clear_all" )
 								end
 							end
 						end
@@ -373,7 +373,7 @@ function OnWorldPreUpdate()
 						dofile( "mods/mnee/bindings.lua" )
 						keys[ current_mod ] = bindings[ current_mod ]
 						mnee.set_bindings( keys )
-						pen.play_sound( "clear_all" )
+						mnee.play_sound( "clear_all" )
 					end
 					
 					uid, clicked = pen.new_button( gui, uid, pic_x + 136, pic_y + 11, pic_z - 0.01, "mods/mnee/files/pics/button_tgl_"..( is_disabled and "A" or "B" )..".png" )
@@ -381,10 +381,10 @@ function OnWorldPreUpdate()
 					if( clicked ) then
 						if( is_disabled ) then
 							GameRemoveFlagRun( mnee.TOGGLER )
-							pen.play_sound( "capture" )
+							mnee.play_sound( "capture" )
 						else
 							GameAddFlagRun( mnee.TOGGLER )
-							pen.play_sound( "uncapture" )
+							mnee.play_sound( "uncapture" )
 						end
 					end
 					
@@ -396,7 +396,7 @@ function OnWorldPreUpdate()
 							ModSettingSetNextValue( "mnee.BINDINGS_ALT_"..i, "&", false )
 							mnee.update_bindings( i )
 						end
-						pen.play_sound( "delete" )
+						mnee.play_sound( "delete" )
 					end
 					
 					--[[if( io ~= nil ) then --does not backup the secondary binds
@@ -446,10 +446,10 @@ function OnWorldPreUpdate()
 					if( clicked ) then
 						if( ctl_panel ) then
 							ctl_panel = false
-							pen.play_sound( "close_window" )
+							mnee.play_sound( "close_window" )
 						else
 							ctl_panel = true
-							pen.play_sound( "open_window" )
+							mnee.play_sound( "open_window" )
 						end
 					end
 					if( ctl_panel ) then
@@ -462,7 +462,7 @@ function OnWorldPreUpdate()
 						uid = mnee.new_tooltip( gui, uid, pic_z - 200, GameTextGet( "$mnee_jpad_count", jpad_count ).." @ "..GameTextGetTranslatedOrNot( "$mnee_rmb_scan"..( is_auto and "B" or "A" )))  
 						if( r_clicked ) then
 							ModSettingSetNextValue( "mnee.CTRL_AUTOMAPPING", not( is_auto ), false )
-							pen.play_sound( "button_special" )
+							mnee.play_sound( "button_special" )
 						end
 						
 						for i = 1,4 do
@@ -477,10 +477,10 @@ function OnWorldPreUpdate()
 							if( r_clicked ) then
 								if( is_real ) then
 									jpad_update( -i )
-									pen.play_sound( "delete" )
+									mnee.play_sound( "delete" )
 								else
 									GamePrint( GameTextGetTranslatedOrNot( "$mnee_no_jpads" ))
-									pen.play_sound( "error" )
+									mnee.play_sound( "error" )
 								end
 							end
 						end
@@ -607,7 +607,7 @@ function OnWorldPreUpdate()
 								btn_axis_counter = btn_axis_counter + 1
 							end
 							gui_retoggler = false
-							pen.play_sound( "confirm" )
+							mnee.play_sound( "confirm" )
 						end
 					else
 						uid = pen.new_button( gui, uid, pic_x + 3, pic_y + 71, pic_z - 0.01, "mods/mnee/files/pics/help.png" )
@@ -646,7 +646,7 @@ function OnWorldPreUpdate()
 							doing_axis = false
 							btn_axis_mode = false
 							advanced_mode = false
-							pen.play_sound( "error" )
+							mnee.play_sound( "error" )
 						end
 						
 						local this_bind = current_binding
@@ -693,7 +693,7 @@ function OnWorldPreUpdate()
 							end
 							mnee.set_bindings( keys )
 							gui_retoggler = true
-							pen.play_sound( "delete" )
+							mnee.play_sound( "delete" )
 						elseif( doing_jpad ) then
 							local axes = mnee.get_axes()
 							local champ = { 0, 0 }
@@ -706,7 +706,7 @@ function OnWorldPreUpdate()
 								keys[ current_mod ][ this_bind ][ key_type ] = { "is_axis", champ[1], }
 								mnee.set_bindings( keys )
 								gui_retoggler = true
-								pen.play_sound( "switch_dimension" )
+								mnee.play_sound( "switch_dimension" )
 							end
 						elseif( enter_down ) then
 							local changed = false
@@ -731,7 +731,7 @@ function OnWorldPreUpdate()
 								mnee.set_bindings( keys )
 							end
 							gui_retoggler = true
-							pen.play_sound( "switch_dimension" )
+							mnee.play_sound( "switch_dimension" )
 						end
 					end
 				end
@@ -749,15 +749,15 @@ function OnWorldPreUpdate()
 						local ctl = jpad_update( i )
 						if( not( is_auto )) then
 							if( ctl ) then
-								pen.play_sound( "confirm" )
+								mnee.play_sound( "confirm" )
 							else
 								GamePrint( GameTextGetTranslatedOrNot( "$mnee_error" ))
-								pen.play_sound( "error" )
+								mnee.play_sound( "error" )
 							end
 						end
 					elseif( not( is_auto )) then
 						GamePrint( GameTextGetTranslatedOrNot( "$mnee_no_slot" ))
-						pen.play_sound( "error" )
+						mnee.play_sound( "error" )
 					end
 				end
 			end

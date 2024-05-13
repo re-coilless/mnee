@@ -45,24 +45,34 @@ function pen.rotate_offset( x, y, angle )
 	return x*math.cos( angle ) - y*math.sin( angle ), x*math.sin( angle ) + y*math.cos( angle )
 end
 
-function pen.world2gui( gui, x, y ) --thanks to ImmortalDamned for the fix
+function pen.world2gui( x, y, not_pos ) --thanks to ImmortalDamned for the fix
+	not_pos = not_pos or false
+	
+	local gui = GuiCreate()
+	GuiStartFrame( gui )
+	local w, h = GuiGetScreenDimensions( gui )
+	GuiDestroy( gui )
+	
 	local view_x = ( MagicNumbersGetValue( "VIRTUAL_RESOLUTION_X" ) + MagicNumbersGetValue( "VIRTUAL_RESOLUTION_OFFSET_X" ))
 	local view_y = ( MagicNumbersGetValue( "VIRTUAL_RESOLUTION_Y" ) + MagicNumbersGetValue( "VIRTUAL_RESOLUTION_OFFSET_Y" ))
-	local w, h = GuiGetScreenDimensions( gui )
 	local massive_balls_x, massive_balls_y = w/view_x, h/view_y
-	
+
 	local _,_, cancer_x, cancer_y = GameGetCameraBounds()
 	if( cancer_x/cancer_y < 1.7 ) then
 		massive_balls_x, massive_balls_y = massive_balls_x*massive_balls_y, massive_balls_x*massive_balls_y
 	end
 
-	local cam_x, cam_y = GameGetCameraPos()
-	return massive_balls_x*( x - ( cam_x - view_x/2 )), massive_balls_y*( y - ( cam_y - view_y/2 )), {massive_balls_x,massive_balls_y}
+	if( not( not_pos )) then
+		local cam_x, cam_y = GameGetCameraPos()
+		x, y = ( x - ( cam_x - view_x/2 )), ( y - ( cam_y - view_y/2 ))
+	end
+	
+	return massive_balls_x*x, massive_balls_y*y, {massive_balls_x,massive_balls_y}
 end
 
-function pen.get_mouse_pos( gui )
+function pen.get_mouse_pos()
 	local m_x, m_y = DEBUG_GetMouseWorld()
-	return pen.world2gui( gui, m_x, m_y )
+	return pen.world2gui( m_x, m_y )
 end
 
 --[UTILS]
@@ -370,14 +380,6 @@ function pen.get_creature_head( entity_id, x, y )
 end
 
 --[FRONTEND]
-function pen.play_sound( event )
-	if( not( sound_played )) then
-		sound_played = false
-		local c_x, c_y = GameGetCameraPos()
-		GamePlaySound( "mods/mnee/files/sfx/mnee.bank", event, c_x, c_y )
-	end
-end
-
 function pen.colourer( gui, c_type )
 	if( #c_type == 0 ) then return end
 	local color = { r = 0, g = 0, b = 0 }

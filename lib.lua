@@ -493,6 +493,14 @@ function mnee.get_shifted_key( c )
 	end
 end
 
+function mnee.play_sound( event )
+	if( not( sound_played )) then
+		sound_played = true
+		local c_x, c_y = GameGetCameraPos()
+		GamePlaySound( "mods/mnee/files/sfx/mnee.bank", event, c_x, c_y )
+	end
+end
+
 function mnee.new_tooltip( gui, uid, pic_z, text )
 	if( not( tooltip_opened )) then
 		local _, _, t_hov = GuiGetPreviousWidgetInfo( gui )
@@ -539,14 +547,14 @@ function mnee.new_pager( gui, uid, pic_x, pic_y, pic_z, page, max_page, profile_
 	local clicked, r_clicked = 0, 0, 0
 	uid, clicked, r_clicked = pen.new_button( gui, uid, pic_x, pic_y, pic_z, "mods/mnee/files/pics/key_left.png" )
 	if( clicked and max_page > 1 ) then
-		pen.play_sound( "button_special" )
+		mnee.play_sound( "button_special" )
 		page = page - 1
 		if( page < 1 ) then
 			page = max_page
 		end
 	end
 	if( r_clicked and max_page > 5 ) then
-		pen.play_sound( "switch_page" )
+		mnee.play_sound( "switch_page" )
 		page = page - 5
 		if( page < 1 ) then
 			page = max_page + page
@@ -571,14 +579,14 @@ function mnee.new_pager( gui, uid, pic_x, pic_y, pic_z, page, max_page, profile_
 	end
 	uid, clicked, r_clicked = pen.new_button( gui, uid, pic_x, pic_y, pic_z - 0.01, "mods/mnee/files/pics/key_right.png" )
 	if( clicked and max_page > 1 ) then
-		pen.play_sound( "button_special" )
+		mnee.play_sound( "button_special" )
 		page = page + 1
 		if( page > max_page ) then
 			page = 1
 		end
 	end
 	if( r_clicked and max_page > 5 ) then
-		pen.play_sound( "switch_page" )
+		mnee.play_sound( "switch_page" )
 		page = page + 5
 		if( page > max_page ) then
 			page = page - max_page

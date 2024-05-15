@@ -45,34 +45,97 @@ function pen.rotate_offset( x, y, angle )
 	return x*math.cos( angle ) - y*math.sin( angle ), x*math.sin( angle ) + y*math.cos( angle )
 end
 
-function pen.world2gui( x, y, not_pos ) --thanks to ImmortalDamned for the fix
-	not_pos = not_pos or false
-	
+function pen.rounder( num, k )
+	k = k or 1000
+	if( k > 0 ) then
+		return math.floor( k*num + 0.5 )/k
+	else
+		return math.ceil( k*num - 0.5 )/k
+	end
+end
+
+function pen.get_screen_data()
 	local gui = GuiCreate()
 	GuiStartFrame( gui )
-	local w, h = GuiGetScreenDimensions( gui )
-	GuiDestroy( gui )
-	
-	local view_x = ( MagicNumbersGetValue( "VIRTUAL_RESOLUTION_X" ) + MagicNumbersGetValue( "VIRTUAL_RESOLUTION_OFFSET_X" ))
-	local view_y = ( MagicNumbersGetValue( "VIRTUAL_RESOLUTION_Y" ) + MagicNumbersGetValue( "VIRTUAL_RESOLUTION_OFFSET_Y" ))
-	local massive_balls_x, massive_balls_y = w/view_x, h/view_y
 
-	local _,_, cancer_x, cancer_y = GameGetCameraBounds()
-	if( cancer_x/cancer_y < 1.7 ) then
-		massive_balls_x, massive_balls_y = massive_balls_x*massive_balls_y, massive_balls_x*massive_balls_y
+	local w, h = GuiGetScreenDimensions( gui )
+	-- GuiOptionsAddForNextWidget( gui, 51 ) --IsExtraDraggable
+	-- GuiOptionsAddForNextWidget( gui, 6 ) --NoPositionTween
+	-- GuiOptionsAddForNextWidget( gui, 4 ) --ClickCancelsDoubleClick
+	-- GuiOptionsAddForNextWidget( gui, 21 ) --DrawNoHoverAnimation
+	-- GuiOptionsAddForNextWidget( gui, 47 ) --NoSound
+	-- GuiZSetForNextWidget( gui, 1 )
+	-- GuiIdPush( gui, 1 )
+	-- GuiImageButton( gui, 1, w, h, "", "data/ui_gfx/empty.png" )
+	-- local _,_,_,_,_,_,_,real_w,real_h = GuiGetPreviousWidgetInfo( gui )
+	local real_w, real_h = 1280, 720 -- thanks to Horscht
+
+	GuiDestroy( gui )
+
+	return w, h, real_w, real_h
+end
+
+function pen.get_camera_shake( w, h, real_w, real_h, k )
+	if( w == nil ) then w, h, real_w, real_h = pen.get_screen_data() end
+	k = k or 1
+
+	local function purify( a, max )
+		return math.min( math.max( pen.rounder( a, -2 ), 0 ), max )
 	end
 
-	if( not( not_pos )) then
+	local x, y = DEBUG_GetMouseWorld()
+	local world_x, world_y, zoom = pen.world2gui( x, y, false, true )
+	world_x, world_y = purify( world_x, w ) + 1, purify( world_y, h )
+	
+	local screen_x, screen_y = InputGetMousePosOnScreen()
+	screen_x, screen_y = purify( w*screen_x/real_w, w ), purify( h*screen_y/real_h, h )
+	if( screen_x < 1 ) then
+		screen_x = 0
+		world_x = 0
+	elseif( screen_x <= 214 ) then
+		screen_x = screen_x - 1
+	elseif( screen_x < 427 ) then
+		screen_x = screen_x - 0.5
+	end
+	if( screen_y >= 296 ) then
+		screen_y = screen_y - 0.5
+	elseif( screen_y <= 147 ) then
+		screen_y = screen_y + 0.5
+	end
+	
+	local delta_x, delta_y = screen_x - world_x, screen_y - world_y
+	if( math.abs( delta_x ) < k and math.abs( delta_y ) < k ) then
+		return 0, 0
+	end
+	return delta_x, delta_y
+end
+
+function pen.world2gui( x, y, is_raw, no_shake ) --thanks to ImmortalDamned for the fix
+	is_raw = is_raw or false
+	no_shake = no_shake or is_raw
+	
+	local w, h, real_w, real_h = pen.get_screen_data()
+	local view_x = MagicNumbersGetValue( "VIRTUAL_RESOLUTION_X" ) + MagicNumbersGetValue( "VIRTUAL_RESOLUTION_OFFSET_X" )
+	local view_y = MagicNumbersGetValue( "VIRTUAL_RESOLUTION_Y" ) + MagicNumbersGetValue( "VIRTUAL_RESOLUTION_OFFSET_Y" )
+	local massive_balls_x, massive_balls_y = w/view_x, h/view_y
+	
+	if( not( is_raw )) then
 		local cam_x, cam_y = GameGetCameraPos()
 		x, y = ( x - ( cam_x - view_x/2 )), ( y - ( cam_y - view_y/2 ))
 	end
+	if( not( no_shake )) then
+		local shake_x, shake_y = pen.get_camera_shake( w, h, real_w, real_h, view_x/421 )
+		x, y = x + shake_x, y + shake_y
+	end
+	x, y = massive_balls_x*x, massive_balls_y*y
 	
-	return massive_balls_x*x, massive_balls_y*y, {massive_balls_x,massive_balls_y}
+	return x, y, {massive_balls_x,massive_balls_y}
 end
 
 function pen.get_mouse_pos()
-	local m_x, m_y = DEBUG_GetMouseWorld()
-	return pen.world2gui( m_x, m_y )
+	local w,h,screen_w,screen_h = pen.get_screen_data()
+	local m_x, m_y = InputGetMousePosOnScreen()
+	return w*m_x/screen_w, h*m_y/screen_h
 end
 
 --[UTILS]

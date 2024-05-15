@@ -150,9 +150,9 @@ function OnWorldPreUpdate()
 
 			local active_core = get_active_keys()
 			local axis_core = mnee.get_axes()
-			for bnd,v in pairs( axis_core ) do
-				if( v ~= 0 ) then
-					active_core = active_core..string.gsub( bnd, "gpd_axis", "gpd_btn" ).."_"..( v > 0 and "+" or "-" ).."&"
+			for ax,v in pairs( axis_core ) do
+				if( math.abs( v ) > 0.95 ) then
+					active_core = active_core..string.gsub( ax, "gpd_axis", "gpd_btn" ).."_"..( v > 0 and "+" or "-" ).."&"
 				end
 			end
 			for mode,func in pairs( mnee.INMODES ) do
@@ -697,9 +697,9 @@ function OnWorldPreUpdate()
 						elseif( doing_jpad ) then
 							local axes = mnee.get_axes()
 							local champ = { 0, 0 }
-							for ax,val in pairs( axes ) do
-								if( val ~= 0 ) then
-									champ = math.abs( champ[2]) < math.abs( val ) and { ax, val, } or champ
+							for ax,v in pairs( axes ) do
+								if( math.abs( v ) > 0.95 ) then
+									champ = math.abs( champ[2]) < math.abs( v ) and { ax, v, } or champ
 								end
 							end
 							if( champ[1] ~= 0 ) then

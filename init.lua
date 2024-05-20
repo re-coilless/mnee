@@ -4,7 +4,16 @@ get_active_keys = get_active_keys or ( function() return "huh?" end )
 function OnModInit()
 	dofile_once( "mods/mnee/lib.lua" )
 	pen.set_translations( "mods/mnee/files/translations.csv" )
+	if( HasFlagPersistent( mnee.AMAP_MEMO )) then
+		RemoveFlagPersistent( mnee.AMAP_MEMO )
+		ModSettingSetNextValue( "mnee.CTRL_AUTOMAPPING", true, false )
+	end
 	
+	-- document setup functionality (bindings.lua + apply_setup), function that allows to force map controllers
+	-- add a way to force map controllers (just unpack the table in mnee_jpads upon seeing the flag and overwrite jpad table with it)
+	-- add autoaim gravity correction based on the latest projectile fired (get projectiles in radius and pick the closest one with the highest entity_id; new arg that will update the proj data if it is true)
+
+	-- make heres ferrei be compatible with controller and upload it to steam
 	-- update translations in settings
 	-- make procedural pause screen keyboard that highlights all the bind's keys on hover of one of them (only if the moddev marked the binding as show_on_pause)
 	-- add separate full-sized fancy key name getter with full length names
@@ -18,19 +27,38 @@ function OnModInit()
 	jpad_states = jpad_states or { -1, -1, -1, -1 }
 	jpad = jpad or { false, false, false, false }
 	jpad_update = function( num )
+		local out, callbacking = nil, false
 		if( num < 0 ) then
 			jpad_states[ jpad[ math.abs( num )] + 1 ] = 1
 			jpad[ math.abs( num )] = false
+			callbacking = true
 		else
 			local val = mnee.get_next_jpad()
 			if( val ) then
 				jpad[num] = val
+				callbacking = true
 			end
-			return val
+			out = val
 		end
+
+		if( callbacking ) then
+			local make_it_stop = false
+			for mod_id,data in pairs( mneedata ) do
+				if( data.on_jpad ~= nil ) then
+					make_it_stop = data.on_jpad( data, num )
+				end
+			end
+
+			if( make_it_stop and num > 0 ) then
+				jpad_states[out + 1] = 1
+				jpad[num] = 5
+			end
+		end
+
+		return out
 	end
 
-	local divider = "&"
+	local divider = mnee.DIV_1
 	get_active_keys = function()
 		local active = divider
 		
@@ -124,6 +152,8 @@ pic_y = pic_y or 246
 grab_x = grab_x or nil
 grab_y = grab_y or nil
 
+stp_panel = stp_panel or false
+setup_page = setup_page or 1
 show_alt = show_alt or false
 mod_page = mod_page or 1
 current_mod = current_mod or "mnee"
@@ -148,11 +178,12 @@ function OnWorldPreUpdate()
 			ComponentSetValue2( pen.get_storage( ctrl_body, "mnee_triggers" ), "value_string", get_current_triggers())
 			ComponentSetValue2( pen.get_storage( ctrl_body, "mnee_jpads" ), "value_string", get_current_jpads())
 
-			local active_core = get_active_keys()
 			local axis_core = mnee.get_axes()
+			local active_core = get_active_keys()
+			local button_deadzone = ModSettingGetNextValue( "mnee.DEADZONE_BUTTON" )/20
 			for ax,v in pairs( axis_core ) do
-				if( math.abs( v ) > 0.95 ) then
-					active_core = active_core..string.gsub( ax, "gpd_axis", "gpd_btn" ).."_"..( v > 0 and "+" or "-" ).."&"
+				if( math.abs( v ) > button_deadzone ) then
+					active_core = active_core..string.gsub( ax, "gpd_axis", "gpd_btn" ).."_"..( v > 0 and "+" or "-" )..mnee.DIV_1
 				end
 			end
 			for mode,func in pairs( mnee.INMODES ) do
@@ -210,6 +241,7 @@ function OnWorldPreUpdate()
 
 			if( ctl_panel == nil and jpad_count > 0 ) then
 				ctl_panel = true
+				stp_panel = false
 			end
 
 			local keys = mnee.get_bindings()
@@ -219,6 +251,7 @@ function OnWorldPreUpdate()
 			local clicked, r_clicked, pic_z = 0, 0, -50
 			local uid = 0
 			if( gui_active ) then
+				local profile = ModSettingGetNextValue( "mnee.PROFILE" )
 				if( current_binding == "" ) then
 					local pic = "mods/mnee/files/pics/window.png"
 					local pic_w, pic_h = GuiGetImageDimensions( gui, pic, 1 )
@@ -226,7 +259,7 @@ function OnWorldPreUpdate()
 						local screen_w, screen_h = GuiGetScreenDimensions( gui )
 						pic_x = ( screen_w - pic_w )/2
 					end
-
+					
 					local txt = GameTextGetTranslatedOrNot( "$mnee_title"..( show_alt and "B" or "A" ))
 					if( show_alt ) then uid = pen.new_image( gui, uid, pic_x, pic_y, pic_z - 0.001, "mods/mnee/files/pics/title_bg.png" ) end
 					pen.new_text( gui, pic_x + 142 - GuiGetTextDimensions( gui, txt, 1, 2 ), pic_y, pic_z - 0.01, txt, show_alt and {136,121,247} or {238,226,206})
@@ -345,6 +378,8 @@ function OnWorldPreUpdate()
 								uid = mnee.new_tooltip( gui, uid, pic_z - 200, GameTextGetTranslatedOrNot( "$mnee_rmb_default" ))
 								if( r_clicked ) then
 									dofile( "mods/mnee/bindings.lua" )
+									local setup_memo = mnee.get_setup_memo()
+									bindings = mnee.apply_setup( current_mod, setup_memo[ profile ][ current_mod ], bindings )
 									if( bind.axes ~= nil ) then
 										keys[ current_mod ][ bind.axes[1]] = bindings[ current_mod ][ bind.axes[1]]
 										keys[ current_mod ][ bind.axes[2]] = bindings[ current_mod ][ bind.axes[2]]
@@ -353,6 +388,13 @@ function OnWorldPreUpdate()
 									end
 									mnee.set_bindings( keys )
 									mnee.play_sound( "clear_all" )
+									
+									if( mneedata[ current_mod ] ~= nil ) then
+										local func = mneedata[ current_mod ].on_changed
+										if( func ~= nil ) then func( mneedata[ current_mod ]) end
+										local f = bind.on_reset or bind.on_changed
+										if( f ~= nil ) then f( bind ) end
+									end
 								end
 							end
 						end
@@ -370,10 +412,18 @@ function OnWorldPreUpdate()
 					uid, clicked, r_clicked = pen.new_button( gui, uid, pic_x + 112, pic_y + 99, pic_z - 0.01, "mods/mnee/files/pics/button_dft.png" )
 					uid = mnee.new_tooltip( gui, uid, pic_z - 200, GameTextGetTranslatedOrNot( "$mnee_rmb_mod" ))
 					if( r_clicked ) then
-						dofile( "mods/mnee/bindings.lua" )
-						keys[ current_mod ] = bindings[ current_mod ]
-						mnee.set_bindings( keys )
+						local setup_memo = mnee.get_setup_memo()
+						mnee.apply_setup( current_mod, setup_memo[ profile ][ current_mod ])
 						mnee.play_sound( "clear_all" )
+						
+						if( mneedata[ current_mod ] ~= nil ) then
+							local func = mneedata[ current_mod ].on_reset or mneedata[ current_mod ].on_changed
+							if( func ~= nil ) then func( mneedata[ current_mod ]) end
+							for id,bind in mnee.order_sorter( keys[ current_mod ]) do
+								local f = bind.on_reset or bind.on_changed
+								if( f ~= nil ) then f( bind ) end
+							end
+						end
 					end
 					
 					uid, clicked = pen.new_button( gui, uid, pic_x + 136, pic_y + 11, pic_z - 0.01, "mods/mnee/files/pics/button_tgl_"..( is_disabled and "A" or "B" )..".png" )
@@ -391,55 +441,33 @@ function OnWorldPreUpdate()
 					uid, clicked, r_clicked = pen.new_button( gui, uid, pic_x + 136, pic_y + 22, pic_z - 0.01, "mods/mnee/files/pics/button_rst.png" )
 					uid = mnee.new_tooltip( gui, uid, pic_z - 200, GameTextGetTranslatedOrNot( "$mnee_rmb_reset" ))
 					if( r_clicked ) then
+						ModSettingSetNextValue( "mnee.SETUP", mnee.DIV_1, false )
 						for i = 1,3 do
-							ModSettingSetNextValue( "mnee.BINDINGS_"..i, "&", false )
-							ModSettingSetNextValue( "mnee.BINDINGS_ALT_"..i, "&", false )
+							ModSettingSetNextValue( "mnee.BINDINGS_"..i, mnee.DIV_1, false )
+							ModSettingSetNextValue( "mnee.BINDINGS_ALT_"..i, mnee.DIV_1, false )
 							mnee.update_bindings( i )
 						end
 						mnee.play_sound( "delete" )
 					end
-					
-					--[[if( io ~= nil ) then --does not backup the secondary binds
-						uid, clicked, r_clicked = new_button( gui, uid, pic_x + 136, pic_y + 66, pic_z - 0.01, "mods/mnee/files/pics/button_bkp.png" )
-						uid = new_tooltip( gui, uid, pic_z - 200, GameTextGetTranslatedOrNot( "$mnee_lmb_backup" ))
+
+					if( mneedata[ current_mod ] ~= nil and mneedata[ current_mod ].setup_modes ~= nil ) then
+						uid, clicked = pen.new_button( gui, uid, pic_x + 136, pic_y + 66, pic_z - 0.01, "mods/mnee/files/pics/button_stp_"..( stp_panel and "B" or "A" )..".png" )
+						uid = mnee.new_tooltip( gui, uid, pic_z - 200, GameTextGetTranslatedOrNot( "$mnee_lmb_setups" ))
 						if( clicked ) then
-							local cout = "@"
-							for i = 1,3 do
-								cout = cout..ModSettingGetNextValue( "mnee.BINDINGS_"..i ).."@"
-							end
-							local file,err = io.open( "mods/mnee/_backup.txt", 'w' )
-							if( file ) then
-								file:write( tostring( cout ))
-								file:close()
-								play_sound( "minimize" )
+							if( stp_panel ) then
+								stp_panel = false
+								mnee.play_sound( "close_window" )
 							else
-								GamePrint( GameTextGetTranslatedOrNot( "$mnee_error" )..": ", err )
-								play_sound( "error" )
-							end
-						end
-						if( r_clicked ) then
-							local file,err = io.open( "mods/mnee/_backup.txt", 'r' )
-							if( file ) then
-								local cin = file:read() or ""
-								file:close()
-								if( cin ~= "" ) then
-									local i = 1
-									for value in string.gmatch( cin, MNEE_PTN_0 ) do
-										ModSettingSetNextValue( "mnee.BINDINGS_"..i, value, false )
-										update_bindings( i )
-										i = i + 1
-									end
-									play_sound( "unminimize" )
-								else
-									GamePrint( GameTextGetTranslatedOrNot( "$mnee_no_backups" ))
-									play_sound( "error" )
+								stp_panel = true
+								if( ctl_panel ) then
+									ctl_panel = false
 								end
-							else
-								GamePrint( GameTextGetTranslatedOrNot( "$mnee_error" )..": ", err )
-								play_sound( "error" )
+								mnee.play_sound( "open_window" )
 							end
 						end
-					end]]
+					elseif( stp_panel ) then
+						stp_panel = false
+					end
 
 					uid, clicked = pen.new_button( gui, uid, pic_x + 136, pic_y + 77, pic_z - 0.01, "mods/mnee/files/pics/button_ctl_"..( ctl_panel and "B" or "A" )..".png" )
 					uid = mnee.new_tooltip( gui, uid, pic_z - 200, GameTextGetTranslatedOrNot( "$mnee_lmb_jpads" ))
@@ -449,10 +477,49 @@ function OnWorldPreUpdate()
 							mnee.play_sound( "close_window" )
 						else
 							ctl_panel = true
+							stp_panel = false
 							mnee.play_sound( "open_window" )
 						end
 					end
-					if( ctl_panel ) then
+					
+					if( stp_panel ) then
+						if( not( mneedata[ current_mod ].setup_modes[1].dtf )) then
+							table.insert( mneedata[ current_mod ].setup_modes, 1, mneedata[ current_mod ].setup_default or {
+								name = "$mnee_default",
+								desc = "$mnee_default_desc",
+							})
+							mneedata[ current_mod ].setup_modes[1].id = "dft"
+							mneedata[ current_mod ].setup_modes[1].dtf = true
+						end
+
+						local final_i = 5*setup_page
+						local t_x, t_y = pic_x + 160, pic_y + 33
+						local setup_memo = mnee.get_setup_memo()
+						for i,setup in ipairs( mneedata[ current_mod ].setup_modes ) do
+							local is_going = setup_memo[ profile ][ current_mod ] == setup.id
+							uid, clicked = pen.new_button( gui, uid, t_x, t_y, pic_z - 0.01, "mods/mnee/files/pics/button_21_"..( is_going and "B" or "A" )..".png" )
+							uid = mnee.new_tooltip( gui, uid, pic_z - 200, GameTextGetTranslatedOrNot( "$mnee_setup_warning" ).." @ "..pen.get_translated_line( setup.name )..": "..pen.get_translated_line( setup.desc ))
+							pen.new_text( gui, t_x + 2, t_y, pic_z - 0.02, string.upper( string.sub( setup.btn or setup.id, 1, 3 )), is_going and {245,132,132} or {238,226,206})
+							if( clicked ) then
+								mnee.apply_setup( current_mod, setup.id )
+								mnee.play_sound( "switch_page" )
+								if( mneedata[ current_mod ].on_setup ~= nil ) then
+									mneedata[ current_mod ].on_setup( setup )
+								end
+							end
+
+							t_y = t_y + 11
+							if( i == final_i ) then break end
+						end
+
+						page = setup_page
+						uid, page = mnee.new_pager( gui, uid, t_x, pic_y + 88, pic_z - 0.01, page, math.ceil(( #mneedata[ current_mod ].setup_modes )/5 ), 1 )
+						if( setup_page ~= page ) then
+							setup_page = page
+						end
+
+						uid = pen.new_button( gui, uid, pic_x + 158, pic_y + 31, pic_z + 0.01, "mods/mnee/files/pics/setup_panel.png" )
+					elseif( ctl_panel ) then
 						if( is_auto ) then
 							uid = pen.new_anim( gui, uid, 1, pic_x + 160, pic_y + 55, pic_z, "mods/mnee/files/pics/scan/", 20, 5 )
 						else
@@ -467,17 +534,24 @@ function OnWorldPreUpdate()
 						
 						for i = 1,4 do
 							local is_real = jpad[i]
-							uid, clicked, r_clicked = pen.new_button( gui, uid, pic_x + 160, pic_y + 66 + 11*( i - 1 ), pic_z, "mods/mnee/files/pics/button_10_"..( is_real and "B" or "A" )..".png" )
-							uid = mnee.new_tooltip( gui, uid, pic_z - 200, is_real and GameTextGetTranslatedOrNot( "$mnee_jpad_id" )..tostring( is_real ).." @ "..GameTextGetTranslatedOrNot( "$mnee_rmb_unmap" ) or GameTextGetTranslatedOrNot( "$mnee_lmb_map" ))
-							pen.new_text( gui, pic_x + 162, pic_y + 66 + 11*( i - 1 ), pic_z - 0.01, i, is_real and {245,132,132} or {238,226,206})
+							uid, clicked = pen.new_button( gui, uid, pic_x + 160, pic_y + 66 + 11*( i - 1 ), pic_z, "mods/mnee/files/pics/button_10_"..( is_real and "B" or "A" )..".png" )
+							uid = mnee.new_tooltip( gui, uid, pic_z - 200, is_real and GameTextGetTranslatedOrNot( "$mnee_jpad_id" )..( is_real > 4 and GameTextGetTranslatedOrNot( "$mnee_dummy" ) or tostring( is_real )).." @ "..GameTextGetTranslatedOrNot( "$mnee_lmb_unmap" ) or GameTextGetTranslatedOrNot( "$mnee_lmb_map" ))
+							pen.new_text( gui, pic_x + 162, pic_y + 66 + 11*( i - 1 ), pic_z - 0.01, i, is_real and ( is_real > 4 and {136,121,247} or {245,132,132}) or {238,226,206})
 							
 							if( clicked ) then
-								gslot_update[i] = true
-							end
-							if( r_clicked ) then
-								if( is_real ) then
-									jpad_update( -i )
-									mnee.play_sound( "delete" )
+								if( jpad_count > 0 ) then
+									if( is_real ) then
+										jpad_update( -i )
+										mnee.play_sound( "delete" )
+									else
+										gslot_update[i] = true
+									end
+
+									if( is_auto ) then
+										ModSettingSetNextValue( "mnee.CTRL_AUTOMAPPING", false, false )
+										AddFlagPersistent( mnee.AMAP_MEMO )
+										is_auto = false
+									end
 								else
 									GamePrint( GameTextGetTranslatedOrNot( "$mnee_no_jpads" ))
 									mnee.play_sound( "error" )
@@ -488,7 +562,6 @@ function OnWorldPreUpdate()
 						uid = pen.new_button( gui, uid, pic_x + 158, pic_y + 53, pic_z + 0.01, "mods/mnee/files/pics/controller_panel.png" )
 					end
 					
-					local profile = ModSettingGetNextValue( "mnee.PROFILE" )
 					page = profile
 					uid, page = mnee.new_pager( gui, uid, pic_x + 136, pic_y + 88, pic_z - 0.01, page, 3, true )
 					if( profile ~= page ) then
@@ -691,20 +764,18 @@ function OnWorldPreUpdate()
 							if( nuke_em == 1 ) then
 								keys[ current_mod ][ this_bind ].keys = keys[ current_mod ][ this_bind ].keys_alt
 							end
-							mnee.set_bindings( keys )
 							gui_retoggler = true
 							mnee.play_sound( "delete" )
 						elseif( doing_jpad ) then
 							local axes = mnee.get_axes()
 							local champ = { 0, 0 }
 							for ax,v in pairs( axes ) do
-								if( math.abs( v ) > 0.95 ) then
+								if( math.abs( v ) > 0.8 ) then
 									champ = math.abs( champ[2]) < math.abs( v ) and { ax, v, } or champ
 								end
 							end
 							if( champ[1] ~= 0 ) then
 								keys[ current_mod ][ this_bind ][ key_type ] = { "is_axis", champ[1], }
-								mnee.set_bindings( keys )
 								gui_retoggler = true
 								mnee.play_sound( "switch_dimension" )
 							end
@@ -728,10 +799,19 @@ function OnWorldPreUpdate()
 							end
 							if( changed ) then
 								keys[ current_mod ][ this_bind ][ key_type ] = new_bind
-								mnee.set_bindings( keys )
 							end
 							gui_retoggler = true
 							mnee.play_sound( "switch_dimension" )
+						end
+						
+						if( gui_retoggler ) then
+							mnee.set_bindings( keys )
+							if( mneedata[ current_mod ] ~= nil and mneedata[ current_mod ].on_changed ~= nil ) then
+								mneedata[ current_mod ].on_changed( mneedata[ current_mod ])
+							end
+							if( keys[ current_mod ][ this_bind ].on_changed ~= nil ) then
+								keys[ current_mod ][ this_bind ].on_changed( keys[ current_mod ][ this_bind ])
+							end
 						end
 					end
 				end

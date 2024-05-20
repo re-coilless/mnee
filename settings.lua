@@ -116,6 +116,18 @@ mod_settings =
 		scope = MOD_SETTING_SCOPE_RUNTIME,
 	},
 	{
+		id = "DEADZONE_BUTTON",
+		ui_name = GameTextGetTranslatedOrNot( text_with_no_mod( "$mnee_deadzone" )).." [BUTTON]",
+		ui_description = text_with_no_mod( "$mnee_deadzone_desc" ),
+		value_default = 16,
+		
+		value_min = 0,
+		value_max = 19,
+		value_display_multiplier = 5,
+		value_display_formatting = " $0% ",
+		scope = MOD_SETTING_SCOPE_RUNTIME,
+	},
+	{
 		id = "DEADZONE_AIM",
 		ui_name = GameTextGetTranslatedOrNot( text_with_no_mod( "$mnee_deadzone" )).." [AIM]",
 		ui_description = text_with_no_mod( "$mnee_deadzone_desc" ),
@@ -185,6 +197,15 @@ mod_settings =
 		ui_description = "",
 		hidden = true,
 		value_default = 1,
+		scope = MOD_SETTING_SCOPE_RUNTIME,
+	},
+	{
+		id = "SETUP",
+		ui_name = "Setup Choice Memo",
+		ui_description = "",
+		hidden = true,
+		value_default = "&",
+		text_max_length = 100000,
 		scope = MOD_SETTING_SCOPE_RUNTIME,
 	},
 	{

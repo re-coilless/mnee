@@ -345,6 +345,57 @@ function pen.get_translated_line( text )
 end
 
 --[TECHNICAL]
+function pen.from_tbl_with_id( tbl, id, subtract, custom_key, default )
+	local stuff = default or 0
+	local tbl_id = nil
+	
+	local key = custom_key or "id"
+	if( type( id ) == "table" ) then
+		stuff = {}
+		if( subtract ) then
+			if( #id < #tbl ) then
+				if( #id > 0 ) then
+					for i = #tbl,1,-1 do
+						for e,dud in ipairs( id ) do
+							if( dud == ( tbl[i][key] or tbl[i][1] or tbl[i])) then
+								table.remove( tbl, i )
+								table.remove( id, e )
+								break
+							end
+						end
+					end
+				end
+				return tbl
+			end
+			return {}
+		else
+			for i,dud in ipairs( tbl ) do
+				for e,bub in ipairs( id ) do
+					if(( dud[key] or dud[1] or dud ) == bub ) then
+						table.insert( stuff, dud )
+						break
+					end
+				end
+			end
+		end
+	else
+		local gonna_stuff = default == nil
+		for i,dud in ipairs( tbl ) do
+			if( gonna_stuff and type( dud ) == "table" ) then
+				stuff = {}
+				gonna_stuff = false
+			end
+			if(( dud[key] or dud[1] or dud ) == id ) then
+				stuff = dud
+				tbl_id = i
+				break
+			end
+		end
+	end
+	
+	return stuff, tbl_id
+end
+
 function pen.catch( f, input, fallback )
 	local is_good,stuff,oa,ob,oc,od,oe,of,og,oh = pcall(f, unpack( input or {}))
 	if( not( is_good )) then

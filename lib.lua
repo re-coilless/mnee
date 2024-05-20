@@ -2,6 +2,7 @@ dofile_once( "mods/mnee/_penman.lua" )
 
 mnee = mnee or {}
 
+mnee.AMAP_MEMO = "mnee_mapping_memo"
 mnee.INITER = "MNEE_IS_GOING"
 mnee.TOGGLER = "MNEE_DISABLED"
 mnee.RETOGGLER = "MNEE_REDO"
@@ -83,6 +84,7 @@ function mnee.get_next_jpad( init_only )
 						break
 					end
 				end
+
 				jpad_states[i] = -1
 				jpad_count = jpad_count - 1
 			end
@@ -269,6 +271,96 @@ function mnee.order_sorter( tbl )
 	end)
 end
 
+function mnee.get_setup_memo()
+	local setup_raw = ModSettingGetNextValue( "mnee.SETUP" )
+	if( setup_raw == mnee.DIV_1 ) then
+		dofile_once( "mods/mnee/bindings.lua" )
+
+		local setup = {}
+		for mod_id,value in pairs( mneedata ) do
+			setup[ mod_id ] = "dft"
+		end
+		setup = {setup,setup,setup}
+		
+		mnee.set_setup_memo( setup, profile )
+		setup_raw = ModSettingGetNextValue( "mnee.SETUP" )
+	end
+
+	local setup = {}
+	local counter_p, counter_v = 1, 1
+	for prfl in string.gmatch( setup_raw, mnee.PTN_1 ) do
+		setup[counter_p] = {}
+
+		local mod_id = ""
+		for val in string.gmatch( prfl, mnee.PTN_2 ) do
+			if( counter_v%2 == 0 ) then
+				setup[ counter_p ][ mod_id ] = val
+			else
+				mod_id = val
+			end
+			
+			counter_v = counter_v + 1
+		end
+		counter_v = 1
+		counter_p = counter_p + 1
+	end
+
+	return setup
+end
+
+function mnee.set_setup_memo( data )
+	local setup_raw = mnee.DIV_1
+	for i = 1,3 do
+		for mod_id,value in pairs( data[i]) do
+			setup_raw = setup_raw..mnee.DIV_2..mod_id..mnee.DIV_2..value
+		end
+		setup_raw = setup_raw..mnee.DIV_2..mnee.DIV_1
+	end
+	ModSettingSetNextValue( "mnee.SETUP", setup_raw, false )
+end
+
+function mnee.apply_setup( mod_id, setup_id, bind_tbl )
+	dofile( "mods/mnee/bindings.lua" )
+
+	setup_id = setup_id or "dft"
+	local profile = ModSettingGetNextValue( "mnee.PROFILE" )
+
+	local is_naked = bind_tbl == nil
+	bind_tbl = bind_tbl or mnee.get_bindings( profile, true )
+	if( setup_id == "dft" ) then
+		bind_tbl[ mod_id ] = bindings[ mod_id ]
+	else
+		local setup_mode = pen.from_tbl_with_id( mneedata[ mod_id ].setup_modes, setup_id )
+		if( setup_mode.id == nil ) then
+			return
+		end
+		
+		for bind,v in mnee.order_sorter( bind_tbl[ mod_id ]) do
+			local new_keys = setup_mode.binds[ bind ]
+			if( new_keys ~= nil ) then
+				if( type( new_keys[1]) == "table" ) then
+					bind_tbl[ mod_id ][ bind ].keys = new_keys[1]
+					bind_tbl[ mod_id ][ bind ].keys_alt = new_keys[2]
+				else
+					bind_tbl[ mod_id ][ bind ].keys = new_keys
+					bind_tbl[ mod_id ][ bind ].keys_alt = { ["_"] = 1 }
+				end
+			end
+		end
+	end
+
+	if( is_naked ) then
+		local setup_memo = mnee.get_setup_memo()
+		if( setup_memo[ profile ][ mod_id ] ~= setup_id ) then
+			setup_memo[ profile ][ mod_id ] = setup_id
+			mnee.set_setup_memo( setup_memo )
+		end
+		mnee.set_bindings( bind_tbl, profile )
+	else
+		return bind_tbl
+	end
+end
+
 function mnee.get_bindings( profile, binds_only )
 	dofile_once( "mods/mnee/bindings.lua" )
 	
@@ -302,17 +394,12 @@ function mnee.get_bindings( profile, binds_only )
 								data[ mod_name ][ binding_name ][ "keys" ] = {}
 								data[ mod_name ][ binding_name ][ "keys_alt" ] = {}
 								if( not( binds_only )) then
-									data[ mod_name ][ binding_name ][ "order_id" ] = bindings[ mod_name ][ binding_name ].order_id
-									data[ mod_name ][ binding_name ][ "is_dirty" ] = bindings[ mod_name ][ binding_name ].is_dirty
-									data[ mod_name ][ binding_name ][ "is_advanced" ] = bindings[ mod_name ][ binding_name ].is_advanced
-									data[ mod_name ][ binding_name ][ "allow_special" ] = bindings[ mod_name ][ binding_name ].allow_special
-									data[ mod_name ][ binding_name ][ "is_locked" ] = bindings[ mod_name ][ binding_name ].is_locked
-									data[ mod_name ][ binding_name ][ "is_hidden" ] = bindings[ mod_name ][ binding_name ].is_hidden
-									data[ mod_name ][ binding_name ][ "name" ] = bindings[ mod_name ][ binding_name ].name
-									data[ mod_name ][ binding_name ][ "desc" ] = bindings[ mod_name ][ binding_name ].desc
-									data[ mod_name ][ binding_name ][ "jpad_type" ] = bindings[ mod_name ][ binding_name ].jpad_type
-									data[ mod_name ][ binding_name ][ "deadzone" ] = bindings[ mod_name ][ binding_name ].deadzone
-									data[ mod_name ][ binding_name ][ "axes" ] = bindings[ mod_name ][ binding_name ].axes
+									local skip_list = { ["keys"] = 1, ["keys_alt"] = 1, }
+									for field,value in pairs( bindings[ mod_name ][ binding_name ]) do
+										if( skip_list[ field ] == nil ) then
+											data[ mod_name ][ binding_name ][ field ] = value
+										end
+									end
 								end
 							end
 						end
@@ -441,12 +528,11 @@ function mnee.get_binding_keys( mod_id, name, is_compact )
 			end
 			return out..symbols[3]
 		end
-
-		out = figure_it_out( binding.keys )
-		if( not( is_compact )) then
-			if( not( binding.keys_alt["_"] ~= nil or binding.keys_alt[2] == "_" )) then
-				out = out.." or "..figure_it_out( binding.keys_alt )
-			end
+		
+		local got_alt = not( binding.keys_alt["_"] ~= nil or binding.keys_alt[2] == "_" )
+		out = figure_it_out( binding[( got_alt and is_compact == 2 ) and "keys_alt" or "keys" ])
+		if( not( is_compact ) and got_alt ) then
+			out = out.." or "..figure_it_out( binding.keys_alt )
 		end
 		
 		if( is_compact ) then out = string.lower( out ) end
@@ -570,7 +656,7 @@ function mnee.new_pager( gui, uid, pic_x, pic_y, pic_z, page, max_page, profile_
 	if( profile_mode ) then
 		uid = mnee.new_tooltip( gui, uid, pic_z - 200, GameTextGetTranslatedOrNot( "$mnee_this_profile" ).."." )
 	end
-	pen.new_text( gui, pic_x + 2, pic_y, pic_z - 0.01, tostring( profile_mode and string.char( page + 64 ) or page ), {136,121,247})
+	pen.new_text( gui, pic_x + 2, pic_y, pic_z - 0.01, tostring( profile_mode == true and string.char( page + 64 ) or page ), {136,121,247})
 	
 	pic_x = pic_x + 22
 	if( profile_mode ) then
@@ -751,6 +837,9 @@ function mnee.mnin_bind( mod_id, name, dirty_mode, pressed_mode, is_vip, loose_m
 					is_jpad = mnee.jpad_check( bind )
 					break
 				end
+			end
+			if( out and binding.on_down ~= nil ) then
+				out = binding.on_down( binding, is_jpad )
 			end
 			return out, is_gone, is_jpad
 		end

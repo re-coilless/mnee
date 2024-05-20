@@ -10,7 +10,32 @@ mneedata["mnee"] = {
 	is_advanced = true,
 	is_locked = function(mod_id, jpads) return false end,
 	is_hidden = function(mod_id, jpads) return false end,
-	-- func = function( gui, uid, pic_x, pic_y, pic_z, data ) return uid end,
+	
+	-- func = function( gui, uid, pic_x, pic_y, pic_z, data ) return uid end, --[MAIN MENU BINDING LIST COMPLETE OVERRIDE]
+	-- on_changed = function( data ) end, --[REBINDING CALLBACK]
+	-- on_reset = function( data ) end, --[SET TO DEFAULT CALLBACK] on_changed is called if nil
+	-- on_jpad = function( data, jpad_id ) end, --[GAMEPAD SLOT CALLBACK] return true to set the newest slot to dummy
+	
+	--[[
+	on_setup = function( data ) end, --[SETUP CHANGE CALLBACK]
+	setup_default = {
+		btn = "NRM",
+		name = "Normal",
+		desc = "This table changes the UI part of the default setup mode.",
+	},
+	setup_modes = {
+		{
+			id = "test1",
+			btn = "TST",
+			name = "Test",
+			desc = "Testing the setup modes.",
+			binds = {
+				menu = { ["8"] = 1, },
+				off = {{ ["9"] = 1, }, { ["0"] = 1, }},
+			},
+		},
+	}
+	]]
 }
 bindings["mnee"] = {
 	menu = { --[ACTUAL BINDING ID]
@@ -24,7 +49,13 @@ bindings["mnee"] = {
 		name = "$mnee_open", --[DISPLAYED NAME]
 		desc = "$mnee_open_desc", --[DISPLAYED DESCRIPTION]
 		
-		jpad_type = "AIM", --[USER-ACCESSIBLE ANALOG STICK DEADZONE TYPE: AIM, MOTION, EXTRA]
+		on_changed = function( data ) end, --[REBINDING CALLBACK]
+		on_reset = function( data ) end, --[SET TO DEFAULT CALLBACK] on_changed is called if nil
+		on_down = function( data, is_jpad ) --[INPUT CALLBACK]
+			return true --return-value override
+		end,
+
+		jpad_type = "AIM", --[USER-ACCESSIBLE ANALOG STICK DEADZONE TYPE: BUTTON, AIM, MOTION, EXTRA]
 		deadzone = 0.5, --[INTERNAL USER-INACCESSIBLE DEADZONE THAT IS ADDED ON TOP]
 		
 		keys = { --[DEFAULT BINDING KEYS]
@@ -39,7 +70,7 @@ bindings["mnee"] = {
 	
 	off = {
 		order_id = "b",
-
+		
 		name = "$mnee_nope",
 		desc = "$mnee_nope_desc",
 

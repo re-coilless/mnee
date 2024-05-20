@@ -7,6 +7,7 @@ mnee.INITER = "MNEE_IS_GOING"
 mnee.TOGGLER = "MNEE_DISABLED"
 mnee.RETOGGLER = "MNEE_REDO"
 mnee.UPDATER = "MNEE_RELOAD"
+mnee.JPAD_UPDATE = "MNEE_JPAD_UPDATE"
 mnee.SERV_MODE = "MNEE_HOLD_UP"
 mnee.PRIO_MODE = "MNEE_PRIORITY_MODE"
 
@@ -109,12 +110,41 @@ function mnee.is_jpad_real( id )
 	local counter = 1
 	for j in string.gmatch( jpad_raw, mnee.PTN_1 ) do
 		if( counter == id ) then
-			return j == "1"
+			return j ~= "-1"
 		end
 		counter = counter + 1
 	end
 	
 	return false
+end
+
+function mnee.apply_jpads( jpad_tbl, no_update )
+	local j = mnee.DIV_1
+	for i,jp in ipairs( jpad_tbl ) do
+		j = j..( jp and jp or -1 )..mnee.DIV_1
+	end
+
+	ComponentSetValue2( pen.get_storage( mnee.get_ctrl(), "mnee_jpads" ), "value_string", j )
+
+	if( not( no_update )) then
+		GameAddFlagRun( mnee.JPAD_UPDATE )
+	end
+end
+
+function mnee.jpad_callback( jpad_id, slot_id )
+	local make_it_stop = false
+	for mod_id,data in pairs( mneedata ) do
+		if( data.on_jpad ~= nil ) then
+			make_it_stop = data.on_jpad( data, slot_id )
+		end
+	end
+	
+	if( make_it_stop and slot_id > 0 ) then
+		if(( jpad_id or 4 ) < 4 ) then
+			jpad_states[jpad_id + 1] = 1
+		end
+		jpad[slot_id] = 5
+	end
 end
 
 function mnee.get_keys( mode )
@@ -319,22 +349,25 @@ function mnee.set_setup_memo( data )
 	ModSettingSetNextValue( "mnee.SETUP", setup_raw, false )
 end
 
+function mnee.get_setup_id( mod_id, profile )
+	profile = profile or ModSettingGetNextValue( "mnee.PROFILE" )
+	local setup_memo = mnee.get_setup_memo()
+	return setup_memo[ profile ][ mod_id ]
+end
+
 function mnee.apply_setup( mod_id, setup_id, bind_tbl )
 	dofile( "mods/mnee/bindings.lua" )
 
 	setup_id = setup_id or "dft"
 	local profile = ModSettingGetNextValue( "mnee.PROFILE" )
+	local setup_mode = pen.from_tbl_with_id( mneedata[ mod_id ].setup_modes, setup_id )
+	if( setup_mode.id == nil ) then return end
 
 	local is_naked = bind_tbl == nil
 	bind_tbl = bind_tbl or mnee.get_bindings( profile, true )
 	if( setup_id == "dft" ) then
 		bind_tbl[ mod_id ] = bindings[ mod_id ]
 	else
-		local setup_mode = pen.from_tbl_with_id( mneedata[ mod_id ].setup_modes, setup_id )
-		if( setup_mode.id == nil ) then
-			return
-		end
-		
 		for bind,v in mnee.order_sorter( bind_tbl[ mod_id ]) do
 			local new_keys = setup_mode.binds[ bind ]
 			if( new_keys ~= nil ) then
@@ -354,6 +387,9 @@ function mnee.apply_setup( mod_id, setup_id, bind_tbl )
 		if( setup_memo[ profile ][ mod_id ] ~= setup_id ) then
 			setup_memo[ profile ][ mod_id ] = setup_id
 			mnee.set_setup_memo( setup_memo )
+			if( mneedata[ mod_id ].on_setup ~= nil ) then
+				mneedata[ mod_id ].on_setup( setup_mode, setup_id )
+			end
 		end
 		mnee.set_bindings( bind_tbl, profile )
 	else

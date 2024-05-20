@@ -56,6 +56,7 @@ mnee_lmb_jpads,LMB to toggle controller mapping panel.,ЛКМ чтобы пер�
 mnee_lmb_setups,LMB to toggle keygroup setup panel.,ЛКМ чтобы переключить панель конфигураций.,,,,,,,,,,,,
 mnee_lmb_map,LMB to map new controller.,ЛКМ чтобы добавить новый контроллер.,,,,,,,左键以映射新的控制器。,,,,,
 mnee_lmb_unmap,LMB to remove this controller.,ЛКМ чтобы убрать этот контроллер.,,,,,,,右键以移除此控制器。,,,,,
+mnee_rmb_dummy,RMB to map dummy instead.,ЛКМ чтобы добавить контроллер-фикцию.,,,,,,,,,,,,
 mnee_rmb_advanced,RMB to enter advanced rebinding mode.,ПКМ чтобы переназначивать в продвинутом режиме.,,,,,,,右键以进入高级绑定模式。,,,,,
 mnee_rmb_default,RMB to set to default.,ПКМ чтобы установить стандартные настройки.,,,,,,,右键以设置为默认。,,,,,
 mnee_rmb_mod,RMB to set selected mod's current profile to default.,ПКМ чтобы установить стандартные настройки для профиля текущего мода.,,,,,,,右键以设置所选模组的当前控制配置为默认。,,,,,

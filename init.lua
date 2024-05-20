@@ -9,10 +9,9 @@ function OnModInit()
 		ModSettingSetNextValue( "mnee.CTRL_AUTOMAPPING", true, false )
 	end
 	
-	-- document setup functionality (bindings.lua + apply_setup), function that allows to force map controllers
-	-- add a way to force map controllers (just unpack the table in mnee_jpads upon seeing the flag and overwrite jpad table with it)
 	-- add autoaim gravity correction based on the latest projectile fired (get projectiles in radius and pick the closest one with the highest entity_id; new arg that will update the proj data if it is true)
-
+	
+	-- use index-compatible GameInvetoryIsOpen() check from Penman
 	-- make heres ferrei be compatible with controller and upload it to steam
 	-- update translations in settings
 	-- make procedural pause screen keyboard that highlights all the bind's keys on hover of one of them (only if the moddev marked the binding as show_on_pause)
@@ -42,19 +41,8 @@ function OnModInit()
 		end
 
 		if( callbacking ) then
-			local make_it_stop = false
-			for mod_id,data in pairs( mneedata ) do
-				if( data.on_jpad ~= nil ) then
-					make_it_stop = data.on_jpad( data, num )
-				end
-			end
-
-			if( make_it_stop and num > 0 ) then
-				jpad_states[out + 1] = 1
-				jpad[num] = 5
-			end
+			mnee.jpad_callback( out, num )
 		end
-
 		return out
 	end
 
@@ -137,14 +125,6 @@ function OnModInit()
 		
 		return state
 	end
-
-	get_current_jpads = function()
-		local j = divider
-		for i,jp in ipairs( jpad ) do
-			j = j..pen.b2n( jp ~= false )..divider
-		end
-		return j
-	end
 end
 
 pic_x = pic_x or nil
@@ -176,7 +156,23 @@ function OnWorldPreUpdate()
 			mnee.get_next_jpad( true )
 			ComponentSetValue2( pen.get_storage( ctrl_body, "mnee_axis" ), "value_string", get_current_axes())
 			ComponentSetValue2( pen.get_storage( ctrl_body, "mnee_triggers" ), "value_string", get_current_triggers())
-			ComponentSetValue2( pen.get_storage( ctrl_body, "mnee_jpads" ), "value_string", get_current_jpads())
+			if( GameHasFlagRun( mnee.JPAD_UPDATE )) then
+				GameRemoveFlagRun( mnee.JPAD_UPDATE )
+
+				local counter = 1
+				local jpad_raw = ComponentGetValue2( pen.get_storage( ctrl_body, "mnee_jpads" ), "value_string" )
+				for j in string.gmatch( jpad_raw, mnee.PTN_1 ) do
+					local val = tonumber( j )
+					if( val < 0 ) then val = false end
+					if( jpad[ counter ] ~= val ) then
+						jpad[ counter ] = val
+						mnee.jpad_callback( val, counter )
+					end
+					counter = counter + 1
+				end
+			else
+				mnee.apply_jpads( jpad, true )
+			end
 
 			local axis_core = mnee.get_axes()
 			local active_core = get_active_keys()
@@ -233,7 +229,7 @@ function OnWorldPreUpdate()
 		local is_auto = ModSettingGetNextValue( "mnee.CTRL_AUTOMAPPING" )
 		local gslot_update = { false, false, false, false, }
 		
-		if( not( GameIsInventoryOpen())) then --use index-compatible check from Penman
+		if( not( GameIsInventoryOpen())) then
 			if( gui == nil ) then
 				gui = GuiCreate()
 			end
@@ -378,8 +374,7 @@ function OnWorldPreUpdate()
 								uid = mnee.new_tooltip( gui, uid, pic_z - 200, GameTextGetTranslatedOrNot( "$mnee_rmb_default" ))
 								if( r_clicked ) then
 									dofile( "mods/mnee/bindings.lua" )
-									local setup_memo = mnee.get_setup_memo()
-									bindings = mnee.apply_setup( current_mod, setup_memo[ profile ][ current_mod ], bindings )
+									bindings = mnee.apply_setup( current_mod, mnee.get_setup_id( current_mod, profile ), bindings )
 									if( bind.axes ~= nil ) then
 										keys[ current_mod ][ bind.axes[1]] = bindings[ current_mod ][ bind.axes[1]]
 										keys[ current_mod ][ bind.axes[2]] = bindings[ current_mod ][ bind.axes[2]]
@@ -412,8 +407,7 @@ function OnWorldPreUpdate()
 					uid, clicked, r_clicked = pen.new_button( gui, uid, pic_x + 112, pic_y + 99, pic_z - 0.01, "mods/mnee/files/pics/button_dft.png" )
 					uid = mnee.new_tooltip( gui, uid, pic_z - 200, GameTextGetTranslatedOrNot( "$mnee_rmb_mod" ))
 					if( r_clicked ) then
-						local setup_memo = mnee.get_setup_memo()
-						mnee.apply_setup( current_mod, setup_memo[ profile ][ current_mod ])
+						mnee.apply_setup( current_mod, mnee.get_setup_id( current_mod, profile ))
 						mnee.play_sound( "clear_all" )
 						
 						if( mneedata[ current_mod ] ~= nil ) then
@@ -503,9 +497,6 @@ function OnWorldPreUpdate()
 							if( clicked ) then
 								mnee.apply_setup( current_mod, setup.id )
 								mnee.play_sound( "switch_page" )
-								if( mneedata[ current_mod ].on_setup ~= nil ) then
-									mneedata[ current_mod ].on_setup( setup )
-								end
 							end
 
 							t_y = t_y + 11
@@ -534,12 +525,12 @@ function OnWorldPreUpdate()
 						
 						for i = 1,4 do
 							local is_real = jpad[i]
-							uid, clicked = pen.new_button( gui, uid, pic_x + 160, pic_y + 66 + 11*( i - 1 ), pic_z, "mods/mnee/files/pics/button_10_"..( is_real and "B" or "A" )..".png" )
-							uid = mnee.new_tooltip( gui, uid, pic_z - 200, is_real and GameTextGetTranslatedOrNot( "$mnee_jpad_id" )..( is_real > 4 and GameTextGetTranslatedOrNot( "$mnee_dummy" ) or tostring( is_real )).." @ "..GameTextGetTranslatedOrNot( "$mnee_lmb_unmap" ) or GameTextGetTranslatedOrNot( "$mnee_lmb_map" ))
+							uid, clicked, r_clicked = pen.new_button( gui, uid, pic_x + 160, pic_y + 66 + 11*( i - 1 ), pic_z, "mods/mnee/files/pics/button_10_"..( is_real and "B" or "A" )..".png" )
+							uid = mnee.new_tooltip( gui, uid, pic_z - 200, is_real and GameTextGetTranslatedOrNot( "$mnee_jpad_id" )..( is_real > 4 and GameTextGetTranslatedOrNot( "$mnee_dummy" ) or tostring( is_real )).." @ "..GameTextGetTranslatedOrNot( "$mnee_lmb_unmap" ) or GameTextGetTranslatedOrNot( "$mnee_lmb_map" ).." @ "..GameTextGetTranslatedOrNot( "$mnee_rmb_dummy" ))
 							pen.new_text( gui, pic_x + 162, pic_y + 66 + 11*( i - 1 ), pic_z - 0.01, i, is_real and ( is_real > 4 and {136,121,247} or {245,132,132}) or {238,226,206})
 							
 							if( clicked ) then
-								if( jpad_count > 0 ) then
+								if( jpad_count > 0 or ( jpad[i] and jpad[i] > 4 )) then
 									if( is_real ) then
 										jpad_update( -i )
 										mnee.play_sound( "delete" )
@@ -556,6 +547,10 @@ function OnWorldPreUpdate()
 									GamePrint( GameTextGetTranslatedOrNot( "$mnee_no_jpads" ))
 									mnee.play_sound( "error" )
 								end
+							end
+							if( not( is_real ) and r_clicked ) then
+								jpad[i] = 5
+								mnee.play_sound( "select" )
 							end
 						end
 						

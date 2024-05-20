@@ -14,10 +14,10 @@ mneedata["mnee"] = {
 	-- func = function( gui, uid, pic_x, pic_y, pic_z, data ) return uid end, --[MAIN MENU BINDING LIST COMPLETE OVERRIDE]
 	-- on_changed = function( data ) end, --[REBINDING CALLBACK]
 	-- on_reset = function( data ) end, --[SET TO DEFAULT CALLBACK] on_changed is called if nil
-	-- on_jpad = function( data, jpad_id ) end, --[GAMEPAD SLOT CALLBACK] return true to set the newest slot to dummy
-	
+	-- on_jpad = function( data, jpad_id ) end, --[GAMEPAD SLOT CALLBACK] return true to set the slot to dummy
+	-- on_setup = function( data, setup_id ) end, --[SETUP CHANGE CALLBACK]
+
 	--[[
-	on_setup = function( data ) end, --[SETUP CHANGE CALLBACK]
 	setup_default = {
 		btn = "NRM",
 		name = "Normal",

@@ -6,9 +6,10 @@
 - It is important to note that, while gamepad support is part of the inherent design of this system, the actual interface still has to be used with a mouse and keyboard. In fact, for the best experience, it is recommended to turn off vanilla gamepad support in its entirety – this can be done through Options -> Input -> Gamepad -> set to "Off", else conflicts and critical bugs may be encountered.
 - To get started, it is recommended to visit Options -> Mod Settings -> M-Nee and follow the instructions provided there. One may also notice dead zone customization options and a full reset button.
 - To provide certain flexibility, the input customization is performed on a per-profile case. There are 3 independent profiles in total and you may switch between them either through the listed hotkey or via the on-screen buttons in the M-Nee window. At the top right corner of the same window exists a global toggle button – a go-to option to immediately and safely cut off custom inputs.
+- In addition to profiles, which are user-centric customization options, there are setup modes, a developer-focused input alteration subsystem. Setup modes allow one to have many button layout presets and to seamlessly switch between them without a loss of customizability.
 - Another feature worth mentioning is the rebinding modes. There are two of them, simple and advanced. Where the former is the default straightforward way to assign a singular key to a basic action, the latter allows for any sort of complicated key groupings yet is more involved during rebinding as a result.
 - Any action within the system supports secondary inputs, allowing a seamless transition from gamepad to keyboard and the other way around or any sort of alternative buttons to be assigned to the same input.
-- Finally, any key can be unbound to be disabled permanently or at least disabled until bound once again. One may find the toggle to do so at the bottom right of the rebinding menu.
+- Finally, any key can be unbound to be disabled permanently or at least until bound once again. One may find the toggle to do so at the bottom right of the rebinding menu.
 
 [SETUP]
 - First and foremost, please, consult this example of the reasonably advanced M-Nee setup: https://github.com/re-coilless/kappa
@@ -30,6 +31,9 @@
    - on_changed: callback that is run on binding getting altered (including it being set to default); "data" is mneedata table of the current mod.
    - on_reset: callback that is run on full mod bindings reset, "on_changed" will be executed if it is nil; "data" is the same.
    - on_jpad: callback that is run on every gamepad slot alteration, return true to set the updated slot to dummy-placeholder; "data" is the same, "jpad_id" is the gamepad slot id (is multiplied by -1 if is called on disconnect).
+   - on_setup: callback that is run on setup mode change; "data" is the setup_modes table, "setup_id" is the id of the applied setup.
+   - setup_default: a table for changing the appearance of the default setup mode; "setup_default.btn" is the displayed 3-letter long button name, "setup_default.name"/"setup_default.desc" are self-explanatory.
+   - setup_modes: a table of setup mode definitions; "setup_modes[].id" is an obligatory unique identificator of the mode, "setup_modes[].btn"/"setup_default.name"/"setup_default.desc" are exactly the same as described above, "setup_modes[].binds" is a string-indexed table of bindings to be replaced on application (see bindings.lua for an example).
 - "bindings" is the main table of the system that declares the binds and all the relevant data that comes with them. This table must be defined for the system to function at all, yet out of all the fields only name, desc and keys are obligatory.
    - order_id: is used to set custom sorting order for the normally alphabetically arranged bindings.
    - is_dirty: setting this to true will alter the conflict-checking algorithm to compare bindings in a way like they had their is_dirty (see [INPUT] chapter) parameter enabled.
@@ -55,10 +59,13 @@
    - PRIO_MODE is the way to limit all input to a single mod alone. It can be enabled through mnee.set_priority_mode( mod_id ), replace "mod_id" with 0 to turn it off. It will be cleared on game reload to prevent softlocks. This toggle has no failsafe, so truly everything aside from the prioritized mod will be disabled no matter the case.
 - Besides the constants, there exists several auxiliary functions, that cover niche use cases:
    - mnee.get_triggers()/mnee.get_axes(): return raw analog input data in the following format – {1gpd_left=value, 1gpd_right=value}.
-   - mnee.get_bindings( profile, binds_only ): returns all the binding data there is, basically the globalmost complete mnee table; "profile" controls from which profile to compile the data and "binds_only" removes miscellaneous fluff that is relevant only for visualization purposes. The structure is as follows – { mod_id = { bind_id = bind_table }}.
+   - mnee.get_bindings( profile, binds_only ): returns all the binding data there is, basically the globalmost complete mnee table; "profile" controls from which profile to compile the data (default to current one on nil), "binds_only" removes miscellaneous fluff that is relevant only for visualization purposes. The structure is as follows – { mod_id = { bind_id = bind_table }}.
    - mnee.get_binding_keys( mod_id, name, is_compact ): probably the most useful of them all, returns the keys of the bindings in a UI-friendly way; "mod_id" and "name" are for binding ID and "is_compact" set to true will make the return value take less space. The last arguement has an additional functionality of only returning primary or secondary binding – set it to 1 or 2 respectively.
    - mnee.aim_assist( hooman, p_vec, angle, is_active, data ): an all-in-one aim assist function that returns the aiming angle and whether it was affected by the target compared to the original, the strength can be altered in the settings; "hooman" and "pos" are character ID and a vector of their position, "angle" is the aiming direction, "is_active" toggles the function without a need for the if-case, "data.setting" dictates from which setting ID to pull strength value from, "data.tag_tbl" is the table of all the entity tags the autoaim will target, "data.pic" is the visualization of the target (set to "" to have none at all).
    - mnee.is_jpad_real( id ): a basic utility for checking the connection state of a gamepad; "id" argument indicates the number of the controller and is equal to 1 by default.
+   - mnee.apply_jpads( jpad_tbl ): enables one to manually map gamepads to slots; "jpad_tbl" is a mapping table ("false" to unbound, 0-3 to assign).
+   - mnee.get_setup_id( mod_id, profile ): returns the id of currently active setup mode; "mod_id" is the id of the mod in questions, "profile" controls from which profile to compile the data (default to current one on nil).
+   - mnee.apply_setup( mod_id, setup_id ): forces chosen setup mode to be active; "mod_id" is the same as above, "setup_id" is the id of the mode to apply (defaults to standard mode on nil).
 
 [INPUT]
 - mnee.get_keyboard_input( no_shifting ) - a streamlined way to get full keyboard input

@@ -9,8 +9,6 @@ function OnModInit()
 		ModSettingSetNextValue( "mnee.CTRL_AUTOMAPPING", true, false )
 	end
 	
-	-- add autoaim gravity correction based on the latest projectile fired (get projectiles in radius and pick the closest one with the highest entity_id; new arg that will update the proj data if it is true)
-	
 	-- use index-compatible GameInvetoryIsOpen() check from Penman
 	-- make heres ferrei be compatible with controller and upload it to steam
 	-- update translations in settings

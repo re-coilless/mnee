@@ -13,6 +13,10 @@ function pen.get_sign( a )
 	end
 end
 
+function pen.is_valid( value )
+	return not( value ~= value or value == math.inf )
+end
+
 function pen.limiter( value, limit, max_mode )
 	max_mode = max_mode or false
 	limit = math.abs( limit )

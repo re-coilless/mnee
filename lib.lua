@@ -899,19 +899,21 @@ function mnee.apply_deadzone( v, kind, zero_offset )
 	return v
 end
 
-function mnee.aim_assist( hooman, pos, angle, is_active, data )
-	if( is_active ~= nil and not( is_active )) then
-		return angle, false
-	end
-
+function mnee.aim_assist( hooman, pos, angle, is_active, is_searching, data )
 	data = data or {}
 	data.setting = data.setting or "mnee.AUTOAIM"
 	data.tag_tbl = data.tag_tbl or {"enemy"}
 	data.pic = data.pic or "mods/mnee/files/pics/autoaim.png"
+	data.do_lining = data.do_lining or false
 	
+	local autoaim = ModSettingGetNextValue( data.setting )
+	if( autoaim < 0.1 or ( is_active ~= nil and not( is_active ))) then
+		return angle, false
+	end
+
 	local safe_zone = 50
-	local max_distance = 100
-	local ray_x, ray_y = max_distance*math.cos( angle ), max_distance*math.sin( angle )
+	local search_distance = 150
+	local ray_x, ray_y = search_distance*math.cos( angle ), search_distance*math.sin( angle )
 	local is_hit, hit_x, hit_y = RaytracePlatforms( pos[1], pos[2], pos[1] + ray_x, pos[2] + ray_y )
 	if( not( is_hit )) then
 		hit_x, hit_y = pos[1] + ray_x, pos[2] + ray_y
@@ -923,7 +925,7 @@ function mnee.aim_assist( hooman, pos, angle, is_active, data )
 	local the_one = 0
 	local meats = {}
 	for i = 1,#data.tag_tbl do
-		meats = pen.add_table( meats, EntityGetInRadiusWithTag( hit_x, hit_y, max_distance, data.tag_tbl[i]) or {})
+		meats = pen.add_table( meats, EntityGetInRadiusWithTag( hit_x, hit_y, search_distance, data.tag_tbl[i]) or {})
 	end
 	local min_dist = -1
 	for i,meat in ipairs( meats ) do
@@ -945,19 +947,95 @@ function mnee.aim_assist( hooman, pos, angle, is_active, data )
 	end
 	
 	local is_done = false
+	local delta_x, delta_y = 0, 0
 	if( the_one > 0 ) then
 		local t_x, t_y = pen.get_creature_head( the_one, EntityGetTransform( the_one ))
-		local t_angle = math.atan2(( t_y - pos[2]), ( t_x - pos[1]))
-		local delta_a = pen.get_angular_delta( t_angle, angle )
+		delta_x, delta_y = t_x - pos[1], t_y - pos[2]
+	end
+
+	aim_assist_korrection = aim_assist_korrection or {0,0,0}
+	if( is_searching ) then
+		local projectiles = EntityGetInRadiusWithTag( pos[1], pos[2], search_distance, "projectile" ) or {}
+		if( #projectiles > 0 ) then
+			local ratio = 0.05
+			local best_case = -1
+			for i,proj in ipairs( projectiles ) do
+				local proj_comp = EntityGetFirstComponentIncludingDisabled( proj, "ProjectileComponent" )
+				if( proj_comp ~= nil ) then
+					if( ComponentGetValue2( proj_comp, "mWhoShot" ) == hooman and best_case < proj ) then
+						if( aim_assist_korrection[1] < proj and aim_assist_korrection[1] ~= best_case ) then
+							best_case = proj
+						end
+					end
+				end
+			end
+
+			if( best_case > 0 ) then
+				local proj_comp = EntityGetFirstComponentIncludingDisabled( best_case, "ProjectileComponent" )
+				local vel = ComponentGetValue2( proj_comp, "mInitialSpeed" )
+
+				local v_comp = EntityGetFirstComponentIncludingDisabled( best_case, "VelocityComponent" )
+				local mass = ComponentGetValue2( v_comp, "mass" )
+				local gravity = ComponentGetValue2( v_comp, "gravity_y" )
+				local friction = ComponentGetValue2( v_comp, "air_friction" )
+				
+				aim_assist_korrection = { best_case, vel, gravity }
+			end
+		end
+	end
+
+	if( delta_x ~= 0 ) then --no drag
+		is_done = true
 		
-		local autoaim = ModSettingGetNextValue( data.setting )
-		if( autoaim > 0.1 ) then
-			is_done = true
-			local strength = 0.1*autoaim
-			local min_offset = math.rad( 0.5 )*autoaim
+		local function fuck_it( x, y, v, g, h, sign )
+			--https://www.reddit.com/r/FTC/comments/jis4p3/find_launch_angle_given_distance_to_target/
+			local step1 = ( g*y*x^2 - g*h*x^2 )/( v^2 )
+			local step2 = x^2 + y^2 + h^2 - 2*y*h
+			local step3 = ( step1 - x^2 )^2 - step2*( g^2*x^4 )/( v^4 )
+			return math.acos( math.sqrt(( x^2 - step1 + sign*math.sqrt( step3 ))/( 2*step2 )))
+		end
+
+		local function fuck_it_check( a, d, v, g )
+			return d*math.tan( a ) + ( g*d^2 )/( 2*v^2*math.cos( a )^2 )
+		end
+
+		local so_back = true
+		local strength = 0.1*autoaim
+		local min_offset = math.rad( 0.5 )*autoaim
+		local t_angle = math.atan2( delta_y, delta_x )
+		if( aim_assist_korrection[1] > 0 ) then
+			local x_sign, y_sign = pen.get_sign( delta_x ), pen.get_sign( delta_y )
+			local x, y, h = delta_x, 0, delta_y
+			local v, g = aim_assist_korrection[2], aim_assist_korrection[3] + 0.000001
+			
+			if( y_sign < 0 ) then y, h = -h, 0 end
+			local a = pen.catch( fuck_it, {x,y,v,g,h,1}, {9999})
+			local b = pen.catch( fuck_it, {x,y,v,g,h,-1}, {9999})
+			t_angle = y_sign*math.min( a, b )
+
+			so_back = pen.is_valid( t_angle )
+			if( so_back ) then
+				if( x_sign < 0 ) then
+					t_angle = -y_sign*t_angle + math.rad( 180 )
+				end
+
+				local drift = fuck_it_check( t_angle, delta_x, v, g ) - delta_y
+				if( drift > 0.1 ) then t_angle = -t_angle end
+				if( data.do_lining ) then
+					for i = 1,math.abs( delta_x ),5 do
+						local d = x_sign*i
+						local y = fuck_it_check( t_angle, d, v, g )
+						GameCreateSpriteForXFrames( "mods/mnee/files/pics/dot_white.png", pos[1] + d, pos[2] + y, true, 0, 0, 1, true )
+					end
+				end
+			end
+		end
+		
+		if( so_back ) then
+			local delta_a = pen.get_angular_delta( t_angle, angle )
 			angle = angle + pen.limiter( pen.limiter( strength*delta_a, min_offset, true ), delta_a )
 			if( data.pic ~= "" ) then
-				GameCreateSpriteForXFrames( data.pic, t_x, t_y, true, 0, 0, 1, true )
+				GameCreateSpriteForXFrames( data.pic, pos[1] + delta_x, pos[2] + delta_y, true, 0, 0, 1, true )
 			end
 		end
 	end

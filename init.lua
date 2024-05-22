@@ -227,7 +227,7 @@ function OnWorldPreUpdate()
 		local is_auto = ModSettingGetNextValue( "mnee.CTRL_AUTOMAPPING" )
 		local gslot_update = { false, false, false, false, }
 		
-		if( not( GameIsInventoryOpen())) then
+		if( not( pen.is_inv_active())) then
 			if( gui == nil ) then
 				gui = GuiCreate()
 			end

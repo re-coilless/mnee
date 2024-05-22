@@ -41,6 +41,50 @@ function pen.get_angular_delta( a, b, get_max )
 	end
 end
 
+function pen.is_inv_active( hooman )
+	hooman = hooman or pen.get_hooman()
+	
+	local is_going = false
+	if( hooman > 0 ) then
+		pen.magic_comp( hooman, "InventoryGuiComponent", function( comp_id, is_enabled )
+			is_going = pen.magic_comp( comp_id, "mActive" )
+		end)
+	end
+	return is_going
+end
+
+function pen.get_hooman()
+	local cam_x, cam_y = GameGetCameraPos()
+	return EntityGetClosestWithTag( cam_x, cam_y, "player_unit" ) or 0
+end
+
+function pen.magic_comp( id, data, func )
+	if(( id or 0 ) == 0 ) then return end
+	if( type( data ) ~= "table" ) then data = {data} end
+
+	if( type( func or 0 ) ~= "function" ) then
+		local is_object = data[2] ~= nil
+		local method = "Component"..( is_object and "Object" or "" )..( func == nil and "Get" or "Set" ).."Value2"
+
+		if( type( func ) ~= "table" ) then func = {func} end
+		for i = 2,1,-1 do
+			if( data[i] ~= nil ) then
+				table.insert( func, 1, data[i])
+			end
+		end
+		table.insert( func, 1, id )
+		
+		return _G[ method ]( unpack( func ))
+	else
+		local comps = EntityGetComponentIncludingDisabled( unpack({ id, data[1], data[2]})) or {}
+		if( #comps > 0 ) then
+			for i,comp in ipairs( comps ) do
+				if( func( comp, ComponentGetIsEnabled( comp ))) then break end
+			end
+		end
+	end
+end
+
 function pen.angle_reset( angle )
 	return math.atan2( math.sin( angle ), math.cos( angle ))
 end

@@ -41,6 +41,16 @@ function pen.get_angular_delta( a, b, get_max )
 	end
 end
 
+function pen.add_dynamic_fields( tbl, fields ) --thanks to ImmortalDamned
+    setmetatable( tbl, {
+        __index = function( _, k )
+            local f = fields[k]
+            return f and f()
+        end
+    })
+    return tbl
+end
+
 function pen.is_inv_active( hooman )
 	hooman = hooman or pen.get_hooman()
 	

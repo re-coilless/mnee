@@ -99,97 +99,110 @@ function text_with_no_mod( key ) --inspired by Conga's approach
 	end
 end
 
+function add_dynamic_fields( tbl, fields ) --thanks to ImmortalDamned
+    setmetatable( tbl, {
+        __index = function( _, k )
+            local f = fields[k]
+            return f and f()
+        end
+    })
+    return tbl
+end
+
 local mod_id = "mnee"
 mod_settings_version = 1
 mod_settings = 
 {
-	{
+	add_dynamic_fields({
 		id = "READ_ME",
-		ui_name = text_with_no_mod( "$mnee_tutorial" ),
 		ui_fn = mod_setting_blinking_text,
-	},
-	{
+	},{
+		ui_name = function() return text_with_no_mod( "$mnee_tutorial" ) end,
+	}),
+	add_dynamic_fields({
 		id = "LIVING",
-		ui_name = GameTextGetTranslatedOrNot( text_with_no_mod( "$mnee_living" )),
-		ui_description = text_with_no_mod( "$mnee_living_desc" ),
 		value_default = false,
 		scope = MOD_SETTING_SCOPE_RUNTIME,
-	},
-	{
+	},{
+		ui_name = function() return GameTextGetTranslatedOrNot( text_with_no_mod( "$mnee_living" )) end,
+		ui_description = function() return text_with_no_mod( "$mnee_living_desc" ) end,
+	}),
+	add_dynamic_fields({
 		id = "DEADZONE_BUTTON",
-		ui_name = GameTextGetTranslatedOrNot( text_with_no_mod( "$mnee_deadzone" )).." [BUTTON]",
-		ui_description = text_with_no_mod( "$mnee_deadzone_desc" ),
 		value_default = 16,
-		
 		value_min = 0,
 		value_max = 19,
 		value_display_multiplier = 5,
 		value_display_formatting = " $0% ",
 		scope = MOD_SETTING_SCOPE_RUNTIME,
-	},
-	{
+	},{
+		ui_name = function() return GameTextGetTranslatedOrNot( text_with_no_mod( "$mnee_deadzone" )).." [BUTTON]" end,
+		ui_description = function() return text_with_no_mod( "$mnee_deadzone_desc" ) end,
+	}),
+	add_dynamic_fields({
 		id = "DEADZONE_AIM",
-		ui_name = GameTextGetTranslatedOrNot( text_with_no_mod( "$mnee_deadzone" )).." [AIM]",
-		ui_description = text_with_no_mod( "$mnee_deadzone_desc" ),
 		value_default = 0,
-		
 		value_min = 0,
 		value_max = 19,
 		value_display_multiplier = 5,
 		value_display_formatting = " $0% ",
 		scope = MOD_SETTING_SCOPE_RUNTIME,
-	},
-	{
+	},{
+		ui_name = function() return GameTextGetTranslatedOrNot( text_with_no_mod( "$mnee_deadzone" )).." [AIM]" end,
+		ui_description = function() return text_with_no_mod( "$mnee_deadzone_desc" ) end,
+	}),
+	add_dynamic_fields({
 		id = "DEADZONE_MOTION",
-		ui_name = GameTextGetTranslatedOrNot( text_with_no_mod( "$mnee_deadzone" )).." [MOTION]",
-		ui_description = text_with_no_mod( "$mnee_deadzone_desc" ),
 		value_default = 0,
-		
 		value_min = 0,
 		value_max = 19,
 		value_display_multiplier = 5,
 		value_display_formatting = " $0% ",
 		scope = MOD_SETTING_SCOPE_RUNTIME,
-	},
-	{
+	},{
+		ui_name = function() return GameTextGetTranslatedOrNot( text_with_no_mod( "$mnee_deadzone" )).." [MOTION]" end,
+		ui_description = function() return text_with_no_mod( "$mnee_deadzone_desc" ) end,
+	}),
+	add_dynamic_fields({
 		id = "DEADZONE_EXTRA",
-		ui_name = GameTextGetTranslatedOrNot( text_with_no_mod( "$mnee_deadzone" )).." [EXTRA]",
-		ui_description = text_with_no_mod( "$mnee_deadzone_desc" ),
 		value_default = 1,
-		
 		value_min = 0,
 		value_max = 19,
 		value_display_multiplier = 5,
 		value_display_formatting = " $0% ",
 		scope = MOD_SETTING_SCOPE_RUNTIME,
-	},
-	{
+	},{
+		ui_name = function() return GameTextGetTranslatedOrNot( text_with_no_mod( "$mnee_deadzone" )).." [EXTRA]" end,
+		ui_description = function() return text_with_no_mod( "$mnee_deadzone_desc" ) end,
+	}),
+	add_dynamic_fields({
 		id = "AUTOAIM",
-		ui_name = GameTextGetTranslatedOrNot( text_with_no_mod( "$mnee_autoaim" )),
-		ui_description = text_with_no_mod( "$mnee_autoaim_desc" ),
 		value_default = 5,
-		
 		value_min = 0,
 		value_max = 10,
 		value_display_multiplier = 1,
 		value_display_formatting = " $0 ",
 		scope = MOD_SETTING_SCOPE_RUNTIME,
-	},
+	},{
+		ui_name = function() return GameTextGetTranslatedOrNot( text_with_no_mod( "$mnee_autoaim" )) end,
+		ui_description = function() return text_with_no_mod( "$mnee_autoaim_desc" ) end,
+	}),
 	{
 		id = "NEWLINE",
 		ui_name = " ",
 		not_setting = true,
 	},
-	{
+	add_dynamic_fields({
 		id = "NUKE_EM",
-		ui_name = text_with_no_mod( "$mnee_reset" ),
-		ui_description = text_with_no_mod( "$mnee_rmb_reset" ),
-		ui_extra = text_with_no_mod( "$mnee_done" ),
 		value_default = false,
 		hidden = false,
 		scope = MOD_SETTING_SCOPE_RUNTIME,
 		ui_fn = mod_setting_full_resetter,
-	},
+	},{
+		ui_name = function() return text_with_no_mod( "$mnee_reset" ) end,
+		ui_description = function() return text_with_no_mod( "$mnee_rmb_reset" ) end,
+		ui_extra = function() return text_with_no_mod( "$mnee_done" ) end,
+	}),
 	
 	{
 		id = "PROFILE",

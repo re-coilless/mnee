@@ -826,7 +826,7 @@ function mnee.mnin_bind( mod_id, name, dirty_mode, pressed_mode, is_vip, loose_m
 		
 		local binding = mnee_binding_data[ mod_id ][ name ]
 		if( binding ~= nil ) then
-			local out, is_gone, is_jpad = false, true, false
+			local out, is_gone, is_alt, is_jpad = false, true, false, false
 			for i = 1,2 do
 				local bind = binding[ i == 1 and "keys" or "keys_alt" ]
 				local high_score, score = pen.get_table_count( bind ), 0
@@ -870,12 +870,13 @@ function mnee.mnin_bind( mod_id, name, dirty_mode, pressed_mode, is_vip, loose_m
 				
 				::continue::
 				if( out ) then
+					is_alt = i == 2
 					is_jpad = mnee.jpad_check( bind )
 					break
 				end
 			end
 			if( out and binding.on_down ~= nil ) then
-				out = binding.on_down( binding, is_jpad )
+				out = binding.on_down( binding, is_alt, is_jpad )
 			end
 			return out, is_gone, is_jpad
 		end

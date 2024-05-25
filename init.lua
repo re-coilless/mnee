@@ -8,8 +8,7 @@ function OnModInit()
 		RemoveFlagPersistent( mnee.AMAP_MEMO )
 		ModSettingSetNextValue( "mnee.CTRL_AUTOMAPPING", true, false )
 	end
-	
-	-- use index-compatible GameInvetoryIsOpen() check from Penman
+
 	-- make heres ferrei be compatible with controller and upload it to steam
 	-- update translations in settings
 	-- make procedural pause screen keyboard that highlights all the bind's keys on hover of one of them (only if the moddev marked the binding as show_on_pause)
@@ -358,10 +357,14 @@ function OnWorldPreUpdate()
 										doing_axis = is_axis
 										btn_axis_mode = is_axis and r_clicked
 										mnee.play_sound( "select" )
-
-										advanced_mode = bind.is_advanced
-										if( advanced_mode == nil ) then advanced_mode = meta.is_advanced or false end
-										advanced_mode = advanced_mode or ( r_clicked and not( is_axis ))
+										
+										if( bind.never_advanced ) then
+											advanced_mode = false
+										else
+											advanced_mode = bind.is_advanced
+											if( advanced_mode == nil ) then advanced_mode = meta.is_advanced or false end
+											advanced_mode = advanced_mode or ( r_clicked and not( is_axis ))
+										end
 									else
 										GamePrint( GameTextGetTranslatedOrNot( "$mnee_error" ).." "..GameTextGetTranslatedOrNot( "$mnee_no_change" ))
 										mnee.play_sound( "error" )

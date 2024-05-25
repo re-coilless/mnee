@@ -38,6 +38,7 @@
    - order_id: is used to set custom sorting order for the normally alphabetically arranged bindings.
    - is_dirty: setting this to true will alter the conflict-checking algorithm to compare bindings in a way like they had their is_dirty (see [INPUT] chapter) parameter enabled.
    - is_advanced: will force the rebinding to be permanently in advanced mode (see [GENERAL] chapter).
+   - never_advanced: will prevent this bind to ever be changed in advanced mode.
    - allow_special: despite the algorithm's better judgement, will force-allow special keys to be bound in the simple rebinding mode.
    - is_locked: is used to prevent the setting from being changed by the user. Can be either a boolean or a function.
    - is_hidden: is used to hide the existence of the binding from the user. Can be either a boolean or a function.
@@ -45,7 +46,7 @@
    - desc: the tooltip text that appears while hovering over the binding.
    - on_changed: callback that is run on binding getting altered; "data" is the table of the current bind.
    - on_reset: callback that is run on the binding reset, "on_changed" will be executed if it is nil; "data" is the same.
-   - on_down: callback that is run on the binding activation; "data" is the same, "is_jpad" reports whether the binding inputs from gamepad.
+   - on_down: callback that is run on the binding activation; "data" is the same, "is_alt" enables one to pick between the keygroups, "is_jpad" reports whether the binding inputs from gamepad.
    - jpad_type: the deadzone kind. There exist 4 (BUTTON, MOTION, AIM and EXTRA) and all can be changed in the normal settings. Only is relevant for the gamepad stick input.
    - deadzone: is used to set an internal deadzone. Unlike "jpad_type", this parameter is inaccessible for the user – use it to create an inherent sensitivity difference between the controls.
    - keys: a string-indexed table of the keys assigned to this bind by default.

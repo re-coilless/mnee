@@ -42,6 +42,7 @@ bindings["mnee"] = {
 		order_id = "a", --[SORTING ORDER]
 		is_dirty = false, --[CONFLICT CHECKING MODE TOGGLE]
 		is_advanced = true, --[ALLOW MULTIPLE KEYS DURING BINDING]
+		never_advanced = false, --[FORBID TO EVER BE REBINDED IN ADVANCED MODE]
 		allow_special = false, --[ALLOW BINDING SPECIAL KEYS WHEN IS IN SIMPLE BINDING MODE]
 		is_locked = function(id_tbl, jpads) return true end, --[PREVENT REBINDING]
 		is_hidden = function(id_tbl, jpads) return false end, --[HIDE FROM MENU]
@@ -51,7 +52,7 @@ bindings["mnee"] = {
 		
 		on_changed = function( data ) end, --[REBINDING CALLBACK]
 		on_reset = function( data ) end, --[SET TO DEFAULT CALLBACK] on_changed is called if nil
-		on_down = function( data, is_jpad ) --[INPUT CALLBACK]
+		on_down = function( data, is_alt, is_jpad ) --[INPUT CALLBACK]
 			return true --return-value override
 		end,
 

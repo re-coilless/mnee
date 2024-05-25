@@ -43,7 +43,7 @@ function OnModInit()
 		return out
 	end
 
-	local divider = mnee.DIV_1
+	local divider = pen.DIV_1
 	get_active_keys = function()
 		local active = divider
 		
@@ -176,7 +176,7 @@ function OnWorldPreUpdate()
 			local button_deadzone = ModSettingGetNextValue( "mnee.DEADZONE_BUTTON" )/20
 			for ax,v in pairs( axis_core ) do
 				if( math.abs( v ) > button_deadzone ) then
-					active_core = active_core..string.gsub( ax, "gpd_axis", "gpd_btn" ).."_"..( v > 0 and "+" or "-" )..mnee.DIV_1
+					active_core = active_core..string.gsub( ax, "gpd_axis", "gpd_btn" ).."_"..( v > 0 and "+" or "-" )..pen.DIV_1
 				end
 			end
 			for mode,func in pairs( mnee.INMODES ) do
@@ -186,7 +186,7 @@ function OnWorldPreUpdate()
 					stg = EntityAddComponent( ctrl_body, "VariableStorageComponent", 
 					{
 						name = name,
-						value_string = mnee.DIV_1,
+						value_string = pen.DIV_1,
 					})
 				end
 				ComponentSetValue2( stg, "value_string", func( ctrl_body, active_core ))
@@ -436,10 +436,10 @@ function OnWorldPreUpdate()
 					uid, clicked, r_clicked = pen.new_button( gui, uid, pic_x + 136, pic_y + 22, pic_z - 0.01, "mods/mnee/files/pics/button_rst.png" )
 					uid = mnee.new_tooltip( gui, uid, pic_z - 200, GameTextGetTranslatedOrNot( "$mnee_rmb_reset" ))
 					if( r_clicked ) then
-						ModSettingSetNextValue( "mnee.SETUP", mnee.DIV_1, false )
+						ModSettingSetNextValue( "mnee.SETUP", pen.DIV_1, false )
 						for i = 1,3 do
-							ModSettingSetNextValue( "mnee.BINDINGS_"..i, mnee.DIV_1, false )
-							ModSettingSetNextValue( "mnee.BINDINGS_ALT_"..i, mnee.DIV_1, false )
+							ModSettingSetNextValue( "mnee.BINDINGS_"..i, pen.DIV_1, false )
+							ModSettingSetNextValue( "mnee.BINDINGS_ALT_"..i, pen.DIV_1, false )
 							mnee.update_bindings( i )
 						end
 						mnee.play_sound( "delete" )
@@ -859,32 +859,32 @@ function OnPlayerSpawned( hooman )
 	EntityAddComponent( entity_id, "VariableStorageComponent", 
 	{
 		name = "mnee_down",
-		value_string = mnee.DIV_1,
+		value_string = pen.DIV_1,
 	})
 	EntityAddComponent( entity_id, "VariableStorageComponent", 
 	{
 		name = "mnee_disarmer",
-		value_string = mnee.DIV_1,
+		value_string = pen.DIV_1,
 	})
 	EntityAddComponent( entity_id, "VariableStorageComponent", 
 	{
 		name = "mnee_triggers",
-		value_string = mnee.DIV_1,
+		value_string = pen.DIV_1,
 	})
 	EntityAddComponent( entity_id, "VariableStorageComponent", 
 	{
 		name = "mnee_axis",
-		value_string = mnee.DIV_1,
+		value_string = pen.DIV_1,
 	})
 	EntityAddComponent( entity_id, "VariableStorageComponent", 
 	{
 		name = "mnee_axis_memo",
-		value_string = mnee.DIV_1,
+		value_string = pen.DIV_1,
 	})
 	EntityAddComponent( entity_id, "VariableStorageComponent", 
 	{
 		name = "mnee_jpads",
-		value_string = mnee.DIV_1,
+		value_string = pen.DIV_1,
 	})
 	
 	for i = 1,3 do

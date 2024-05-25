@@ -11,15 +11,9 @@ mnee.JPAD_UPDATE = "MNEE_JPAD_UPDATE"
 mnee.SERV_MODE = "MNEE_HOLD_UP"
 mnee.PRIO_MODE = "MNEE_PRIORITY_MODE"
 
-mnee.DIV_0 = "@"
-mnee.DIV_1 = "&"
-mnee.DIV_2 = "|"
-mnee.DIV_3 = "!"
-
-mnee.PTN_0 = "([^"..mnee.DIV_0.."]+)"
-mnee.PTN_1 = "([^"..mnee.DIV_1.."]+)"
-mnee.PTN_2 = "([^"..mnee.DIV_2.."]+)"
-mnee.PTN_3 = "([^"..mnee.DIV_3.."]+)"
+mnee.PTN_1 = "([^"..pen.DIV_1.."]+)"
+mnee.PTN_2 = "([^"..pen.DIV_2.."]+)"
+mnee.PTN_3 = "([^"..pen.DIV_3.."]+)"
 
 mnee.SPECIAL_KEYS = {
 	-- left_shift = 1,
@@ -34,7 +28,7 @@ mnee.SPECIAL_KEYS = {
 
 mnee.INMODES = {
 	guied = function( ctrl_body, active )
-		if( active ~= mnee.DIV_1 ) then
+		if( active ~= pen.DIV_1 ) then
 			local ctrl_comp = EntityGetFirstComponentIncludingDisabled( ctrl_body, "ControlsComponent" )
 			if( not( ComponentGetValue2( ctrl_comp, "mButtonDownLeftClick" ))) then
 				active = string.gsub( active, "mouse_left", "mouse_left_gui" )
@@ -52,7 +46,7 @@ function mnee.get_ctrl()
 end
 
 function mnee.extractor( data_raw )
-	if( data_raw == mnee.DIV_1 ) then
+	if( data_raw == pen.DIV_1 ) then
 		return {}
 	end
 	
@@ -103,7 +97,7 @@ function mnee.is_jpad_real( id )
 		return false
 	end
 	local jpad_raw = ComponentGetValue2( storage, "value_string" )
-	if( jpad_raw == mnee.DIV_1 ) then
+	if( jpad_raw == pen.DIV_1 ) then
 		return false
 	end
 	
@@ -119,9 +113,9 @@ function mnee.is_jpad_real( id )
 end
 
 function mnee.apply_jpads( jpad_tbl, no_update )
-	local j = mnee.DIV_1
+	local j = pen.DIV_1
 	for i,jp in ipairs( jpad_tbl ) do
-		j = j..( jp and jp or -1 )..mnee.DIV_1
+		j = j..( jp and jp or -1 )..pen.DIV_1
 	end
 
 	ComponentSetValue2( pen.get_storage( mnee.get_ctrl(), "mnee_jpads" ), "value_string", j )
@@ -164,7 +158,7 @@ function mnee.get_disarmer()
 		return {}
 	end
 	local data_raw = ComponentGetValue2( storage, "value_string" )
-	if( data_raw == mnee.DIV_1 ) then
+	if( data_raw == pen.DIV_1 ) then
 		return {}
 	end
 	
@@ -189,10 +183,10 @@ function mnee.clean_disarmer()
 	if( pen.get_table_count( disarmer ) > 0 ) then
 		local current_frame = GameGetFrameNum()
 		
-		local new_disarmer = mnee.DIV_1
+		local new_disarmer = pen.DIV_1
 		for key,frame in pairs( disarmer ) do
 			if( current_frame - tonumber( frame ) < 2 ) then
-				new_disarmer = new_disarmer..mnee.DIV_2..key..mnee.DIV_2..frame..mnee.DIV_2..mnee.DIV_1
+				new_disarmer = new_disarmer..pen.DIV_2..key..pen.DIV_2..frame..pen.DIV_2..pen.DIV_1
 			end
 		end
 		
@@ -206,7 +200,7 @@ function mnee.add_disarmer( value )
 	if( storage == 0 ) then
 		return
 	end
-	ComponentSetValue2( storage, "value_string", ComponentGetValue2( storage, "value_string" )..( mnee.DIV_2..value..mnee.DIV_2..GameGetFrameNum()..mnee.DIV_2 )..mnee.DIV_1 )
+	ComponentSetValue2( storage, "value_string", ComponentGetValue2( storage, "value_string" )..( pen.DIV_2..value..pen.DIV_2..GameGetFrameNum()..pen.DIV_2 )..pen.DIV_1 )
 end
 
 function mnee.get_triggers()
@@ -215,7 +209,7 @@ function mnee.get_triggers()
 		return {}
 	end
 	local triggers_raw = ComponentGetValue2( storage, "value_string" )
-	if( triggers_raw == mnee.DIV_1 ) then
+	if( triggers_raw == pen.DIV_1 ) then
 		return {}
 	end
 	
@@ -240,7 +234,7 @@ function mnee.get_axes()
 		return {}
 	end
 	local axes_raw = ComponentGetValue2( storage, "value_string" )
-	if( axes_raw == mnee.DIV_1 ) then
+	if( axes_raw == pen.DIV_1 ) then
 		return {}
 	end
 	
@@ -265,7 +259,7 @@ function mnee.get_axis_memo()
 		return {}
 	end
 	local memo_raw = ComponentGetValue2( storage, "value_string" )
-	if( memo_raw == mnee.DIV_1 ) then
+	if( memo_raw == pen.DIV_1 ) then
 		return {}
 	end
 	
@@ -282,14 +276,14 @@ function mnee.toggle_axis_memo( name )
 	if( storage == 0 ) then
 		return
 	end
-	local memo_raw = mnee.DIV_1
+	local memo_raw = pen.DIV_1
 	local memo = mnee.get_axis_memo()
 	if( memo[ name ] == nil ) then
-		memo_raw = ComponentGetValue2( storage, "value_string" )..name..mnee.DIV_1
+		memo_raw = ComponentGetValue2( storage, "value_string" )..name..pen.DIV_1
 	else
 		memo[ name ] = nil
 		for nm in pairs( memo ) do
-			memo_raw = memo_raw..nm..mnee.DIV_1
+			memo_raw = memo_raw..nm..pen.DIV_1
 		end
 	end
 	ComponentSetValue2( storage, "value_string", memo_raw )
@@ -303,7 +297,7 @@ end
 
 function mnee.get_setup_memo()
 	local setup_raw = ModSettingGetNextValue( "mnee.SETUP" )
-	if( setup_raw == mnee.DIV_1 ) then
+	if( setup_raw == pen.DIV_1 ) then
 		dofile_once( "mods/mnee/bindings.lua" )
 
 		local setup = {}
@@ -339,12 +333,12 @@ function mnee.get_setup_memo()
 end
 
 function mnee.set_setup_memo( data )
-	local setup_raw = mnee.DIV_1
+	local setup_raw = pen.DIV_1
 	for i = 1,3 do
 		for mod_id,value in pairs( data[i]) do
-			setup_raw = setup_raw..mnee.DIV_2..mod_id..mnee.DIV_2..value
+			setup_raw = setup_raw..pen.DIV_2..mod_id..pen.DIV_2..value
 		end
-		setup_raw = setup_raw..mnee.DIV_2..mnee.DIV_1
+		setup_raw = setup_raw..pen.DIV_2..pen.DIV_1
 	end
 	ModSettingSetNextValue( "mnee.SETUP", setup_raw, false )
 end
@@ -357,11 +351,13 @@ end
 
 function mnee.apply_setup( mod_id, setup_id, bind_tbl )
 	dofile( "mods/mnee/bindings.lua" )
-
+	
 	setup_id = setup_id or "dft"
 	local profile = ModSettingGetNextValue( "mnee.PROFILE" )
 	local setup_mode = pen.from_tbl_with_id( mneedata[ mod_id ].setup_modes, setup_id )
-	if( setup_mode.id == nil ) then return end
+	if( setup_mode.id == nil ) then
+		return bind_tbl or {}
+	end
 
 	local is_naked = bind_tbl == nil
 	bind_tbl = bind_tbl or mnee.get_bindings( profile, true )
@@ -404,7 +400,7 @@ function mnee.get_bindings( profile, binds_only )
 	binds_only = binds_only or false
 	
 	local data_raw = {ModSettingGetNextValue( "mnee.BINDINGS_"..profile ), ModSettingGetNextValue( "mnee.BINDINGS_ALT_"..profile )}
-	if( data_raw[1] == mnee.DIV_1 ) then
+	if( data_raw[1] == pen.DIV_1 ) then
 		return {}
 	end
 	
@@ -458,13 +454,13 @@ function mnee.set_bindings( data, profile )
 	
 	profile = profile or ModSettingGetNextValue( "mnee.PROFILE" )
 	
-	local data_raw = { mnee.DIV_1, mnee.DIV_1 }
+	local data_raw = { pen.DIV_1, pen.DIV_1 }
 	for i = 1,2 do
 		local keys = i == 1 and "keys" or "keys_alt"
 		for mod,binds in pairs( data ) do
-			data_raw[i] = data_raw[i]..mnee.DIV_2..mod..mnee.DIV_2
+			data_raw[i] = data_raw[i]..pen.DIV_2..mod..pen.DIV_2
 			for bind,info in mnee.order_sorter( binds ) do
-				data_raw[i] = data_raw[i]..mnee.DIV_3..bind..mnee.DIV_3
+				data_raw[i] = data_raw[i]..pen.DIV_3..bind..pen.DIV_3
 				if( info[keys] == nil ) then
 					if( info["keys"] ~= nil and info["keys"][1] == "is_axis" ) then
 						info[keys] = { "is_axis", "_" }
@@ -473,11 +469,11 @@ function mnee.set_bindings( data, profile )
 					end
 				end
 				for key,value in pairs( info[keys]) do
-					data_raw[i] = data_raw[i]..( info[keys][1] == "is_axis" and value or key )..mnee.DIV_3
+					data_raw[i] = data_raw[i]..( info[keys][1] == "is_axis" and value or key )..pen.DIV_3
 				end
-				data_raw[i] = data_raw[i]..mnee.DIV_2
+				data_raw[i] = data_raw[i]..pen.DIV_2
 			end
-			data_raw[i] = data_raw[i]..mnee.DIV_1
+			data_raw[i] = data_raw[i]..pen.DIV_1
 		end
 	end
 	

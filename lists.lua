@@ -404,8 +404,8 @@ local full_joy = {
 	"[NONE]", --"btn_rh_-",
 	"[NONE]", --"btn_rv_+",
 	"[NONE]", --"btn_rv_-",
-	"analog_0_down",
-	"analog_1_down",
+	"[NONE]", --"analog_0_down", this conflicts with l2
+	"[NONE]", --"analog_1_down", this conflicts with r2
 	"analog_2_down",
 	"analog_3_down",
 	"analog_4_down",

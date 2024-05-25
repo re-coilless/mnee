@@ -93,7 +93,7 @@ function OnModInit()
 				if( real_num ) then
 					for k = 0,1 do
 						local v = math.floor( 100*InputGetJoystickAnalogButton( real_num, k ) + 0.5 )/100
-						local name = i.."gpd_"..( k == 0 and "left" or "right" )
+						local name = i.."gpd_"..( k == 0 and "l2" or "r2" )
 						state = state.."|"..name.."|"..v.."|"..divider
 					end
 				end

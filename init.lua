@@ -148,8 +148,8 @@ function OnWorldPreUpdate()
 	dofile_once( "mods/mnee/lib.lua" )
 	if( GameHasFlagRun( mnee.INITER )) then
 		local ctrl_body = mnee.get_ctrl()
-		local storage = pen.get_storage( ctrl_body, "mnee_down" ) or 0
-		if( storage ~= 0 ) then
+		local storage = pen.get_storage( ctrl_body, "mnee_down" )
+		if( pen.is_valid( storage, true )) then
 			mnee.get_next_jpad( true )
 			ComponentSetValue2( pen.get_storage( ctrl_body, "mnee_axis" ), "value_string", get_current_axes())
 			ComponentSetValue2( pen.get_storage( ctrl_body, "mnee_triggers" ), "value_string", get_current_triggers())
@@ -181,8 +181,8 @@ function OnWorldPreUpdate()
 			end
 			for mode,func in pairs( mnee.INMODES ) do
 				local name = "mnee_down_"..mode
-				local stg = pen.get_storage( ctrl_body, name ) or 0
-				if( stg == 0 ) then
+				local stg = pen.get_storage( ctrl_body, name )
+				if( not( pen.is_valid( stg, true ))) then
 					stg = EntityAddComponent( ctrl_body, "VariableStorageComponent", 
 					{
 						name = name,
@@ -245,7 +245,7 @@ function OnWorldPreUpdate()
 			local uid = 0
 			if( gui_active ) then
 				local profile = ModSettingGetNextValue( "mnee.PROFILE" )
-				if( current_binding == "" ) then
+				if( not( pen.is_valid( current_binding ))) then
 					local pic = "mods/mnee/files/pics/window.png"
 					local pic_w, pic_h = GuiGetImageDimensions( gui, pic, 1 )
 					if( pic_x == nil ) then
@@ -853,9 +853,10 @@ function OnPlayerSpawned( hooman )
 	
 	local world_id = GameGetWorldStateEntity()
 	local entity_id = pen.get_hooman_child( world_id, "mnee_ctrl" ) or 0
-	if( entity_id > 0 ) then EntityKill( entity_id ) end
+	if( pen.is_valid( entity_id, true )) then EntityKill( entity_id ) end
 	entity_id = EntityLoad( "mods/mnee/files/ctrl_body.xml" )
 	EntityAddChild( GameGetWorldStateEntity(), entity_id )
+
 	EntityAddComponent( entity_id, "VariableStorageComponent", 
 	{
 		name = "mnee_down",

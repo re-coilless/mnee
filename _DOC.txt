@@ -56,7 +56,7 @@
 [MACRO]
 - Aside from the aforementioned SPECIAL_KEYS and INMODES, there exist 3 other useful global constants: mnee.TOGGLER, mnee.SERV_MODE and mnee.PRIO_MODE.
    - TOGGLER is the global user-accessible mnee-base input toggle. It can be manually initiated via GameAddFlagRun( mnee.TOGGLER ) but keep in mind that the player always has the means of getting rid of this limitation. Bindings in VIP mode will ignore this toggle altogether.
-   - SERV_MODE is the same kind of toggle yet this time it is reserved for internal use. One may call it the same way as they did TOGGLER and it will be cleared on game reload to prevent softlocks. Bindings within whose context a global called mnee_ignore_service_mode was set to true will ignore this flag altogether.
+   - SERV_MODE is the same kind of toggle yet this time it is reserved for internal use. One may call it the same way as they did TOGGLER and it will be cleared on game reload to prevent softlocks. Bindings within whose context a global called mnee.ignore_service_mode was set to true will ignore this flag altogether.
    - PRIO_MODE is the way to limit all input to a single mod alone. It can be enabled through mnee.set_priority_mode( mod_id ), replace "mod_id" with 0 to turn it off. It will be cleared on game reload to prevent softlocks. This toggle has no failsafe, so truly everything aside from the prioritized mod will be disabled no matter the case.
 - Besides the constants, there exists several auxiliary functions, that cover niche use cases:
    - mnee.get_triggers()/mnee.get_axes(): return raw analog input data in the following format – {1gpd_l2=value, 1gpd_r2=value}/{1gpd_axis_lh=value, 1gpd_axis_lv=value, 1gpd_axis_rh=value, 1gpd_axis_rv=value}.

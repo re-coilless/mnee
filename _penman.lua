@@ -23,14 +23,15 @@ pen.DIV_4 = ":"
 
 --https://github.com/LuaLS/lua-language-server/wiki/Annotations
 
---magic_parse does not work with string indexed stuff correctly + handle functions
---fix entity cloning using pen.catch
---make scripts to save and load entities
+--get_matter/get_matters
+--interpolation lib
+--new font system
 
 --update dialogsystem
 --reorder and move all the gui stuff to the very bottom
 --cleanup, make sure all the funcs reference the right stuff
 --make sure that all returned id values are 0 and not nil
+--actually test all the stuff
 
 --remove old penman from index
 --transition mrshll to penman
@@ -47,9 +48,25 @@ function pen.n2b( a )
 	return a > 0
 end
 
---make it work with all datatypes
-function pen.is_valid( value )
-	return not( value ~= value or value == math.inf )
+function pen.is_valid( v, is_ecs )
+	if( v == nil ) then
+		return false
+	end
+
+	local out = true
+	local t = type( v )
+	if( t == "number" ) then
+		out = v == v and v ~= math.inf
+		if( out and is_ecs ) then
+			out = v > 0
+		end
+	elseif( t == "string" ) then
+		out = v ~= pen.DIV_1 and v ~= "" and v ~= " "
+	elseif( t == "table" ) then
+		out = pen.get_table_count( v, true ) > 0
+	end
+
+	return out
 end
 
 function pen.random_bool( var )
@@ -62,16 +79,12 @@ function pen.random_sign( var )
 end
 
 function pen.get_sign( a )
-	if( a < 0 ) then
-		return -1
-	else
-		return 1
-	end
+	return a < 0 and -1 or 1
 end
 
-function pen.float_compare( a, b )
-	local epsln = 0.0001
-	return math.abs( a - b ) < epsln
+function pen.float_compare( a, b, eps )
+	eps = eps or 0.001
+	return math.abs( a - b ) < eps
 end
 
 function pen.limiter( value, limit, max_mode )
@@ -90,7 +103,7 @@ function pen.binsearch( tbl, value )
 	local high = #tbl
 		
 	while( high >= low ) do
-		local middle = math.floor(( low + high )/2 + 0.5)
+		local middle = math.floor(( low + high )/2 + 0.5 )
 		if( tbl[middle] < value ) then
 			low = middle + 1
 		elseif( tbl[middle] > value ) then
@@ -184,7 +197,9 @@ end
 ---@param real_h? number
 ---@return number delta_x, number delta_y
 function pen.get_camera_shake( w, h, real_w, real_h, k )
-	if( w == nil ) then w, h, real_w, real_h = pen.get_screen_data() end
+	if( w == nil ) then
+		w, h, real_w, real_h = pen.get_screen_data()
+	end
 	k = k or 1
 
 	local function purify( a, max )
@@ -258,8 +273,12 @@ end
 function pen.catch( f, input, fallback )
 	local out = { pcall(f, unpack( input or {}))}
 	if( not( out[1])) then
-		print( out[2])
-		return unpack( fallback or {false})
+		if( not( pen.silent_catch )) then
+			print( out[2])
+		end
+		if( pen.is_valid( fallback )) then
+			return unpack( fallback )
+		end
 	else
 		table.remove( out, 1 )
 		return unpack( out )
@@ -271,19 +290,22 @@ function pen.chrono( f, input, storage_comp, name )
 	local out = { f( unpack( input or {}))}
 	check = GameGetRealWorldTimeSinceStarted()*1000 - check
 
-	if( dump_id == nil ) then
-		print( check.."ms" )
-	else
+	if( pen.is_valid( storage_comp, true )) then
 		pen.magic_comp( storage_comp, { value_string = function( old_val )
 			return old_val..name..pen.DIV_1..check..pen.DIV_1
 		end})
+	else
+		print( check.."ms" )
 	end
 
 	return unpack( out )
 end
 
 function pen.get_hybrid_function( func, input )
-	if( func == nil ) then return end
+	if( not( pen.is_valid( func ))) then
+		return
+	end
+	
 	if( type( func ) == "function" ) then
 		return pen.catch( func, input )
 	else
@@ -296,7 +318,7 @@ function pen.magic_copy( orig, copies )
     local orig_type = type( orig )
     local copy = {}
     if( orig_type == "table" ) then
-        if( copies[orig] ) then
+        if( copies[orig]) then
             copy = copies[orig]
         else
             copy = {}
@@ -331,6 +353,7 @@ function pen.magic_sorter( tbl, func )
     return iter
 end
 
+--make it have several hashing algs
 function pen.fletcher_does_magic( str, is_huge )
 	is_huge = is_huge or false
 	
@@ -471,7 +494,7 @@ function pen.drop_em_frames( count )
 	
 	local current_time = GameGetRealWorldTimeSinceStarted()*1000
 	local prev_time = current_time
-	while( current_time - prev_time < frame_time ) do
+	while(( current_time - prev_time ) < frame_time ) do
 		current_time = GameGetRealWorldTimeSinceStarted()*1000
 	end
 end
@@ -490,9 +513,9 @@ function pen.table_init( amount, value )
 end
 
 function pen.add_table( a, b )
-	if( #b > 0 ) then
+	if( pen.is_valid( b )) then
 		table.sort( b )
-		if( #a > 0 ) then
+		if( pen.is_valid( a )) then
 			for m,new in ipairs( b ) do 
 				if( binsearch( a, new ) == nil ) then
 					table.insert( a, new )
@@ -572,11 +595,12 @@ function pen.get_most_often( tbl )
 	return unpack( best )
 end
 
+--make it less shit
 function pen.from_tbl_with_id( tbl, id, subtract, custom_key, default )
-	if( tbl == nil ) then
+	if( not( pen.is_valid( tbl ))) then
 		return {}
 	end
-
+	
 	local stuff = default or 0
 	local tbl_id = nil
 	
@@ -634,7 +658,7 @@ end
 function pen.closest_getter( x, y, stuff, check_sight, limits, extra_check )
 	check_sight = check_sight or false
 	limits = limits or { 0, 0, }
-	if( #( stuff or {}) == 0 ) then
+	if( not( pen.is_valid( stuff ))) then
 		return 0
 	end
 	
@@ -662,8 +686,8 @@ function pen.closest_getter( x, y, stuff, check_sight, limits, extra_check )
 end
 
 function pen.get_child_num( inv_id, item_id )
-	local children = EntityGetAllChildren( inv_id ) or {}
-	if( #children > 0 ) then
+	local children = EntityGetAllChildren( inv_id )
+	if( pen.is_valid( children )) then
 		for i,child in ipairs( children ) do
 			if( child == item_id ) then
 				return i-1
@@ -675,9 +699,12 @@ function pen.get_child_num( inv_id, item_id )
 end
 
 function pen.child_play( entity_id, action, sorter )
-	local children = EntityGetAllChildren( entity_id ) or {}
-	if( #children > 0 ) then
-		if( sorter ~= nil ) then table.sort( children, sorter ) end
+	local children = EntityGetAllChildren( entity_id )
+	if( pen.is_valid( children )) then
+		if( sorter ~= nil ) then
+			table.sort( children, sorter )
+		end
+
 		for i,child in ipairs( children ) do
 			local value = action( entity_id, child, i ) or false
 			if( value ) then
@@ -701,7 +728,7 @@ end
 --make this a single func
 function pen.get_matter( matters, id )
 	local max_matter = { 0, 0 }
-	if( #matters > 0 ) then
+	if( pen.is_valid( matters )) then
 		for i,matter in ipairs( matters ) do
 			if( id ~= nil and id == i - 1 ) then
 				return { id, matter }
@@ -717,13 +744,14 @@ end
 function pen.get_matters( matters )
 	local mttrs = {}
 	local got_some = 0
-	if( #matters > 0 ) then
+	if( pen.is_valid( matters )) then
 		for i,mttr in ipairs( matters ) do
 			if( mttr > 0 ) then
 				table.insert( mttrs, {i-1,mttr})
 				got_some = got_some + mttr
 			end
 		end 
+
 		table.sort( mttrs, function( a, b )
 			return a[2] > b[2]
 		end)
@@ -736,6 +764,7 @@ function pen.get_killable_stuff( c_x, c_y, r )
 	return pen.add_table( pen.add_table( stuff, EntityGetInRadiusWithTag( c_x, c_y, r, "hittable" ) or {} ), EntityGetInRadiusWithTag( c_x, c_y, r, "mortal" ) or {} )
 end
 
+--clean the text to only have \n
 function pen.t2l( str )
 	local t = {}
 	
@@ -824,9 +853,10 @@ function pen.ptrn( id )
 	return "([^"..pen[ "DIV_"..( id or 1 )].."]+)"
 end
 
+--add new liner
 function pen.liner( text, length, height, length_k, clean_mode, forced_reverse )
 	local formated = {}
-	if( text ~= nil and text ~= "" ) then
+	if( pen.is_valid( text )) then
 		local length_counter = 0
 		if( height ~= nil ) then
 			length_k = length_k or 6
@@ -941,7 +971,7 @@ function pen.liner( text, length, height, length_k, clean_mode, forced_reverse )
 end
 
 function pen.magic_parse( data, separators )
-	if( data == nil ) then
+	if( not( pen.is_valid( data ))) then
 		return
 	end
 	separators = separators or { pen.DIV_1, pen.DIV_2, pen.DIV_3, pen.DIV_4 }
@@ -951,11 +981,13 @@ function pen.magic_parse( data, separators )
 		i = ( i or 0 ) + 1
 		local separator = separators[i]
 		if( separator == nil or type( data ) ~= "table" ) then
-			return data
+			return tostring( data )
 		end
-		
+
 		local data_raw = separator
+		local is_weird = pen.get_table_count( data, true ) > 0 and #data == 0
 		for name,value in pairs( data ) do
+			if( is_weird ) then data_raw = data_raw..name..separator end
 			data_raw = data_raw..XD_packer( value, separators, i )..separator
 		end
 		return data_raw
@@ -986,7 +1018,7 @@ function pen.magic_parse( data, separators )
 		if( pen.get_table_count( data ) > 0 and #separators >= depth ) then
 			out = XD_packer( data, separators )
 		end
-	elseif( data ~= "" ) then
+	elseif( pen.is_valid( data )) then
 		out = XD_extractor( data, separators )
 	end
 	return out
@@ -1112,24 +1144,24 @@ end
 
 function pen.get_spell_id()
 	local man = GetUpdatedEntityID()
-	if( man ~= nil ) then
-		local wand_id = get_active_wand_old( man )
-		if( wand_id ~= 0 and current_action ~= nil and current_action.deck_index ~= nil ) then
-			local index_offset = 1
-			local spells = EntityGetAllChildren( wand_id ) or {}
-			if( #spells > 0 ) then
-				for i,spell_id in ipairs( spells ) do
-					local item_comp = EntityGetFirstComponentIncludingDisabled( spell_id, "ItemComponent" )
-					if( item_comp ~= nil and ComponentGetValue2( item_comp, "permanently_attached" )) then
-						index_offset = index_offset + 1
-					end
+	if( not( pen.is_valid( man ))) then
+		return
+	end
+
+	local wand_id = get_active_wand_old( man )
+	if( wand_id ~= 0 and current_action ~= nil and current_action.deck_index ~= nil ) then
+		local index_offset = 1
+		local spells = EntityGetAllChildren( wand_id )
+		if( pen.is_valid( spells )) then
+			for i,spell_id in ipairs( spells ) do
+				local item_comp = EntityGetFirstComponentIncludingDisabled( spell_id, "ItemComponent" )
+				if( item_comp ~= nil and ComponentGetValue2( item_comp, "permanently_attached" )) then
+					index_offset = index_offset + 1
 				end
-				return spells[ current_action.deck_index + index_offset ]
 			end
+			return spells[ current_action.deck_index + index_offset ]
 		end
 	end
-	
-	return nil
 end
 
 --[ECS]
@@ -1164,12 +1196,12 @@ function pen.get_hooman()
 end
 
 function pen.get_hooman_child( hooman, tag, ignore_id )
-	if( hooman == nil ) then
+	if( not( pen.is_valid( hooman, true ))) then
 		return -1
 	end
 	
-	local children = EntityGetAllChildren( hooman ) or {}
-	if( #children > 0 ) then
+	local children = EntityGetAllChildren( hooman )
+	if( pen.is_valid( children )) then
 		for i,child in ipairs( children ) do
 			if( child ~= ignore_id and ( EntityGetName( child ) == tag or EntityHasTag( child, tag ))) then
 				return child
@@ -1187,8 +1219,12 @@ end
 ---@param func? function|value
 ---@return any
 function pen.magic_comp( id, data, func )
-	if(( id or 0 ) == 0 ) then return end
-	if( type( data ) ~= "table" ) then data = {data} end
+	if( not( pen.is_valid( id, true ))) then
+		return
+	end
+	if( type( data ) ~= "table" ) then
+		data = {data}
+	end
 
 	if( #data == 0 ) then
 		for field,val in pairs( data ) do
@@ -1216,8 +1252,8 @@ function pen.magic_comp( id, data, func )
 		
 		return _G[ method ]( unpack( func ))
 	else
-		local comps = EntityGetComponentIncludingDisabled( unpack({ id, data[1], data[2]})) or {}
-		if( #comps > 0 ) then
+		local comps = EntityGetComponentIncludingDisabled( unpack({ id, data[1], data[2]}))
+		if( pen.is_valid( comps )) then
 			for i,comp in ipairs( comps ) do
 				if( func( comp, ComponentGetIsEnabled( comp ))) then break end
 			end
@@ -1226,7 +1262,7 @@ function pen.magic_comp( id, data, func )
 end
 
 function pen.check_bounds( dot, pos, box )
-	if( box == nil ) then
+	if( not( pen.is_valid( box, true ))) then
 		return false
 	end
 	
@@ -1245,7 +1281,7 @@ end
 
 function pen.get_creature_centre( hooman, x, y )
 	local char_comp = EntityGetFirstComponentIncludingDisabled( hooman, "CharacterDataComponent" )
-	if( char_comp ~= nil ) then
+	if( pen.is_valid( char_comp, true )) then
 		y = y + ComponentGetValue2( char_comp, "buoyancy_check_offset_y" )
 	end
 	return x, y
@@ -1253,11 +1289,11 @@ end
 
 function pen.get_creature_head( entity_id, x, y )
 	local ai_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "AnimalAIComponent" )
-	if( ai_comp ~= nil ) then
+	if( pen.is_valid( ai_comp, true )) then
 		y = y + ComponentGetValue2( ai_comp, "eye_offset_y" )
 	else
 		local crouch_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "HotspotComponent", "crouch_sensor" )
-		if( crouch_comp ~= nil ) then
+		if( pen.is_valid( crouch_comp, true )) then
 			local off_x, off_y = ComponentGetValue2( crouch_comp, "offset" )
 			y = y + off_y + 3
 		end
@@ -1277,16 +1313,16 @@ end
 
 function pen.lua_callback( entity_id, func_names, input )
 	local got_some = false
-	local comps = EntityGetComponentIncludingDisabled( entity_id, "LuaComponent" ) or {}
-	if( #comps > 0 ) then
+	local comps = EntityGetComponentIncludingDisabled( entity_id, "LuaComponent" )
+	if( pen.is_valid( comps )) then
 		local real_GetUpdatedEntityID = GetUpdatedEntityID
 		local real_GetUpdatedComponentID = GetUpdatedComponentID
 		GetUpdatedEntityID = function() return entity_id end
 
 		local frame_num = GameGetFrameNum()
 		for i,comp in ipairs( comps ) do
-			local path = ComponentGetValue2( comp, func_names[1]) or ""
-			if( path ~= "" ) then
+			local path = ComponentGetValue2( comp, func_names[1])
+			if( pen.is_valid( path )) then
 				local max_count = ComponentGetValue2( comp, "execute_times" )
 				local count = ComponentGetValue2( comp, "mTimesExecuted" )
 				if( max_count < 1 or count < max_count ) then
@@ -1315,7 +1351,7 @@ function pen.get_phys_mass( entity_id )
 	local mass = 0
 	
 	local shape_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "PhysicsImageShapeComponent" )
-	if( shape_comp ~= nil ) then
+	if( pen.is_valid( shape_comp, true )) then
 		local x, y = EntityGetTransform( entity_id )
 		local drift_x, drift_y = ComponentGetValue2( shape_comp, "offset_x" ), ComponentGetValue2( shape_comp, "offset_y" )
 		x, y = x - drift_x, y - drift_y
@@ -1345,7 +1381,7 @@ function pen.delayed_kill( entity_id, delay, comp_id )
 		lifetime = delay + 1,
 	})
 	
-	if( comp_id ~= nil ) then
+	if( pen.is_valid( comp_id, true )) then
 		EntityRemoveComponent( entity_id, comp_id )
 	end
 end
@@ -1357,11 +1393,10 @@ function pen.scale_emitter( hooman, emit_comp, advanced )
 	
 	local sprite_comp = EntityGetFirstComponentIncludingDisabled( hooman, "SpriteComponent", "character" )
 	local char_comp = EntityGetFirstComponentIncludingDisabled( hooman, "CharacterDataComponent" )
-	if( advanced and sprite_comp ~= nil ) then
+	if( advanced and pen.is_valid( sprite_comp, true )) then
 		local offset_x = ComponentGetValue2( sprite_comp, "offset_x" )
 		local offset_y = ComponentGetValue2( sprite_comp, "offset_y" )
-		
-		if( char_comp ~= nil ) then
+		if( pen.is_valid( char_comp, true )) then
 			local temp = {}
 			temp[1] = ComponentGetValue2( char_comp, "collision_aabb_min_x" )
 			temp[2] = ComponentGetValue2( char_comp, "collision_aabb_max_x" )
@@ -1391,12 +1426,14 @@ function pen.scale_emitter( hooman, emit_comp, advanced )
 			borders[3] = -offset_y
 			borders[4] = offset_y*0.5
 		end
+
 		gonna_update = true
-	elseif( char_comp ~= nil ) then
+	elseif( pen.is_valid( char_comp, true )) then
 		borders[1] = ComponentGetValue2( char_comp, "collision_aabb_min_x" )
 		borders[2] = ComponentGetValue2( char_comp, "collision_aabb_max_x" )
 		borders[3] = ComponentGetValue2( char_comp, "collision_aabb_min_y" )
 		borders[4] = ComponentGetValue2( char_comp, "collision_aabb_max_y" )
+
 		gonna_update = true
 	end
 	
@@ -1409,8 +1446,8 @@ function pen.scale_emitter( hooman, emit_comp, advanced )
 end
 
 function pen.active_item_reset( hooman )
-	local inv_comp = EntityGetFirstComponentIncludingDisabled( hooman or 0, "Inventory2Component" )
-	if( inv_comp ~= nil ) then
+	local inv_comp = EntityGetFirstComponentIncludingDisabled( hooman, "Inventory2Component" )
+	if( pen.is_valid( inv_comp, true )) then
 		ComponentSetValue2( inv_comp, "mActiveItem", 0 )
 		ComponentSetValue2( inv_comp, "mActualActiveItem", 0 )
 		ComponentSetValue2( inv_comp, "mInitialized", false )
@@ -1420,7 +1457,7 @@ end
 
 function pen.get_active_item( hooman )
 	local inv_comp = EntityGetFirstComponentIncludingDisabled( hooman, "Inventory2Component" )
-	if( inv_comp ~= nil ) then
+	if( pen.is_valid( inv_comp, true )) then
 		return tonumber( ComponentGetValue2( inv_comp, "mActiveItem" ) or 0 )
 	end
 	
@@ -1428,14 +1465,14 @@ function pen.get_active_item( hooman )
 end
 
 function pen.get_item_owner( item_id, figure_it_out )
-	if( item_id ~= nil ) then
+	if( pen.is_valid( item_id, true )) then
 		local root_man = EntityGetRootEntity( item_id )
 		local parent = item_id
 		while( parent ~= root_man ) do
 			parent = EntityGetParent( parent )
 
 			local item_check = pen.get_active_item( parent )
-			if( figure_it_out or false ) then
+			if( figure_it_out ) then
 				item_check = item_check > 0
 			else
 				item_check = item_check == item_id
@@ -1451,11 +1488,11 @@ function pen.get_item_owner( item_id, figure_it_out )
 end
 
 function pen.is_wand_useless( wand_id )
-	local children = EntityGetAllChildren( wand_id ) or {}
-	if( #children > 0 ) then
+	local children = EntityGetAllChildren( wand_id )
+	if( pen.is_valid( children )) then
 		for i,child in ipairs( children ) do
 			local itm_comp = EntityGetFirstComponentIncludingDisabled( child, "ItemComponent" )
-			if( itm_comp ~= nil ) then
+			if( pen.is_valid( itm_comp, true )) then
 				if( ComponentGetValue2( itm_comp, "uses_remaining" ) ~= 0 ) then
 					return false
 				end
@@ -1473,15 +1510,18 @@ function pen.get_tinker_state( hooman, x, y )
 				return n
 			end
 		end)
-		if( v ) then return v == 1 end
+
+		if( v ) then
+			return v == 1
+		end
 	end
 	
-	local workshops = EntityGetWithTag( "workshop" ) or {}
-	if( #workshops > 0 ) then
+	local workshops = EntityGetWithTag( "workshop" )
+	if( pen.is_valid( workshops )) then
 		for i,workshop in ipairs( workshops ) do
 			local w_x, w_y = EntityGetTransform( workshop )
 			local box_comp = EntityGetFirstComponent( workshop, "HitboxComponent" )
-			if( box_comp ~= nil and pen.check_bounds({x,y}, {w_x,w_y}, box_comp )) then
+			if( pen.is_valid( box_comp, true ) and pen.check_bounds({x,y}, {w_x,w_y}, box_comp )) then
 				return true
 			end
 		end
@@ -1494,7 +1534,7 @@ function pen.is_inv_active( hooman )
 	hooman = hooman or pen.get_hooman()
 	
 	local is_going = false
-	if( hooman > 0 ) then
+	if( pen.is_valid( hooman, true )) then
 		pen.magic_comp( hooman, "InventoryGuiComponent", function( comp_id, is_enabled )
 			is_going = pen.magic_comp( comp_id, "mActive" )
 		end)
@@ -1503,9 +1543,9 @@ function pen.is_inv_active( hooman )
 end
 
 function pen.get_custom_effect( hooman, effect_name, effect_id )
-	local children = EntityGetAllChildren( hooman ) or {}
-	if( #children > 0 ) then
-		if( effect_id ~= nil ) then
+	local children = EntityGetAllChildren( hooman )
+	if( pen.is_valid( children )) then
+		if( pen.is_valid( effect_id, true )) then
 			if( type( effect_id ) == "string" ) then
 				dofile_once( "data/scripts/status_effects/status_list.lua" )
 				for i,effect in ipairs( status_effects ) do
@@ -1562,23 +1602,57 @@ function pen.access_matter_damage( entity_id, matter, damage )
 	end
 end
 
-function pen.clone_comp( entity_id, comp_id, mutators )
+--worst case: cache all the is_supported/is_object data to get the spam only once
+function pen.clone_comp( entity_id, comp_id, mutators ) --mutators for objects
+	if( not( pen.is_valid( comp_id, true ))) then
+		return
+	end
+	
 	mutators = mutators or {}
 	mutators.obj = mutators.obj or {}
-	
+	pen.silent_catch = true
+
+	local comp_name = ComponentGetTypeName( comp_id )
+	local main_values = {
+		_tags = ( mutators._tags or ComponentGetTags( comp_id ))..( mutators.add_tags or "" ),
+	}
+	local object_values = {}
+	local extra_values = {}
+
 	local function is_object( field_name )
-		local names = { "gun_config", "gunaction_config", "config", "config_explosion", "damage_by_type", "damage_multipliers", "damage_critical", "laser",
-						"attack_melee_finish_config_explosion", "drug_fx_target", "m_drug_fx_current", "fx_add", "fx_multiply", }
+		return pen.catch( ComponentObjectGetMembers, { comp_id, field_name }) ~= nil
+	end
+	local function is_supported( field_name )
+		return pen.catch( ComponentGetValue2, { comp_id, field_name }) ~= nil
+	end
+	local function get_stuff( is_obj )
+		is_obj = is_obj or false
 		
-		for i,name in ipairs( names ) do
-			if( name == field_name ) then
-				return true
+		local stuff = is_obj and ComponentObjectGetMembers( comp_id, is_obj ) or ComponentGetMembers( comp_id )
+		for field in pairs( stuff ) do
+			if( is_object( field )) then
+				get_stuff( field )
+			elseif( is_supported( field )) then
+				if( mutators[field] == nil ) then
+					local value = ( is_obj and {ComponentObjectGetValue2( comp_id, is_obj, field )} or {ComponentGetValue2( comp_id, field )}) or {}
+					if( is_obj ) then
+						object_values[is_obj] = object_values[is_obj] or {}
+						object_values[is_obj][field] = value
+					elseif( #value > 0 ) then
+						if( #value == 1 and type( value[1]) ~= "table" ) then
+							main_values[field] = value[1]
+						else
+							extra_values[field] = value
+						end
+					end
+				elseif( mutators[field] ~= "[NOPE]" ) then
+					main_values[field] = mutators[field]
+				end
 			end
 		end
-		
-		return false
 	end
-	--do support by replacing the unsupported shit with table where [2] si the supported way of doing stuff
+	get_stuff()
+	
 	--[DamageModelComponent] mDamageMaterialsHowMuch, mDamageMaterials, mCollisionMessageMaterials
 	--[MaterialInventoryComponent] count_per_material_type
 	--[PhysicsPickUpComponent] transform
@@ -1586,114 +1660,23 @@ function pen.clone_comp( entity_id, comp_id, mutators )
 	--[InheritTransformComponent] Transform
 	--[ProjectileComponent] mDamagedEntities
 	--[GenomeDataComponent] friend_firemage, friend_thundermage
-	local function is_supported( comp_name, field_name )
-		local unsupported_names = {
-			MaterialInventoryComponent = { "count_per_material_type", },
-			GenomeDataComponent = { "friend_firemage", "friend_thundermage", },
-			BiomeTrackerComponent = { "current_biome", },
-			AttachToEntityComponent = { "Transform", },
-			InheritTransformComponent = { "Transform", },
-			DamageModelComponent = { "mCollisionMessageMaterials", "mDamageMaterialsHowMuch", "mMaterialDamageThisFrame", "mDamageMaterials", "mCollisionMessageMaterialCountsThisFrame", },
-			GameLogComponent = { "mVisitiedBiomes", },
-			StatusEffectDataComponent = { "stain_effects", "effects_previous", "ingestion_effects", "ingestion_effect_causes", "ingestion_effect_causes_many", "mStainEffectsSmoothedForUI", },
-			LuaComponent = { "mLuaManager", "mPersistentValues", },
-			SpriteComponent = { "mRenderList", "mSprite", },
-			ParticleEmitterComponent = { "m_collision_angles", "m_cached_image_animation", },
-			AnimalAIComponent = { "mAiStateStack", "mCurrentJob", },
-			LightComponent = { "mSprite", },
-			PlayerCollisionComponent = { "mPhysicsCollisionHax", },
-			WorldStateComponent = { "pending_portals", "orbs_found_thisrun", "cuts_through_world", "npc_parties", "apparitions_per_level", "lua_globals", },
-			MaterialSuckerComponent = { "randomized_position", },
-			SpriteAnimatorComponent = { "mStates", "mCachedTargetSpriteTag", },
-			PixelSpriteComponent = { "mPixelSprite", },
-			VerletPhysicsComponent = { "sprite", "links", "colors", "materials", },
-			VerletWorldJointComponent = { "mCell", },
-			IngestionComponent = { "m_ingestion_satiation_material_cache", },
-			ExplosionComponent = { "damage_critical", },
-			ExplodeOnDamageComponent = { "delay", "damage_critical", "physics_explosion_power", "impl_position", },
-			PhysicsBodyComponent = { "mLocalPosition", "mBody", "mBodyId", },
-			PhysicsBody2Component = { "mBody", "mBodyId", },
-			PhysicsImageShapeComponent = { "mBody", },
-			ProjectileComponent = { "mTriggers", "mDamagedEntities", "damage_critical", },
-			IKLimbsAnimatorComponent = { "mLimbStates", },
-			IKLimbWalkerComponent = { "mState", },
-			IKLimbAttackerComponent = { "mState", },
-			SpriteStainsComponent = { "mData", "mState", "mTextureHandle", },
-			InventoryGuiComponent = { "imgui", "mLastPurchasedAction", },
-			TeleportComponent = { "state", },
-			PathFindingComponent = { "debug_path", "input", "job_result_receiver", "jump_trajectories", "mFallbackLogic", "mSelectedLogic", "mLogic", "mState", "path", "path_next_node", "path_previous_node", },
-			PathFindingGridMarkerComponent = { "mNode", },
-			PhysicsJointComponent = { "mJoint", },
-			PhysicsJoint2MutatorComponent = { "mBox2DJointId", },
-			PhysicsPickUpComponent = { "leftJoint", "rightJoint", "transform", },
-			GunComponent = { "mLuaManager", },
-		}
-		
-		local fields = unsupported_names[comp_name]
-		if( fields ~= nil ) then
-			for i,name in ipairs( fields ) do
-				if( name == field_name ) then
-					return false
-				end
-			end
-		end
-		
-		return true
-	end
-	
-	local main_values = {
-		_tags = ( mutators.tags or ComponentGetTags( comp_id ))..( mutators.add_tags or "" ),
-	}
-	local object_values = {}
-	local extra_values = {}
-	
-	local comp_name = ComponentGetTypeName( comp_id )
-	local function get_stuff( is_obj )
-		is_obj = is_obj or false
-		
-		local stuff = is_obj and ComponentObjectGetMembers( comp_id, is_obj ) or ComponentGetMembers( comp_id )
-		for field in pairs( stuff ) do
-			if( is_supported( comp_name, field )) then
-				if( is_object( field )) then
-					get_stuff( field )
-				else
-					if( mutators[field] ~= nil ) then
-						if( mutators[field] ~= "[[FUCKTHIS]]" ) then
-							main_values[field] = mutators[field]
-						end
-					else
-						local value = ( is_obj and {ComponentObjectGetValue2( comp_id, is_obj, field )} or {ComponentGetValue2( comp_id, field )}) or {}
-						if( is_obj ) then
-							object_values[is_obj] = object_values[is_obj] or {}
-							object_values[is_obj][field] = value
-						elseif( #value > 0 ) then
-							if( #value == 1 and type( value[1]) ~= "table" ) then
-								value = value[1]
-								-- if( type( value ) == "boolean" ) then
-									-- value = value and 1 or 0
-								-- end
-								main_values[field] = value--tostring( value )
-							else
-								extra_values[field] = value
-							end
-						end
-					end
-				end
-			end
-		end
-	end
-	get_stuff()
 	
 	comp_id = EntityAddComponent2( entity_id, comp_name, main_values )
 	for object,values in pairs( object_values ) do
 		for field,value in pairs( values ) do
-			ComponentObjectSetValue2( comp_id, object, field, value[1], value[2], value[3], value[4] )
+			table.insert( value, 1, field )
+			table.insert( value, 1, object )
+			table.insert( value, 1, comp_id )
+			ComponentObjectSetValue2( unpack( value ))
 		end
 	end
 	for field,value in pairs( extra_values ) do
-		ComponentSetValue2( comp_id, field, value[1], value[2], value[3], value[4] )
+		table.insert( value, 1, field )
+		table.insert( value, 1, comp_id )
+		ComponentSetValue2( unpack( value ))
 	end
 	
+	pen.silent_catch = nil
 	return comp_id
 end
 
@@ -1708,14 +1691,14 @@ function pen.clone_entity( entity_id, x, y, mutators )
 	for value in string.gmatch( tags, "([^,]+)" ) do
 		EntityAddTag( new_id, value )
 	end
-	local comps = EntityGetAllComponents( entity_id ) or {}
-	if( #comps > 0 ) then
+	local comps = EntityGetAllComponents( entity_id )
+	if( pen.is_valid( comps )) then
 		for i,comp in ipairs( comps ) do
 			clone_comp( new_id, comp, mutators[entity_id][comp] or {})
 		end
 	end
-	local children = EntityGetAllChildren( entity_id ) or {}
-	if( #children > 0 ) then
+	local children = EntityGetAllChildren( entity_id )
+	if( pen.is_valid( children )) then
 		for i,child in ipairs( children ) do
 			EntityAddChild( new_id, clone_entity( child, x, y, mutators ))
 		end
@@ -1731,7 +1714,7 @@ function pen.rate_creature( enemy_id )
 	
 	if( EntityGetRootEntity( enemy_id ) ~= enemy_id ) then
 		return 0
-	elseif( damage_comp == nil or gene_comp == nil ) then
+	elseif( not( pen.is_valid( damage_comp, true ) and pen.is_valid( gene_comp, true ))) then
 		return 0
 	end
 	
@@ -1746,7 +1729,7 @@ function pen.rate_creature( enemy_id )
 	
 	local violence = 0
 	local animal_comp = EntityGetFirstComponentIncludingDisabled( enemy_id, "AnimalAIComponent" )
-	if( animal_comp ~= nil ) then
+	if( pen.is_valid( animal_comp, true )) then
 		if( ComponentGetValue2( animal_comp, "attack_melee_enabled" )) then
 			violence = violence + ( ComponentGetValue2( animal_comp, "attack_melee_damage_min" ) + ComponentGetValue2( animal_comp, "attack_melee_damage_max" ))/2
 		end
@@ -1763,7 +1746,7 @@ function pen.rate_creature( enemy_id )
 	local overall_speed = 0
 	local platform_comp = EntityGetFirstComponentIncludingDisabled( enemy_id, "CharacterPlatformingComponent" )
 	local path_comp = EntityGetFirstComponentIncludingDisabled( enemy_id, "PathFindingComponent" )
-	if( platform_comp ~= nil and path_comp ~= nil ) then
+	if( pen.is_valid( platform_comp, true ) and pen.is_valid( path_comp, true )) then
 		if( ComponentGetValue2( path_comp, "can_walk" )) then
 			overall_speed = overall_speed + ComponentGetValue2( platform_comp, "run_velocity" )
 			if( ComponentGetValue2( path_comp, "can_fly" )) then
@@ -1774,7 +1757,7 @@ function pen.rate_creature( enemy_id )
 		end
 	end
 	local fish_comp = EntityGetFirstComponentIncludingDisabled( enemy_id, "AdvancedFishAIComponent" ) or EntityGetFirstComponentIncludingDisabled( enemy_id, "FishAIComponent" )
-	if( overall_speed == 0 and fish_comp ~= nil and EntityHasTag( enemy_id, "helpless_animal" )) then
+	if( overall_speed == 0 and pen.is_valid( fish_comp, true ) and EntityHasTag( enemy_id, "helpless_animal" )) then
 		overall_speed = 300
 	end
 	
@@ -1788,7 +1771,7 @@ function pen.rate_creature( enemy_id )
 	
 	local main = f_distance*f_speed*f_vulner*f_hp
 	local final_value = 0.25*( 0.08*( main - ( main > f_supremacy and f_supremacy or 0 )) + f_violence )
-	return pen.is_valid( final_value ) and 0 or final_value
+	return pen.is_valid( final_value ) and final_value or 0
 end
 
 function pen.rate_wand( wand_id, shuffle, can_reload, capacity, reload_time, cast_delay, mana_max, mana_charge, spell_cast, spread )
@@ -1839,18 +1822,18 @@ function pen.rate_wand( wand_id, shuffle, can_reload, capacity, reload_time, cas
 	local f_spread = math.rad( 45 - spread )
 	
 	local final_value = 1500*f_delay*f_reloading*f_mana_max*f_mana_charge*math.sqrt( f_spread*f_multi )*f_shuffle*f_capacity^1.5
-	return pen.is_valid( final_value ) and 0 or final_value
+	return pen.is_valid( final_value ) and final_value or 0
 end
 
 function pen.rate_spell( spell_id )
-	if( spell_id == nil or spell_id == "" ) then
+	if( not( pen.is_valid( spell_id, true ))) then
 		return 0	
 	end
 	
 	local t_item_comp = EntityGetFirstComponentIncludingDisabled( spell_id, "ItemComponent" )
 	local t_act_comp = EntityGetFirstComponentIncludingDisabled( spell_id, "ItemActionComponent" )
 	local action_data = pen.get_action_with_id( ComponentGetValue2( t_act_comp, "action_id" ))
-	if( action_data == nil ) then
+	if( not( pen.is_valid( action_data ))) then
 		return 0
 	end
 	
@@ -1870,7 +1853,7 @@ function pen.rate_spell( spell_id )
 	local f_mana = 5.4 + ( 0.1 - 5.4 )/( 1 + ( mana/8420.3 )^0.367 )
 	
 	local final_value = 2.5*f_perma*f_price*f_uses*f_mana
-	return pen.is_valid( final_value ) and 0 or final_value
+	return pen.is_valid( final_value ) and final_value or 0
 end
 
 function pen.rate_projectile( hooman, projectile_id )
@@ -1927,7 +1910,7 @@ function pen.rate_projectile( hooman, projectile_id )
 	local f_damage = total_damage*25
 	
 	local final_value = 0.15*f_distance*f_direction*f_lifetime*f_is_real*f_velocity*f_damage
-	return pen.is_valid( final_value ) and 0 or final_value
+	return pen.is_valid( final_value ) and final_value or 0
 end
 
 --[FRONTEND]
@@ -1982,7 +1965,7 @@ function pen.play_entity_sound( entity_id, x, y, event_mutator, no_bullshit )
 		ComponentGetValue2( get_storage( entity_id, "sound_bank" ), "value_string" ),
 		ComponentGetValue2( get_storage( entity_id, "sound_event" ), "value_string" )..( event_mutator or "" ),
 	}
-	if( sound_table[1] == "" ) then
+	if( not( pen.is_valid( sound_table[1]))) then
 		return
 	end
 	pen.play_sound( sound_table, x, y, no_bullshit )

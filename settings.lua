@@ -14,6 +14,7 @@ function mod_setting_full_resetter( mod_id, gui, in_main_menu, im_id, setting )
 		local is_proper = GameHasFlagRun( "MNEE_IS_GOING" )
 		if( is_proper ) then dofile_once( "mods/mnee/lib.lua" ) end
 		
+		ModSettingSetNextValue( "mnee.SETUP", "&", false )
 		for i = 1,3 do
 			ModSettingSetNextValue( "mnee.BINDINGS_"..i, "&", false )
 			ModSettingSetNextValue( "mnee.BINDINGS_ALT_"..i, "&", false )

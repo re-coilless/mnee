@@ -28,7 +28,7 @@ mnee.SPECIAL_KEYS = {
 
 mnee.INMODES = {
 	guied = function( ctrl_body, active )
-		if( pen.is_valid( active )) then
+		if( pen.vld( active )) then
 			local ctrl_comp = EntityGetFirstComponentIncludingDisabled( ctrl_body, "ControlsComponent" )
 			if( not( ComponentGetValue2( ctrl_comp, "mButtonDownLeftClick" ))) then
 				active = string.gsub( active, "mouse_left", "mouse_left_gui" )
@@ -46,7 +46,7 @@ function mnee.get_ctrl()
 end
 
 function mnee.extractor( data_raw )
-	if( not( pen.is_valid( data_raw ))) then
+	if( not( pen.vld( data_raw ))) then
 		return {}
 	end
 	
@@ -93,11 +93,11 @@ function mnee.is_jpad_real( id )
 	id = id or 1
 	
 	local storage = pen.get_storage( mnee.get_ctrl(), "mnee_jpads" )
-	if( not( pen.is_valid( storage, true ))) then
+	if( not( pen.vld( storage, true ))) then
 		return false
 	end
 	local jpad_raw = ComponentGetValue2( storage, "value_string" )
-	if( not( pen.is_valid( jpad_raw ))) then
+	if( not( pen.vld( jpad_raw ))) then
 		return false
 	end
 	
@@ -145,7 +145,7 @@ function mnee.get_keys( mode )
 	mode = mode or false
 
 	local storage = pen.get_storage( mnee.get_ctrl(), mode and "mnee_down_"..mode or "mnee_down" )
-	if( not( pen.is_valid( storage, true ))) then
+	if( not( pen.vld( storage, true ))) then
 		return {}
 	end
 
@@ -154,11 +154,11 @@ end
 
 function mnee.get_disarmer()
 	local storage = pen.get_storage( mnee.get_ctrl(), "mnee_disarmer" )
-	if( not( pen.is_valid( storage, true ))) then
+	if( not( pen.vld( storage, true ))) then
 		return {}
 	end
 	local data_raw = ComponentGetValue2( storage, "value_string" )
-	if( not( pen.is_valid( data_raw ))) then
+	if( not( pen.vld( data_raw ))) then
 		return {}
 	end
 	
@@ -168,7 +168,7 @@ function mnee.get_disarmer()
 		for value in string.gmatch( action, mnee.PTN_2 ) do
 			table.insert( val, value )
 		end
-		if( pen.is_valid( val )) then
+		if( pen.vld( val )) then
 			if( data[ val[1]] == nil or ( val[2] > ( data[ val[1]] or ( val[2] + 1 )))) then
 				data[ val[1]] = val[2]
 			end
@@ -180,7 +180,7 @@ end
 
 function mnee.clean_disarmer()
 	local disarmer = mnee.get_disarmer()
-	if( pen.is_valid( disarmer )) then
+	if( pen.vld( disarmer )) then
 		local current_frame = GameGetFrameNum()
 		
 		local new_disarmer = pen.DIV_1
@@ -197,7 +197,7 @@ end
 
 function mnee.add_disarmer( value )
 	local storage = pen.get_storage( mnee.get_ctrl(), "mnee_disarmer" )
-	if( not( pen.is_valid( storage, true ))) then
+	if( not( pen.vld( storage, true ))) then
 		return
 	end
 	ComponentSetValue2( storage, "value_string", ComponentGetValue2( storage, "value_string" )..( pen.DIV_2..value..pen.DIV_2..GameGetFrameNum()..pen.DIV_2 )..pen.DIV_1 )
@@ -205,11 +205,11 @@ end
 
 function mnee.get_triggers()
 	local storage = pen.get_storage( mnee.get_ctrl(), "mnee_triggers" )
-	if( not( pen.is_valid( storage, true ))) then
+	if( not( pen.vld( storage, true ))) then
 		return {}
 	end
 	local triggers_raw = ComponentGetValue2( storage, "value_string" )
-	if( not( pen.is_valid( triggers_raw ))) then
+	if( not( pen.vld( triggers_raw ))) then
 		return {}
 	end
 	
@@ -217,7 +217,7 @@ function mnee.get_triggers()
 	for tr in string.gmatch( triggers_raw, mnee.PTN_1 ) do
 		local trigger = ""
 		for val in string.gmatch( tr, mnee.PTN_2 ) do
-			if( pen.is_valid( trigger )) then
+			if( pen.vld( trigger )) then
 				triggers[ trigger ] = tonumber( val )
 			else
 				trigger = val
@@ -230,11 +230,11 @@ end
 
 function mnee.get_axes()
 	local storage = pen.get_storage( mnee.get_ctrl(), "mnee_axis" )
-	if( not( pen.is_valid( storage, true ))) then
+	if( not( pen.vld( storage, true ))) then
 		return {}
 	end
 	local axes_raw = ComponentGetValue2( storage, "value_string" )
-	if( not( pen.is_valid( axes_raw ))) then
+	if( not( pen.vld( axes_raw ))) then
 		return {}
 	end
 	
@@ -242,7 +242,7 @@ function mnee.get_axes()
 	for ax in string.gmatch( axes_raw, mnee.PTN_1 ) do
 		local axis = ""
 		for val in string.gmatch( ax, mnee.PTN_2 ) do
-			if( pen.is_valid( axis )) then
+			if( pen.vld( axis )) then
 				axes[ axis ] = tonumber( val )
 			else
 				axis = val
@@ -255,11 +255,11 @@ end
 
 function mnee.get_axis_memo()
 	local storage = pen.get_storage( mnee.get_ctrl(), "mnee_axis_memo" )
-	if( not( pen.is_valid( storage, true ))) then
+	if( not( pen.vld( storage, true ))) then
 		return {}
 	end
 	local memo_raw = ComponentGetValue2( storage, "value_string" )
-	if( not( pen.is_valid( memo_raw ))) then
+	if( not( pen.vld( memo_raw ))) then
 		return {}
 	end
 	
@@ -273,7 +273,7 @@ end
 
 function mnee.toggle_axis_memo( name )
 	local storage = pen.get_storage( mnee.get_ctrl(), "mnee_axis_memo" )
-	if( not( pen.is_valid( storage, true ))) then
+	if( not( pen.vld( storage, true ))) then
 		return
 	end
 	local memo_raw = pen.DIV_1
@@ -297,7 +297,7 @@ end
 
 function mnee.get_setup_memo()
 	local setup_raw = ModSettingGetNextValue( "mnee.SETUP" )
-	if( not( pen.is_valid( setup_raw ))) then
+	if( not( pen.vld( setup_raw ))) then
 		dofile_once( "mods/mnee/bindings.lua" )
 
 		local setup = {}
@@ -355,7 +355,7 @@ function mnee.apply_setup( mod_id, setup_id, bind_tbl )
 	setup_id = setup_id or "dft"
 	local profile = ModSettingGetNextValue( "mnee.PROFILE" )
 	local setup_mode = pen.from_tbl_with_id( mneedata[ mod_id ].setup_modes, setup_id )
-	if( not( pen.is_valid( setup_mode ))) then
+	if( not( pen.vld( setup_mode ))) then
 		return bind_tbl or {}
 	end
 
@@ -400,7 +400,7 @@ function mnee.get_bindings( profile, binds_only )
 	binds_only = binds_only or false
 	
 	local data_raw = {ModSettingGetNextValue( "mnee.BINDINGS_"..profile ), ModSettingGetNextValue( "mnee.BINDINGS_ALT_"..profile )}
-	if( not( pen.is_valid( data_raw[1]))) then
+	if( not( pen.vld( data_raw[1]))) then
 		return {}
 	end
 	
@@ -409,10 +409,10 @@ function mnee.get_bindings( profile, binds_only )
 		for mod in string.gmatch( data_raw[i], mnee.PTN_1 ) do
 			local mod_name = ""
 			for v in string.gmatch( mod, mnee.PTN_2 ) do
-				if( pen.is_valid( mod_name )) then
+				if( pen.vld( mod_name )) then
 					local binding_name = ""
 					for b in string.gmatch( v, mnee.PTN_3 ) do
-						if( pen.is_valid( binding_name )) then
+						if( pen.vld( binding_name )) then
 							local key_type = i == 1 and "keys" or "keys_alt"
 							if( b == "is_axis" or data[ mod_name ][ binding_name ][ key_type ][1] == "is_axis" ) then
 								table.insert( data[ mod_name ][ binding_name ][ key_type ], b )
@@ -448,7 +448,7 @@ function mnee.get_bindings( profile, binds_only )
 end
 
 function mnee.set_bindings( data, profile )
-	if( not( pen.is_valid( data ))) then
+	if( not( pen.vld( data ))) then
 		return
 	end
 	
@@ -628,7 +628,7 @@ function mnee.new_tooltip( gui, uid, pic_z, text )
 			local pic_x, pic_y = pen.get_mouse_pos( gui )
 			pic_x = pic_x + 10
 			
-			if( not( pen.is_valid( text ))) then
+			if( not( pen.vld( text ))) then
 				return uid
 			end
 			
@@ -763,7 +763,7 @@ function mnee.mnin_key( name, dirty_mode, pressed_mode, is_vip, key_mode )
 	end
 	
 	local keys_down = mnee.get_keys( key_mode )
-	if( pen.is_valid( keys_down )) then
+	if( pen.vld( keys_down )) then
 		if( not( dirty_mode )) then
 			for i,key in ipairs( keys_down ) do
 				if( mnee.SPECIAL_KEYS[ key ] ~= nil ) then
@@ -811,7 +811,7 @@ function mnee.mnin_bind( mod_id, name, dirty_mode, pressed_mode, is_vip, loose_m
 	end
 	
 	local keys_down = mnee.get_keys( key_mode )
-	if( pen.is_valid( keys_down )) then
+	if( pen.vld( keys_down )) then
 		local update_frame = tonumber( GlobalsGetValue( mnee.UPDATER, "0" ))
 		mnee_updater = mnee_updater or 0
 		if( mnee_updater ~= update_frame ) then
@@ -945,7 +945,7 @@ function mnee.aim_assist( hooman, pos, angle, is_active, is_searching, data )
 	
 	local is_done = false
 	local delta_x, delta_y = 0, 0
-	if( pen.is_valid( the_one, true )) then
+	if( pen.vld( the_one, true )) then
 		local t_x, t_y = pen.get_creature_head( the_one, EntityGetTransform( the_one ))
 		delta_x, delta_y = t_x - pos[1], t_y - pos[2]
 	end
@@ -958,7 +958,7 @@ function mnee.aim_assist( hooman, pos, angle, is_active, is_searching, data )
 			local best_case = -1
 			for i,proj in ipairs( projectiles ) do
 				local proj_comp = EntityGetFirstComponentIncludingDisabled( proj, "ProjectileComponent" )
-				if( pen.is_valid( proj_comp, true )) then
+				if( pen.vld( proj_comp, true )) then
 					if( ComponentGetValue2( proj_comp, "mWhoShot" ) == hooman and best_case < proj ) then
 						if( aim_assist_korrection[1] < proj and aim_assist_korrection[1] ~= best_case ) then
 							best_case = proj
@@ -967,7 +967,7 @@ function mnee.aim_assist( hooman, pos, angle, is_active, is_searching, data )
 				end
 			end
 
-			if( pen.is_valid( best_case, true )) then
+			if( pen.vld( best_case, true )) then
 				local proj_comp = EntityGetFirstComponentIncludingDisabled( best_case, "ProjectileComponent" )
 				local vel = ComponentGetValue2( proj_comp, "mInitialSpeed" )
 
@@ -1010,7 +1010,7 @@ function mnee.aim_assist( hooman, pos, angle, is_active, is_searching, data )
 			local b = pen.catch( fuck_it, {x,y,v,g,h,-1}, {9999})
 			t_angle = y_sign*math.min( a, b )
 
-			so_back = pen.is_valid( t_angle )
+			so_back = pen.vld( t_angle )
 			if( so_back ) then
 				if( x_sign < 0 ) then
 					t_angle = -y_sign*t_angle + math.rad( 180 )
@@ -1031,7 +1031,7 @@ function mnee.aim_assist( hooman, pos, angle, is_active, is_searching, data )
 		if( so_back ) then
 			local delta_a = pen.get_angular_delta( t_angle, angle )
 			angle = angle + pen.limiter( pen.limiter( strength*delta_a, min_offset, true ), delta_a )
-			if( pen.is_valid( data.pic )) then
+			if( pen.vld( data.pic )) then
 				GameCreateSpriteForXFrames( data.pic, pos[1] + delta_x, pos[2] + delta_y, true, 0, 0, 1, true )
 			end
 		end

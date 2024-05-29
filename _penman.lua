@@ -48,7 +48,7 @@ function pen.n2b( a )
 	return a > 0
 end
 
-function pen.is_valid( v, is_ecs )
+function pen.vld( v, is_ecs )
 	if( v == nil ) then
 		return false
 	end
@@ -276,7 +276,7 @@ function pen.catch( f, input, fallback )
 		if( not( pen.silent_catch )) then
 			print( out[2])
 		end
-		if( pen.is_valid( fallback )) then
+		if( pen.vld( fallback )) then
 			return unpack( fallback )
 		end
 	else
@@ -290,7 +290,7 @@ function pen.chrono( f, input, storage_comp, name )
 	local out = { f( unpack( input or {}))}
 	check = GameGetRealWorldTimeSinceStarted()*1000 - check
 
-	if( pen.is_valid( storage_comp, true )) then
+	if( pen.vld( storage_comp, true )) then
 		pen.magic_comp( storage_comp, { value_string = function( old_val )
 			return old_val..name..pen.DIV_1..check..pen.DIV_1
 		end})
@@ -302,7 +302,7 @@ function pen.chrono( f, input, storage_comp, name )
 end
 
 function pen.get_hybrid_function( func, input )
-	if( not( pen.is_valid( func ))) then
+	if( not( pen.vld( func ))) then
 		return
 	end
 	
@@ -513,9 +513,9 @@ function pen.table_init( amount, value )
 end
 
 function pen.add_table( a, b )
-	if( pen.is_valid( b )) then
+	if( pen.vld( b )) then
 		table.sort( b )
-		if( pen.is_valid( a )) then
+		if( pen.vld( a )) then
 			for m,new in ipairs( b ) do 
 				if( binsearch( a, new ) == nil ) then
 					table.insert( a, new )
@@ -597,7 +597,7 @@ end
 
 --make it less shit
 function pen.from_tbl_with_id( tbl, id, subtract, custom_key, default )
-	if( not( pen.is_valid( tbl ))) then
+	if( not( pen.vld( tbl ))) then
 		return {}
 	end
 	
@@ -658,7 +658,7 @@ end
 function pen.closest_getter( x, y, stuff, check_sight, limits, extra_check )
 	check_sight = check_sight or false
 	limits = limits or { 0, 0, }
-	if( not( pen.is_valid( stuff ))) then
+	if( not( pen.vld( stuff ))) then
 		return 0
 	end
 	
@@ -687,7 +687,7 @@ end
 
 function pen.get_child_num( inv_id, item_id )
 	local children = EntityGetAllChildren( inv_id )
-	if( pen.is_valid( children )) then
+	if( pen.vld( children )) then
 		for i,child in ipairs( children ) do
 			if( child == item_id ) then
 				return i-1
@@ -700,7 +700,7 @@ end
 
 function pen.child_play( entity_id, action, sorter )
 	local children = EntityGetAllChildren( entity_id )
-	if( pen.is_valid( children )) then
+	if( pen.vld( children )) then
 		if( sorter ~= nil ) then
 			table.sort( children, sorter )
 		end
@@ -728,7 +728,7 @@ end
 --make this a single func
 function pen.get_matter( matters, id )
 	local max_matter = { 0, 0 }
-	if( pen.is_valid( matters )) then
+	if( pen.vld( matters )) then
 		for i,matter in ipairs( matters ) do
 			if( id ~= nil and id == i - 1 ) then
 				return { id, matter }
@@ -744,7 +744,7 @@ end
 function pen.get_matters( matters )
 	local mttrs = {}
 	local got_some = 0
-	if( pen.is_valid( matters )) then
+	if( pen.vld( matters )) then
 		for i,mttr in ipairs( matters ) do
 			if( mttr > 0 ) then
 				table.insert( mttrs, {i-1,mttr})
@@ -856,7 +856,7 @@ end
 --add new liner
 function pen.liner( text, length, height, length_k, clean_mode, forced_reverse )
 	local formated = {}
-	if( pen.is_valid( text )) then
+	if( pen.vld( text )) then
 		local length_counter = 0
 		if( height ~= nil ) then
 			length_k = length_k or 6
@@ -971,7 +971,7 @@ function pen.liner( text, length, height, length_k, clean_mode, forced_reverse )
 end
 
 function pen.magic_parse( data, separators )
-	if( not( pen.is_valid( data ))) then
+	if( not( pen.vld( data ))) then
 		return
 	end
 	separators = separators or { pen.DIV_1, pen.DIV_2, pen.DIV_3, pen.DIV_4 }
@@ -1018,7 +1018,7 @@ function pen.magic_parse( data, separators )
 		if( pen.get_table_count( data ) > 0 and #separators >= depth ) then
 			out = XD_packer( data, separators )
 		end
-	elseif( pen.is_valid( data )) then
+	elseif( pen.vld( data )) then
 		out = XD_extractor( data, separators )
 	end
 	return out
@@ -1144,7 +1144,7 @@ end
 
 function pen.get_spell_id()
 	local man = GetUpdatedEntityID()
-	if( not( pen.is_valid( man ))) then
+	if( not( pen.vld( man ))) then
 		return
 	end
 
@@ -1152,7 +1152,7 @@ function pen.get_spell_id()
 	if( wand_id ~= 0 and current_action ~= nil and current_action.deck_index ~= nil ) then
 		local index_offset = 1
 		local spells = EntityGetAllChildren( wand_id )
-		if( pen.is_valid( spells )) then
+		if( pen.vld( spells )) then
 			for i,spell_id in ipairs( spells ) do
 				local item_comp = EntityGetFirstComponentIncludingDisabled( spell_id, "ItemComponent" )
 				if( item_comp ~= nil and ComponentGetValue2( item_comp, "permanently_attached" )) then
@@ -1196,12 +1196,12 @@ function pen.get_hooman()
 end
 
 function pen.get_hooman_child( hooman, tag, ignore_id )
-	if( not( pen.is_valid( hooman, true ))) then
+	if( not( pen.vld( hooman, true ))) then
 		return -1
 	end
 	
 	local children = EntityGetAllChildren( hooman )
-	if( pen.is_valid( children )) then
+	if( pen.vld( children )) then
 		for i,child in ipairs( children ) do
 			if( child ~= ignore_id and ( EntityGetName( child ) == tag or EntityHasTag( child, tag ))) then
 				return child
@@ -1212,14 +1212,8 @@ function pen.get_hooman_child( hooman, tag, ignore_id )
 	return nil
 end
 
---make this a hybrid documentation like table.insert
----Universal component-editing utility.
----@param id entity_id|component_id
----@param data table|string
----@param func? function|value
----@return any
 function pen.magic_comp( id, data, func )
-	if( not( pen.is_valid( id, true ))) then
+	if( not( pen.vld( id, true ))) then
 		return
 	end
 	if( type( data ) ~= "table" ) then
@@ -1253,7 +1247,7 @@ function pen.magic_comp( id, data, func )
 		return _G[ method ]( unpack( func ))
 	else
 		local comps = EntityGetComponentIncludingDisabled( unpack({ id, data[1], data[2]}))
-		if( pen.is_valid( comps )) then
+		if( pen.vld( comps )) then
 			for i,comp in ipairs( comps ) do
 				if( func( comp, ComponentGetIsEnabled( comp ))) then break end
 			end
@@ -1262,7 +1256,7 @@ function pen.magic_comp( id, data, func )
 end
 
 function pen.check_bounds( dot, pos, box )
-	if( not( pen.is_valid( box, true ))) then
+	if( not( pen.vld( box, true ))) then
 		return false
 	end
 	
@@ -1281,7 +1275,7 @@ end
 
 function pen.get_creature_centre( hooman, x, y )
 	local char_comp = EntityGetFirstComponentIncludingDisabled( hooman, "CharacterDataComponent" )
-	if( pen.is_valid( char_comp, true )) then
+	if( pen.vld( char_comp, true )) then
 		y = y + ComponentGetValue2( char_comp, "buoyancy_check_offset_y" )
 	end
 	return x, y
@@ -1289,11 +1283,11 @@ end
 
 function pen.get_creature_head( entity_id, x, y )
 	local ai_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "AnimalAIComponent" )
-	if( pen.is_valid( ai_comp, true )) then
+	if( pen.vld( ai_comp, true )) then
 		y = y + ComponentGetValue2( ai_comp, "eye_offset_y" )
 	else
 		local crouch_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "HotspotComponent", "crouch_sensor" )
-		if( pen.is_valid( crouch_comp, true )) then
+		if( pen.vld( crouch_comp, true )) then
 			local off_x, off_y = ComponentGetValue2( crouch_comp, "offset" )
 			y = y + off_y + 3
 		end
@@ -1314,7 +1308,7 @@ end
 function pen.lua_callback( entity_id, func_names, input )
 	local got_some = false
 	local comps = EntityGetComponentIncludingDisabled( entity_id, "LuaComponent" )
-	if( pen.is_valid( comps )) then
+	if( pen.vld( comps )) then
 		local real_GetUpdatedEntityID = GetUpdatedEntityID
 		local real_GetUpdatedComponentID = GetUpdatedComponentID
 		GetUpdatedEntityID = function() return entity_id end
@@ -1322,7 +1316,7 @@ function pen.lua_callback( entity_id, func_names, input )
 		local frame_num = GameGetFrameNum()
 		for i,comp in ipairs( comps ) do
 			local path = ComponentGetValue2( comp, func_names[1])
-			if( pen.is_valid( path )) then
+			if( pen.vld( path )) then
 				local max_count = ComponentGetValue2( comp, "execute_times" )
 				local count = ComponentGetValue2( comp, "mTimesExecuted" )
 				if( max_count < 1 or count < max_count ) then
@@ -1351,7 +1345,7 @@ function pen.get_phys_mass( entity_id )
 	local mass = 0
 	
 	local shape_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "PhysicsImageShapeComponent" )
-	if( pen.is_valid( shape_comp, true )) then
+	if( pen.vld( shape_comp, true )) then
 		local x, y = EntityGetTransform( entity_id )
 		local drift_x, drift_y = ComponentGetValue2( shape_comp, "offset_x" ), ComponentGetValue2( shape_comp, "offset_y" )
 		x, y = x - drift_x, y - drift_y
@@ -1381,7 +1375,7 @@ function pen.delayed_kill( entity_id, delay, comp_id )
 		lifetime = delay + 1,
 	})
 	
-	if( pen.is_valid( comp_id, true )) then
+	if( pen.vld( comp_id, true )) then
 		EntityRemoveComponent( entity_id, comp_id )
 	end
 end
@@ -1393,10 +1387,10 @@ function pen.scale_emitter( hooman, emit_comp, advanced )
 	
 	local sprite_comp = EntityGetFirstComponentIncludingDisabled( hooman, "SpriteComponent", "character" )
 	local char_comp = EntityGetFirstComponentIncludingDisabled( hooman, "CharacterDataComponent" )
-	if( advanced and pen.is_valid( sprite_comp, true )) then
+	if( advanced and pen.vld( sprite_comp, true )) then
 		local offset_x = ComponentGetValue2( sprite_comp, "offset_x" )
 		local offset_y = ComponentGetValue2( sprite_comp, "offset_y" )
-		if( pen.is_valid( char_comp, true )) then
+		if( pen.vld( char_comp, true )) then
 			local temp = {}
 			temp[1] = ComponentGetValue2( char_comp, "collision_aabb_min_x" )
 			temp[2] = ComponentGetValue2( char_comp, "collision_aabb_max_x" )
@@ -1428,7 +1422,7 @@ function pen.scale_emitter( hooman, emit_comp, advanced )
 		end
 
 		gonna_update = true
-	elseif( pen.is_valid( char_comp, true )) then
+	elseif( pen.vld( char_comp, true )) then
 		borders[1] = ComponentGetValue2( char_comp, "collision_aabb_min_x" )
 		borders[2] = ComponentGetValue2( char_comp, "collision_aabb_max_x" )
 		borders[3] = ComponentGetValue2( char_comp, "collision_aabb_min_y" )
@@ -1447,7 +1441,7 @@ end
 
 function pen.active_item_reset( hooman )
 	local inv_comp = EntityGetFirstComponentIncludingDisabled( hooman, "Inventory2Component" )
-	if( pen.is_valid( inv_comp, true )) then
+	if( pen.vld( inv_comp, true )) then
 		ComponentSetValue2( inv_comp, "mActiveItem", 0 )
 		ComponentSetValue2( inv_comp, "mActualActiveItem", 0 )
 		ComponentSetValue2( inv_comp, "mInitialized", false )
@@ -1457,7 +1451,7 @@ end
 
 function pen.get_active_item( hooman )
 	local inv_comp = EntityGetFirstComponentIncludingDisabled( hooman, "Inventory2Component" )
-	if( pen.is_valid( inv_comp, true )) then
+	if( pen.vld( inv_comp, true )) then
 		return tonumber( ComponentGetValue2( inv_comp, "mActiveItem" ) or 0 )
 	end
 	
@@ -1465,7 +1459,7 @@ function pen.get_active_item( hooman )
 end
 
 function pen.get_item_owner( item_id, figure_it_out )
-	if( pen.is_valid( item_id, true )) then
+	if( pen.vld( item_id, true )) then
 		local root_man = EntityGetRootEntity( item_id )
 		local parent = item_id
 		while( parent ~= root_man ) do
@@ -1489,10 +1483,10 @@ end
 
 function pen.is_wand_useless( wand_id )
 	local children = EntityGetAllChildren( wand_id )
-	if( pen.is_valid( children )) then
+	if( pen.vld( children )) then
 		for i,child in ipairs( children ) do
 			local itm_comp = EntityGetFirstComponentIncludingDisabled( child, "ItemComponent" )
-			if( pen.is_valid( itm_comp, true )) then
+			if( pen.vld( itm_comp, true )) then
 				if( ComponentGetValue2( itm_comp, "uses_remaining" ) ~= 0 ) then
 					return false
 				end
@@ -1517,11 +1511,11 @@ function pen.get_tinker_state( hooman, x, y )
 	end
 	
 	local workshops = EntityGetWithTag( "workshop" )
-	if( pen.is_valid( workshops )) then
+	if( pen.vld( workshops )) then
 		for i,workshop in ipairs( workshops ) do
 			local w_x, w_y = EntityGetTransform( workshop )
 			local box_comp = EntityGetFirstComponent( workshop, "HitboxComponent" )
-			if( pen.is_valid( box_comp, true ) and pen.check_bounds({x,y}, {w_x,w_y}, box_comp )) then
+			if( pen.vld( box_comp, true ) and pen.check_bounds({x,y}, {w_x,w_y}, box_comp )) then
 				return true
 			end
 		end
@@ -1534,7 +1528,7 @@ function pen.is_inv_active( hooman )
 	hooman = hooman or pen.get_hooman()
 	
 	local is_going = false
-	if( pen.is_valid( hooman, true )) then
+	if( pen.vld( hooman, true )) then
 		pen.magic_comp( hooman, "InventoryGuiComponent", function( comp_id, is_enabled )
 			is_going = pen.magic_comp( comp_id, "mActive" )
 		end)
@@ -1544,8 +1538,8 @@ end
 
 function pen.get_custom_effect( hooman, effect_name, effect_id )
 	local children = EntityGetAllChildren( hooman )
-	if( pen.is_valid( children )) then
-		if( pen.is_valid( effect_id, true )) then
+	if( pen.vld( children )) then
+		if( pen.vld( effect_id, true )) then
 			if( type( effect_id ) == "string" ) then
 				dofile_once( "data/scripts/status_effects/status_list.lua" )
 				for i,effect in ipairs( status_effects ) do
@@ -1604,7 +1598,7 @@ end
 
 --worst case: cache all the is_supported/is_object data to get the spam only once
 function pen.clone_comp( entity_id, comp_id, mutators ) --mutators for objects
-	if( not( pen.is_valid( comp_id, true ))) then
+	if( not( pen.vld( comp_id, true ))) then
 		return
 	end
 	
@@ -1692,13 +1686,13 @@ function pen.clone_entity( entity_id, x, y, mutators )
 		EntityAddTag( new_id, value )
 	end
 	local comps = EntityGetAllComponents( entity_id )
-	if( pen.is_valid( comps )) then
+	if( pen.vld( comps )) then
 		for i,comp in ipairs( comps ) do
 			clone_comp( new_id, comp, mutators[entity_id][comp] or {})
 		end
 	end
 	local children = EntityGetAllChildren( entity_id )
-	if( pen.is_valid( children )) then
+	if( pen.vld( children )) then
 		for i,child in ipairs( children ) do
 			EntityAddChild( new_id, clone_entity( child, x, y, mutators ))
 		end
@@ -1714,7 +1708,7 @@ function pen.rate_creature( enemy_id )
 	
 	if( EntityGetRootEntity( enemy_id ) ~= enemy_id ) then
 		return 0
-	elseif( not( pen.is_valid( damage_comp, true ) and pen.is_valid( gene_comp, true ))) then
+	elseif( not( pen.vld( damage_comp, true ) and pen.vld( gene_comp, true ))) then
 		return 0
 	end
 	
@@ -1729,7 +1723,7 @@ function pen.rate_creature( enemy_id )
 	
 	local violence = 0
 	local animal_comp = EntityGetFirstComponentIncludingDisabled( enemy_id, "AnimalAIComponent" )
-	if( pen.is_valid( animal_comp, true )) then
+	if( pen.vld( animal_comp, true )) then
 		if( ComponentGetValue2( animal_comp, "attack_melee_enabled" )) then
 			violence = violence + ( ComponentGetValue2( animal_comp, "attack_melee_damage_min" ) + ComponentGetValue2( animal_comp, "attack_melee_damage_max" ))/2
 		end
@@ -1746,7 +1740,7 @@ function pen.rate_creature( enemy_id )
 	local overall_speed = 0
 	local platform_comp = EntityGetFirstComponentIncludingDisabled( enemy_id, "CharacterPlatformingComponent" )
 	local path_comp = EntityGetFirstComponentIncludingDisabled( enemy_id, "PathFindingComponent" )
-	if( pen.is_valid( platform_comp, true ) and pen.is_valid( path_comp, true )) then
+	if( pen.vld( platform_comp, true ) and pen.vld( path_comp, true )) then
 		if( ComponentGetValue2( path_comp, "can_walk" )) then
 			overall_speed = overall_speed + ComponentGetValue2( platform_comp, "run_velocity" )
 			if( ComponentGetValue2( path_comp, "can_fly" )) then
@@ -1757,7 +1751,7 @@ function pen.rate_creature( enemy_id )
 		end
 	end
 	local fish_comp = EntityGetFirstComponentIncludingDisabled( enemy_id, "AdvancedFishAIComponent" ) or EntityGetFirstComponentIncludingDisabled( enemy_id, "FishAIComponent" )
-	if( overall_speed == 0 and pen.is_valid( fish_comp, true ) and EntityHasTag( enemy_id, "helpless_animal" )) then
+	if( overall_speed == 0 and pen.vld( fish_comp, true ) and EntityHasTag( enemy_id, "helpless_animal" )) then
 		overall_speed = 300
 	end
 	
@@ -1771,7 +1765,7 @@ function pen.rate_creature( enemy_id )
 	
 	local main = f_distance*f_speed*f_vulner*f_hp
 	local final_value = 0.25*( 0.08*( main - ( main > f_supremacy and f_supremacy or 0 )) + f_violence )
-	return pen.is_valid( final_value ) and final_value or 0
+	return pen.vld( final_value ) and final_value or 0
 end
 
 function pen.rate_wand( wand_id, shuffle, can_reload, capacity, reload_time, cast_delay, mana_max, mana_charge, spell_cast, spread )
@@ -1822,18 +1816,18 @@ function pen.rate_wand( wand_id, shuffle, can_reload, capacity, reload_time, cas
 	local f_spread = math.rad( 45 - spread )
 	
 	local final_value = 1500*f_delay*f_reloading*f_mana_max*f_mana_charge*math.sqrt( f_spread*f_multi )*f_shuffle*f_capacity^1.5
-	return pen.is_valid( final_value ) and final_value or 0
+	return pen.vld( final_value ) and final_value or 0
 end
 
 function pen.rate_spell( spell_id )
-	if( not( pen.is_valid( spell_id, true ))) then
+	if( not( pen.vld( spell_id, true ))) then
 		return 0	
 	end
 	
 	local t_item_comp = EntityGetFirstComponentIncludingDisabled( spell_id, "ItemComponent" )
 	local t_act_comp = EntityGetFirstComponentIncludingDisabled( spell_id, "ItemActionComponent" )
 	local action_data = pen.get_action_with_id( ComponentGetValue2( t_act_comp, "action_id" ))
-	if( not( pen.is_valid( action_data ))) then
+	if( not( pen.vld( action_data ))) then
 		return 0
 	end
 	
@@ -1853,7 +1847,7 @@ function pen.rate_spell( spell_id )
 	local f_mana = 5.4 + ( 0.1 - 5.4 )/( 1 + ( mana/8420.3 )^0.367 )
 	
 	local final_value = 2.5*f_perma*f_price*f_uses*f_mana
-	return pen.is_valid( final_value ) and final_value or 0
+	return pen.vld( final_value ) and final_value or 0
 end
 
 function pen.rate_projectile( hooman, projectile_id )
@@ -1910,7 +1904,7 @@ function pen.rate_projectile( hooman, projectile_id )
 	local f_damage = total_damage*25
 	
 	local final_value = 0.15*f_distance*f_direction*f_lifetime*f_is_real*f_velocity*f_damage
-	return pen.is_valid( final_value ) and final_value or 0
+	return pen.vld( final_value ) and final_value or 0
 end
 
 --[FRONTEND]
@@ -1965,7 +1959,7 @@ function pen.play_entity_sound( entity_id, x, y, event_mutator, no_bullshit )
 		ComponentGetValue2( get_storage( entity_id, "sound_bank" ), "value_string" ),
 		ComponentGetValue2( get_storage( entity_id, "sound_event" ), "value_string" )..( event_mutator or "" ),
 	}
-	if( not( pen.is_valid( sound_table[1]))) then
+	if( not( pen.vld( sound_table[1]))) then
 		return
 	end
 	pen.play_sound( sound_table, x, y, no_bullshit )

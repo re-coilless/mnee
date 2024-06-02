@@ -53,32 +53,32 @@ function text_with_no_mod( key ) --inspired by Conga's approach
 			["$mnee_living"] = {
 				["English"] = "Disable Internal Deadzones",
 				["русский"] = "Отключить Постоянные Мёртвые Зоны",
-				-- ["简体中文"] = "",
+				["简体中文"] = "禁用内部死区",
 			},
 			["$mnee_living_desc"] = {
 				["English"] = "Enabling this will remove all the default developer-defined deadzones, only leaving user-accessible ones (can be changed right below).",
 				["русский"] = "При активации уберёт все заданные разработчиками мёртвые зоны, останутся только доступные игроку опции (которые могут быть изменены снизу).",
-				-- ["简体中文"] = "",
+				["简体中文"] = "启用这个将移除所有开发者定义的默认死区，只留下用户可访问的（可以在正下方更改）",
 			},
 			["$mnee_deadzone"] = {
 				["English"] = "Analog Stick Deadzone",
 				["русский"] = "Мёртвая Зона Геймпада",
-				-- ["简体中文"] = "",
+				["简体中文"] = "摇杆死区",
 			},
 			["$mnee_deadzone_desc"] = {
 				["English"] = "Controls the radius of the zone near the rest position where the inputs do not count.",
 				["русский"] = "Изменяет радиус зоны около позиции покоя, где ввод не считывается.",
-				-- ["简体中文"] = "",
+				["简体中文"] = "控制摇杆中心附近使按键输入无效化的区域半径",
 			},
 			["$mnee_autoaim"] = {
 				["English"] = "Aim Assist Strength",
 				["русский"] = "Степень Помощи в Прицеливании",
-				-- ["简体中文"] = "",
+				["简体中文"] = "瞄准辅助力度",
 			},
 			["$mnee_autoaim_desc"] = {
 				["English"] = "Controls the degree to which you aim will be offsetted by aim assisting algorithm.",
 				["русский"] = "Изменяет степень отконения перекрестья алгоритмом помощи в прицеливании.",
-				-- ["简体中文"] = "",
+				["简体中文"] = "控制瞄准辅助算法帮助你瞄准的力度大小",
 			},
 			["$mnee_reset"] = {
 				["English"] = "Complete Reset",

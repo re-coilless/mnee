@@ -1151,10 +1151,10 @@ function mnee.mnin( mode, id_data, data )
 		axis = { mnee.mnin_axis, {1,2}, { "dirty", "pressed", "vip", "mode" }},
 		stick = { mnee.mnin_stick, {1,2}, { "dirty", "pressed", "vip", "mode" }},
 	}
-	if( type( id_data ) ~= "table" ) then id_data = {id_data} end
 	data = data or {}
 	func = map[ mode ]
-
+	id_data = pen.get_hybrid_table( id_data )
+	
 	local inval = {}
 	for i,v in ipairs( func[2]) do
 		if( id_data[v] ~= nil ) then table.insert( inval, id_data[v]) end

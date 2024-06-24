@@ -2,60 +2,9 @@ dofile_once( "mods/mnee/_penman.lua" )
 
 mnee = mnee or {}
 
-mnee.AMAP_MEMO = "mnee_mapping_memo"
-mnee.INITER = "MNEE_IS_GOING"
-mnee.TOGGLER = "MNEE_DISABLED"
-mnee.RETOGGLER = "MNEE_REDO"
-mnee.UPDATER = "MNEE_RELOAD"
-mnee.JPAD_UPDATE = "MNEE_JPAD_UPDATE"
-mnee.SERV_MODE = "MNEE_HOLD_UP"
-mnee.PRIO_MODE = "MNEE_PRIORITY_MODE"
-
-mnee.PTN_1 = pen.ptrn( 1 )
-mnee.PTN_2 = pen.ptrn( 2 )
-mnee.PTN_3 = pen.ptrn( 3 )
-
-mnee.SPECIAL_KEYS = {
-	-- left_shift = 1,
-	-- right_shift = 1,
-	left_ctrl = 1,
-	right_ctrl = 1,
-	left_alt = 1,
-	right_alt = 1,
-	-- left_windows = 1,
-	-- right_windows = 1,
-}
-
-mnee.INMODES = {
-	guied = function( ctrl_body, active )
-		if( pen.vld( active )) then
-			local ctrl_comp = EntityGetFirstComponentIncludingDisabled( ctrl_body, "ControlsComponent" )
-			if( not( ComponentGetValue2( ctrl_comp, "mButtonDownLeftClick" ))) then
-				active = string.gsub( active, "mouse_left", "mouse_left_gui" )
-			end
-			if( not( ComponentGetValue2( ctrl_comp, "mButtonDownRightClick" ))) then
-				active = string.gsub( active, "mouse_right", "mouse_right_gui" )
-			end
-		end
-		return active
-	end,
-}
-
+--[INTERNAL]
 function mnee.get_ctrl()
-	return pen.get_hooman_child( GameGetWorldStateEntity(), "mnee_ctrl" )
-end
-
-function mnee.extractor( data_raw )
-	if( not( pen.vld( data_raw ))) then
-		return {}
-	end
-	
-	local data = {}
-	for value in string.gmatch( data_raw, mnee.PTN_1 ) do
-		table.insert( data, value )
-	end
-	
-	return data
+	return pen.get_child( GameGetWorldStateEntity(), "mnee_ctrl" )
 end
 
 function mnee.get_next_jpad( init_only )
@@ -90,39 +39,12 @@ function mnee.get_next_jpad( init_only )
 end
 
 function mnee.is_jpad_real( id )
-	id = id or 1
-	
-	local storage = pen.get_storage( mnee.get_ctrl(), "mnee_jpads" )
-	if( not( pen.vld( storage, true ))) then
-		return false
-	end
-	local jpad_raw = ComponentGetValue2( storage, "value_string" )
-	if( not( pen.vld( jpad_raw ))) then
-		return false
-	end
-	
-	local counter = 1
-	for j in string.gmatch( jpad_raw, mnee.PTN_1 ) do
-		if( counter == id ) then
-			return j ~= "-1"
-		end
-		counter = counter + 1
-	end
-	
-	return false
+	return (( pen.t.pack( pen.get_storage( mnee.get_ctrl(), "mnee_jpads", "value_string" ) or "" ))[ id or 1 ] or 0 ) > 0
 end
 
 function mnee.apply_jpads( jpad_tbl, no_update )
-	local j = pen.DIV_1
-	for i,jp in ipairs( jpad_tbl ) do
-		j = j..( jp and jp or -1 )..pen.DIV_1
-	end
-
-	ComponentSetValue2( pen.get_storage( mnee.get_ctrl(), "mnee_jpads" ), "value_string", j )
-
-	if( not( no_update )) then
-		GameAddFlagRun( mnee.JPAD_UPDATE )
-	end
+	ComponentSetValue2( pen.get_storage( mnee.get_ctrl(), "mnee_jpads" ), "value_string", pen.t.pack( jpad_tbl ))
+	if( not( no_update )) then GameAddFlagRun( mnee.JPAD_UPDATE ) end
 end
 
 function mnee.jpad_callback( jpad_id, slot_id )
@@ -142,40 +64,11 @@ function mnee.jpad_callback( jpad_id, slot_id )
 end
 
 function mnee.get_keys( mode )
-	mode = mode or false
-
-	local storage = pen.get_storage( mnee.get_ctrl(), mode and "mnee_down_"..mode or "mnee_down" )
-	if( not( pen.vld( storage, true ))) then
-		return {}
-	end
-
-	return mnee.extractor( ComponentGetValue2( storage, "value_string" ))
+	return pen.t.pack( pen.get_storage( mnee.get_ctrl(), ( mode or false ) and "mnee_down_"..mode or "mnee_down", "value_string" ))
 end
 
 function mnee.get_disarmer()
-	local storage = pen.get_storage( mnee.get_ctrl(), "mnee_disarmer" )
-	if( not( pen.vld( storage, true ))) then
-		return {}
-	end
-	local data_raw = ComponentGetValue2( storage, "value_string" )
-	if( not( pen.vld( data_raw ))) then
-		return {}
-	end
-	
-	local data = {}
-	for action in string.gmatch( data_raw, mnee.PTN_1 ) do
-		local val = {}
-		for value in string.gmatch( action, mnee.PTN_2 ) do
-			table.insert( val, value )
-		end
-		if( pen.vld( val )) then
-			if( data[ val[1]] == nil or ( val[2] > ( data[ val[1]] or ( val[2] + 1 )))) then
-				data[ val[1]] = val[2]
-			end
-		end
-	end
-	
-	return data
+	return pen.t.unarray( pen.t.pack( pen.get_storage( mnee.get_ctrl(), "mnee_disarmer", "value_string" )))
 end
 
 function mnee.clean_disarmer()
@@ -183,120 +76,58 @@ function mnee.clean_disarmer()
 	if( pen.vld( disarmer )) then
 		local current_frame = GameGetFrameNum()
 		
-		local new_disarmer = pen.DIV_1
+		local new_disarmer = {}
 		for key,frame in pairs( disarmer ) do
-			if( current_frame - tonumber( frame ) < 2 ) then
-				new_disarmer = new_disarmer..pen.DIV_2..key..pen.DIV_2..frame..pen.DIV_2..pen.DIV_1
+			if( current_frame - frame < 2 ) then
+				new_disarmer[ key ] = frame
 			end
 		end
-		
-		local storage = pen.get_storage( mnee.get_ctrl(), "mnee_disarmer" )
-		ComponentSetValue2( storage, "value_string", new_disarmer )
+		pen.get_storage( mnee.get_ctrl(), "mnee_disarmer", "value_string", pen.t.pack( pen.t.unarray( new_disarmer )))
 	end
 end
 
 function mnee.add_disarmer( value )
 	local storage = pen.get_storage( mnee.get_ctrl(), "mnee_disarmer" )
-	if( not( pen.vld( storage, true ))) then
-		return
+	if( pen.vld( storage, true )) then
+		local disarmer = table.concat({ pen.DIV_2, value, pen.DIV_2, GameGetFrameNum(), pen.DIV_2, pen.DIV_1 })
+		ComponentSetValue2( storage, "value_string", table.concat({ ComponentGetValue2( storage, "value_string" ), disarmer }))
 	end
-	ComponentSetValue2( storage, "value_string", ComponentGetValue2( storage, "value_string" )..( pen.DIV_2..value..pen.DIV_2..GameGetFrameNum()..pen.DIV_2 )..pen.DIV_1 )
 end
 
 function mnee.get_triggers()
-	local storage = pen.get_storage( mnee.get_ctrl(), "mnee_triggers" )
-	if( not( pen.vld( storage, true ))) then
-		return {}
-	end
-	local triggers_raw = ComponentGetValue2( storage, "value_string" )
-	if( not( pen.vld( triggers_raw ))) then
-		return {}
-	end
-	
-	local triggers = {}
-	for tr in string.gmatch( triggers_raw, mnee.PTN_1 ) do
-		local trigger = ""
-		for val in string.gmatch( tr, mnee.PTN_2 ) do
-			if( pen.vld( trigger )) then
-				triggers[ trigger ] = tonumber( val )
-			else
-				trigger = val
-			end
-		end
-	end
-	
-	return triggers
+	return pen.t.unarray( pen.t.parse( pen.get_storage( mnee.get_ctrl(), "mnee_triggers", "value_string" )))
 end
 
 function mnee.get_axes()
-	local storage = pen.get_storage( mnee.get_ctrl(), "mnee_axis" )
-	if( not( pen.vld( storage, true ))) then
-		return {}
-	end
-	local axes_raw = ComponentGetValue2( storage, "value_string" )
-	if( not( pen.vld( axes_raw ))) then
-		return {}
-	end
-	
-	local axes = {}
-	for ax in string.gmatch( axes_raw, mnee.PTN_1 ) do
-		local axis = ""
-		for val in string.gmatch( ax, mnee.PTN_2 ) do
-			if( pen.vld( axis )) then
-				axes[ axis ] = tonumber( val )
-			else
-				axis = val
-			end
-		end
-	end
-	
-	return axes
+	return pen.t.unarray( pen.t.parse( pen.get_storage( mnee.get_ctrl(), "mnee_axis", "value_string" )))
 end
 
 function mnee.get_axis_memo()
-	local storage = pen.get_storage( mnee.get_ctrl(), "mnee_axis_memo" )
-	if( not( pen.vld( storage, true ))) then
-		return {}
-	end
-	local memo_raw = ComponentGetValue2( storage, "value_string" )
-	if( not( pen.vld( memo_raw ))) then
-		return {}
-	end
-	
-	local data = {}
-	for value in string.gmatch( memo_raw, mnee.PTN_1 ) do
-		data[ value ] = 1
-	end
-	
-	return data
+	return pen.t.unarray( pen.t.pack( pen.get_storage( mnee.get_ctrl(), "mnee_axis_memo", "value_string" )))
 end
 
 function mnee.toggle_axis_memo( name )
 	local storage = pen.get_storage( mnee.get_ctrl(), "mnee_axis_memo" )
-	if( not( pen.vld( storage, true ))) then
-		return
-	end
-	local memo_raw = pen.DIV_1
-	local memo = mnee.get_axis_memo()
-	if( memo[ name ] == nil ) then
-		memo_raw = ComponentGetValue2( storage, "value_string" )..name..pen.DIV_1
-	else
-		memo[ name ] = nil
-		for nm in pairs( memo ) do
-			memo_raw = memo_raw..nm..pen.DIV_1
+	if( pen.vld( storage, true )) then
+		local memo, memo_raw = mnee.get_axis_memo(), ""
+		if( memo[ name ] == nil ) then
+			memo_raw = table.concat({ ComponentGetValue2( storage, "value_string" ), name, pen.DIV_1 })
+		else
+			memo[ name ] = nil
+			memo_raw = pen.t.pack( pen.t.unarray( memo ))
 		end
+		ComponentSetValue2( storage, "value_string", memo_raw )
 	end
-	ComponentSetValue2( storage, "value_string", memo_raw )
 end
 
 function mnee.order_sorter( tbl )
-	return pen.magic_sorter( tbl, function( a, b )
+	return pen.t.order( tbl, function( a, b )
 		return (( tbl[a].order_id or a ) < ( tbl[b].order_id or b ))
 	end)
 end
 
 function mnee.get_setup_memo()
-	local setup_raw = ModSettingGetNextValue( "mnee.SETUP" )
+	local setup_raw = pen.setting_get( "mnee.SETUP" )
 	if( not( pen.vld( setup_raw ))) then
 		dofile_once( "mods/mnee/bindings.lua" )
 
@@ -304,47 +135,19 @@ function mnee.get_setup_memo()
 		for mod_id,value in pairs( mneedata ) do
 			setup[ mod_id ] = "dft"
 		end
-		setup = {setup,setup,setup}
-		
-		mnee.set_setup_memo( setup, profile )
-		setup_raw = ModSettingGetNextValue( "mnee.SETUP" )
+		setup_raw = mnee.set_setup_memo({ setup })
 	end
-
-	local setup = {}
-	local counter_p, counter_v = 1, 1
-	for prfl in string.gmatch( setup_raw, mnee.PTN_1 ) do
-		setup[counter_p] = {}
-
-		local mod_id = ""
-		for val in string.gmatch( prfl, mnee.PTN_2 ) do
-			if( counter_v%2 == 0 ) then
-				setup[ counter_p ][ mod_id ] = val
-			else
-				mod_id = val
-			end
-			
-			counter_v = counter_v + 1
-		end
-		counter_v = 1
-		counter_p = counter_p + 1
-	end
-
-	return setup
+	return pen.t.parse( setup_raw )
 end
 
-function mnee.set_setup_memo( data )
-	local setup_raw = pen.DIV_1
-	for i = 1,3 do
-		for mod_id,value in pairs( data[i]) do
-			setup_raw = setup_raw..pen.DIV_2..mod_id..pen.DIV_2..value
-		end
-		setup_raw = setup_raw..pen.DIV_2..pen.DIV_1
-	end
-	ModSettingSetNextValue( "mnee.SETUP", setup_raw, false )
+function mnee.set_setup_memo( setup_data )
+	local setup_raw = pen.t.parse( setup_data )
+	pen.setting_set( "mnee.SETUP", setup_raw )
+	return setup_raw
 end
 
 function mnee.get_setup_id( mod_id, profile )
-	profile = profile or ModSettingGetNextValue( "mnee.PROFILE" )
+	profile = profile or pen.setting_get( "mnee.PROFILE" )
 	local setup_memo = mnee.get_setup_memo()
 	return setup_memo[ profile ][ mod_id ]
 end
@@ -353,8 +156,8 @@ function mnee.apply_setup( mod_id, setup_id, bind_tbl )
 	dofile( "mods/mnee/bindings.lua" )
 	
 	setup_id = setup_id or "dft"
-	local profile = ModSettingGetNextValue( "mnee.PROFILE" )
-	local setup_mode = pen.from_tbl_with_id( mneedata[ mod_id ].setup_modes, setup_id )
+	local profile = pen.setting_get( "mnee.PROFILE" )
+	local setup_mode = pen.t.get( mneedata[ mod_id ].setup_modes, setup_id )
 	if( not( pen.vld( setup_mode ))) then
 		return bind_tbl or {}
 	end
@@ -397,57 +200,23 @@ function mnee.get_bindings( profile, binds_only )
 	dofile_once( "mods/mnee/bindings.lua" )
 	
 	profile = profile or ModSettingGetNextValue( "mnee.PROFILE" )
-	binds_only = binds_only or false
+	local binding_data = pen.t.parse( pen.setting_get( "mnee.BINDINGS" ))
+	if( not( pen.vld( binding_data ))) then return {} end
+	if( binds_only ) then return binding_data end
 	
-	local data_raw = {ModSettingGetNextValue( "mnee.BINDINGS_"..profile ), ModSettingGetNextValue( "mnee.BINDINGS_ALT_"..profile )}
-	if( not( pen.vld( data_raw[1]))) then
-		return {}
-	end
+	--keys.profile_num.main/alt.binding
 	
-	local data = {}
-	for i = 1,2 do
-		for mod in string.gmatch( data_raw[i], mnee.PTN_1 ) do
-			local mod_name = ""
-			for v in string.gmatch( mod, mnee.PTN_2 ) do
-				if( pen.vld( mod_name )) then
-					local binding_name = ""
-					for b in string.gmatch( v, mnee.PTN_3 ) do
-						if( pen.vld( binding_name )) then
-							local key_type = i == 1 and "keys" or "keys_alt"
-							if( b == "is_axis" or data[ mod_name ][ binding_name ][ key_type ][1] == "is_axis" ) then
-								table.insert( data[ mod_name ][ binding_name ][ key_type ], b )
-							else
-								data[ mod_name ][ binding_name ][ key_type ][ b ] = 1
-							end
-						elseif( binds_only or bindings[ mod_name ][ b ] ~= nil ) then
-							binding_name = b
-							if( i == 1 ) then
-								data[ mod_name ][ binding_name ] = {}
-								data[ mod_name ][ binding_name ][ "keys" ] = {}
-								data[ mod_name ][ binding_name ][ "keys_alt" ] = {}
-								if( not( binds_only )) then
-									local skip_list = { ["keys"] = 1, ["keys_alt"] = 1, }
-									for field,value in pairs( bindings[ mod_name ][ binding_name ]) do
-										if( skip_list[ field ] == nil ) then
-											data[ mod_name ][ binding_name ][ field ] = value
-										end
-									end
-								end
-							end
-						end
-					end
-				elseif( binds_only or bindings[ v ] ~= nil ) then
-					mod_name = v
-					if( i == 1 ) then data[ mod_name ] = {} end
-				end
-			end
+	local skip_list = { ["keys"] = 1, ["keys_alt"] = 1, }
+	for field,value in pairs( bindings[ mod_name ][ binding_name ]) do
+		if( skip_list[ field ] == nil ) then
+			data[ mod_name ][ binding_name ][ field ] = value
 		end
 	end
 	
-	return data
+	return binding_data
 end
 
-function mnee.set_bindings( data, profile )
+function mnee.set_bindings( data, profile ) --nope
 	if( not( pen.vld( data ))) then
 		return
 	end
@@ -553,7 +322,7 @@ function mnee.get_binding_keys( mod_id, name, is_compact )
 					out = out..symbols[4]..mnee.get_fancy_key( tbl[3])
 				end
 			else
-				for key in pen.magic_sorter( tbl ) do
+				for key in pen.t.order( tbl ) do
 					out = out..mnee.get_fancy_key( key )..symbols[2]
 				end
 				out = string.sub( out, 1, -( #symbols[2] + 1 ))
@@ -611,113 +380,7 @@ function mnee.get_shifted_key( c )
 	end
 end
 
-function mnee.play_sound( event )
-	if( not( sound_played )) then
-		sound_played = true
-		local c_x, c_y = GameGetCameraPos()
-		GamePlaySound( "mods/mnee/files/sfx/mnee.bank", event, c_x, c_y )
-	end
-end
-
-function mnee.new_tooltip( gui, uid, pic_z, text )
-	if( not( tooltip_opened )) then
-		local _, _, t_hov = GuiGetPreviousWidgetInfo( gui )
-		if( t_hov ) then
-			tooltip_opened = true
-			local w, h = GuiGetScreenDimensions( gui )
-			local pic_x, pic_y = pen.get_mouse_pos( gui )
-			pic_x = pic_x + 10
-			
-			if( not( pen.vld( text ))) then
-				return uid
-			end
-			
-			text = pen.liner( text, w*0.9, h - 2, 5.8 )
-			local length = 0
-			for i,line in ipairs( text ) do
-				local current_length = GuiGetTextDimensions( gui, line, 1, 2 )
-				if( current_length > length ) then
-					length = current_length
-				end
-			end
-			local extra = #text > 1 and 3 or 0
-			local x_offset = length + extra
-			local y_offset = 9*#text + 1 + extra - ( #text > 1 and 3 or 0 )
-			if( w < pic_x + x_offset ) then
-				pic_x = w - x_offset
-			end
-			if( h < pic_y + y_offset ) then
-				pic_y = h - y_offset
-			end
-			uid = pen.new_image( gui, uid, pic_x, pic_y, pic_z, "mods/mnee/files/pics/dot_purple_dark.png", x_offset, y_offset )
-			uid = pen.new_image( gui, uid, pic_x + 1, pic_y + 1, pic_z - 0.01, "mods/mnee/files/pics/dot_white.png", x_offset - 2, y_offset - 2 )
-			
-			pen.new_text( gui, pic_x + 2, pic_y, pic_z - 0.02, text, {136,121,247})
-		end
-	end
-	
-	return uid
-end
-
-function mnee.new_pager( gui, uid, pic_x, pic_y, pic_z, page, max_page, profile_mode )
-	profile_mode = profile_mode or false
-
-	local clicked, r_clicked = 0, 0, 0
-	uid, clicked, r_clicked = pen.new_button( gui, uid, pic_x, pic_y, pic_z, "mods/mnee/files/pics/key_left.png" )
-	if( clicked and max_page > 1 ) then
-		mnee.play_sound( "button_special" )
-		page = page - 1
-		if( page < 1 ) then
-			page = max_page
-		end
-	end
-	if( r_clicked and max_page > 5 ) then
-		mnee.play_sound( "switch_page" )
-		page = page - 5
-		if( page < 1 ) then
-			page = max_page + page
-		end
-	end
-	
-	if( profile_mode ) then
-		pic_y = pic_y + 11
-	else
-		pic_x = pic_x + 11
-	end
-	uid = pen.new_button( gui, uid, pic_x, pic_y, pic_z, "mods/mnee/files/pics/button_21_B.png" )
-	if( profile_mode ) then
-		uid = mnee.new_tooltip( gui, uid, pic_z - 200, GameTextGetTranslatedOrNot( "$mnee_this_profile" ).."." )
-	end
-	pen.new_text( gui, pic_x + 2, pic_y, pic_z - 0.01, tostring( profile_mode == true and string.char( page + 64 ) or page ), {136,121,247})
-	
-	pic_x = pic_x + 22
-	if( profile_mode ) then
-		pic_x = pic_x - 11
-		pic_y = pic_y - 11
-	end
-	uid, clicked, r_clicked = pen.new_button( gui, uid, pic_x, pic_y, pic_z - 0.01, "mods/mnee/files/pics/key_right.png" )
-	if( clicked and max_page > 1 ) then
-		mnee.play_sound( "button_special" )
-		page = page + 1
-		if( page > max_page ) then
-			page = 1
-		end
-	end
-	if( r_clicked and max_page > 5 ) then
-		mnee.play_sound( "switch_page" )
-		page = page + 5
-		if( page > max_page ) then
-			page = page - max_page
-		end
-	end
-	
-	if( max_page > 0 and page > max_page ) then
-		page = max_page
-	end
-	
-	return uid, page
-end
-
+--[INPUT]
 function mnee.get_keyboard_input( no_shifting )
 	no_shifting = no_shifting or false
 	local lists = dofile_once( "mods/mnee/lists.lua" )
@@ -751,14 +414,28 @@ function mnee.get_keyboard_input( no_shifting )
 	end
 end
 
+function mnee.vanilla_input( name )
+	local frame, out = GameGetFrameNum(), {false,false}
+
+	local ctrl_body = mnee.get_ctrl()
+	if( not( pen.vld( ctrl_body, true ))) then
+		return out
+	end
+	local ctrl_comp = EntityGetFirstComponentIncludingDisabled( ctrl_body, "ControlsComponent" )
+	if( pen.vld( ctrl_comp, true )) then
+		out = { ComponentGetValue2( ctrl_comp, "mButtonDown"..name ), ComponentGetValue2( ctrl_comp, "mButtonFrame"..name ) == frame }
+	end
+	
+	return out
+end
+
 function mnee.mnin_key( name, dirty_mode, pressed_mode, is_vip, key_mode )
 	dirty_mode = dirty_mode or false
 	pressed_mode = pressed_mode or false
 	is_vip = is_vip or false
 	
 	if(( GameHasFlagRun( mnee.SERV_MODE ) and not( mnee.ignore_service_mode ))
-			or ( GameHasFlagRun( mnee.TOGGLER ) and not( is_vip ))
-		) then
+			or ( GameHasFlagRun( mnee.TOGGLER ) and not( is_vip ))) then
 		return false
 	end
 	
@@ -805,8 +482,7 @@ function mnee.mnin_bind( mod_id, name, dirty_mode, pressed_mode, is_vip, loose_m
 	
 	if(( GameHasFlagRun( mnee.SERV_MODE ) and not( mnee.ignore_service_mode ))
 			or not( mnee.is_priority_mod( mod_id ))
-			or ( GameHasFlagRun( mnee.TOGGLER ) and not( is_vip ))
-		) then
+			or ( GameHasFlagRun( mnee.TOGGLER ) and not( is_vip ))) then
 		return false, false, false
 	end
 	
@@ -825,7 +501,7 @@ function mnee.mnin_bind( mod_id, name, dirty_mode, pressed_mode, is_vip, loose_m
 			local out, is_gone, is_alt, is_jpad = false, true, false, false
 			for i = 1,2 do
 				local bind = binding[ i == 1 and "keys" or "keys_alt" ]
-				local high_score, score = pen.get_table_count( bind ), 0
+				local high_score, score = pen.t.count( bind ), 0
 
 				if( bind["_"] ~= nil ) then
 					goto continue
@@ -922,7 +598,7 @@ function mnee.aim_assist( hooman, pos, angle, is_active, is_searching, data )
 	local the_one = 0
 	local meats = {}
 	for i = 1,#data.tag_tbl do
-		meats = pen.add_table( meats, EntityGetInRadiusWithTag( hit_x, hit_y, search_distance, data.tag_tbl[i]) or {})
+		meats = pen.t.add( meats, EntityGetInRadiusWithTag( hit_x, hit_y, search_distance, data.tag_tbl[i]) or {})
 	end
 	local min_dist = -1
 	for i,meat in ipairs( meats ) do
@@ -1048,8 +724,7 @@ function mnee.mnin_axis( mod_id, name, dirty_mode, pressed_mode, is_vip, key_mod
 	
 	if(( GameHasFlagRun( mnee.SERV_MODE ) and not( mnee.ignore_service_mode ))
 			or not( mnee.is_priority_mod( mod_id ))
-			or ( GameHasFlagRun( mnee.TOGGLER ) and not( is_vip ))
-		) then
+			or ( GameHasFlagRun( mnee.TOGGLER ) and not( is_vip ))) then
 		return 0, false, false, false
 	end
 	
@@ -1117,8 +792,7 @@ function mnee.mnin_stick( mod_id, name, dirty_mode, pressed_mode, is_vip, key_mo
 
 	if(( GameHasFlagRun( mnee.SERV_MODE ) and not( mnee.ignore_service_mode ))
 			or not( mnee.is_priority_mod( mod_id ))
-			or ( GameHasFlagRun( mnee.TOGGLER ) and not( is_vip ))
-		) then
+			or ( GameHasFlagRun( mnee.TOGGLER ) and not( is_vip ))) then
 		return {0,0}, false, {false,false}, 0
 	end
 	
@@ -1197,3 +871,149 @@ end
 function get_axis_vip( mod_id, name )
 	return get_axis_pressed( mod_id, name, true, true )
 end
+
+--[GUI]
+function mnee.play_sound( event ) --nope
+	if( not( sound_played )) then
+		sound_played = true
+		local c_x, c_y = GameGetCameraPos()
+		GamePlaySound( "mods/mnee/files/sfx/mnee.bank", event, c_x, c_y )
+	end
+end
+
+function mnee.new_tooltip( gui, uid, pic_z, text ) --nope
+	if( not( tooltip_opened )) then
+		local _, _, t_hov = GuiGetPreviousWidgetInfo( gui )
+		if( t_hov ) then
+			tooltip_opened = true
+			local w, h = GuiGetScreenDimensions( gui )
+			local pic_x, pic_y = pen.get_mouse_pos( gui )
+			pic_x = pic_x + 10
+			
+			if( not( pen.vld( text ))) then
+				return uid
+			end
+			
+			text = pen.liner( text, w*0.9, h - 2, 5.8 )
+			local length = 0
+			for i,line in ipairs( text ) do
+				local current_length = GuiGetTextDimensions( gui, line, 1, 2 )
+				if( current_length > length ) then
+					length = current_length
+				end
+			end
+			local extra = #text > 1 and 3 or 0
+			local x_offset = length + extra
+			local y_offset = 9*#text + 1 + extra - ( #text > 1 and 3 or 0 )
+			if( w < pic_x + x_offset ) then
+				pic_x = w - x_offset
+			end
+			if( h < pic_y + y_offset ) then
+				pic_y = h - y_offset
+			end
+			uid = pen.new_image( gui, uid, pic_x, pic_y, pic_z, "mods/mnee/files/pics/dot_purple_dark.png", {
+				s_x = x_offset, s_y = y_offset })
+			uid = pen.new_image( gui, uid, pic_x + 1, pic_y + 1, pic_z - 0.01, "mods/mnee/files/pics/dot_white.png", {
+				s_x = x_offset - 2, s_y = y_offset - 2 })
+			
+			pen.new_text( gui, pic_x + 2, pic_y, pic_z - 0.02, text, {136,121,247})
+		end
+	end
+	
+	return uid
+end
+
+function mnee.new_pager( gui, uid, pic_x, pic_y, pic_z, page, max_page, profile_mode )
+	profile_mode = profile_mode or false
+
+	local clicked, r_clicked = 0, 0, 0
+	uid, clicked, r_clicked = pen.new_button( gui, uid, pic_x, pic_y, pic_z, "mods/mnee/files/pics/key_left.png" )
+	if( clicked and max_page > 1 ) then
+		mnee.play_sound( "button_special" )
+		page = page - 1
+		if( page < 1 ) then
+			page = max_page
+		end
+	end
+	if( r_clicked and max_page > 5 ) then
+		mnee.play_sound( "switch_page" )
+		page = page - 5
+		if( page < 1 ) then
+			page = max_page + page
+		end
+	end
+	
+	if( profile_mode ) then
+		pic_y = pic_y + 11
+	else
+		pic_x = pic_x + 11
+	end
+	uid = pen.new_button( gui, uid, pic_x, pic_y, pic_z, "mods/mnee/files/pics/button_21_B.png" )
+	if( profile_mode ) then
+		uid = mnee.new_tooltip( gui, uid, pic_z - 200, GameTextGetTranslatedOrNot( "$mnee_this_profile" ).."." )
+	end
+	pen.new_text( gui, pic_x + 2, pic_y, pic_z - 0.01, tostring( profile_mode == true and string.char( page + 64 ) or page ), {136,121,247})
+	
+	pic_x = pic_x + 22
+	if( profile_mode ) then
+		pic_x = pic_x - 11
+		pic_y = pic_y - 11
+	end
+	uid, clicked, r_clicked = pen.new_button( gui, uid, pic_x, pic_y, pic_z - 0.01, "mods/mnee/files/pics/key_right.png" )
+	if( clicked and max_page > 1 ) then
+		mnee.play_sound( "button_special" )
+		page = page + 1
+		if( page > max_page ) then
+			page = 1
+		end
+	end
+	if( r_clicked and max_page > 5 ) then
+		mnee.play_sound( "switch_page" )
+		page = page + 5
+		if( page > max_page ) then
+			page = page - max_page
+		end
+	end
+	
+	if( max_page > 0 and page > max_page ) then
+		page = max_page
+	end
+	
+	return uid, page
+end
+
+--[GLOBALS]
+mnee.AMAP_MEMO = "mnee_mapping_memo"
+mnee.INITER = "MNEE_IS_GOING"
+mnee.TOGGLER = "MNEE_DISABLED"
+mnee.RETOGGLER = "MNEE_REDO"
+mnee.UPDATER = "MNEE_RELOAD"
+mnee.JPAD_UPDATE = "MNEE_JPAD_UPDATE"
+mnee.SERV_MODE = "MNEE_HOLD_UP"
+mnee.PRIO_MODE = "MNEE_PRIORITY_MODE"
+
+mnee.SPECIAL_KEYS = {
+	-- left_shift = 1,
+	-- right_shift = 1,
+	left_ctrl = 1,
+	right_ctrl = 1,
+	left_alt = 1,
+	right_alt = 1,
+	-- left_windows = 1,
+	-- right_windows = 1,
+}
+
+mnee.INMODES = {
+	guied = function( ctrl_body, active )
+		if( pen.vld( active )) then
+			local ctrl_comp = EntityGetFirstComponentIncludingDisabled( ctrl_body, "ControlsComponent" )
+			if( not( ComponentGetValue2( ctrl_comp, "mButtonDownLeftClick" ))) then
+				active = string.gsub( active, "mouse_left", "mouse_left_gui" )
+			end
+			if( not( ComponentGetValue2( ctrl_comp, "mButtonDownRightClick" ))) then
+				active = string.gsub( active, "mouse_right", "mouse_right_gui" )
+			end
+		end
+		return active
+	end,
+}

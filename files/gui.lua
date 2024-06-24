@@ -3,6 +3,8 @@ if( ctl_panel == nil and jpad_count > 0 ) then
     stp_panel = false
 end
 
+--add buttons anims + main window frame opening bounce anim + side bars opening anims
+
 local keys = mnee.get_bindings()
 local is_disabled = GameHasFlagRun( mnee.TOGGLER )
 local key_type = show_alt and "keys_alt" or "keys"
@@ -381,13 +383,12 @@ if( gui_active ) then
                     end
                     tip_text = tip_text.."]"
 
-                    local binds = mnee.get_bindings()
-                    local is_dirty = binds[ current_mod ][ current_binding ].is_dirty
+                    local is_dirty = keys[ current_mod ][ current_binding ].is_dirty
                     if( is_dirty == nil and mneedata[ current_mod ] ~= nil ) then
                         is_dirty = mneedata[ current_mod ].is_dirty or false
                     end
                     
-                    for mod,bnds in pairs( binds ) do
+                    for mod,bnds in pairs( keys ) do
                         for bnd,stff in pairs( bnds ) do
                             local this_one = 0
                             for i = 1,2 do
@@ -415,9 +416,8 @@ if( gui_active ) then
                         end
                     end
                 else
-                    local binds = mnee.get_bindings()
                     for i,key in ipairs( active ) do
-                        if( mnee.SPECIAL_KEYS[( binds[ current_mod ][ current_binding ].allow_special or false ) and "_" or key] == nil and key ~= "mouse_left_gui" and key ~= "mouse_right_gui" ) then
+                        if( mnee.SPECIAL_KEYS[( keys[ current_mod ][ current_binding ].allow_special or false ) and "_" or key] == nil and key ~= "mouse_left_gui" and key ~= "mouse_right_gui" ) then
                             tip_text = key.."]"
                             enter_down = true
                             break

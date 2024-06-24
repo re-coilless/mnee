@@ -9,7 +9,10 @@ function OnModInit()
 		ModSettingSetNextValue( "mnee.CTRL_AUTOMAPPING", true, false )
 	end
 	
-	--5 profiles in total
+	--make sure that all resetting business is done per-profile
+	--all "getting" funcs must have a fallback inside them if the getting failed
+	--swap all set_binging with update_bindings
+	--26 profiles in total
 	--jpad must be -1 instread of false
 	--implant penman into mnee (and test it with most disgusting malformed data possible)
 	--separate gui into own file

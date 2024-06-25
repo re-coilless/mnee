@@ -12,17 +12,15 @@ function mod_setting_full_resetter( mod_id, gui, in_main_menu, im_id, setting )
 	local clicked, right_clicked = GuiButton( gui, im_id, mod_setting_group_x_offset, 0, "<<"..GameTextGetTranslatedOrNot( setting.ui_name )..">>"..(( mnee_it_is_done or false ) and " - "..GameTextGetTranslatedOrNot( setting.ui_extra ) or "" ))
 	if( right_clicked ) then
 		local is_proper = GameHasFlagRun( "MNEE_IS_GOING" )
-		if( is_proper ) then dofile_once( "mods/mnee/lib.lua" ) end
 		
-		ModSettingSetNextValue( "mnee.SETUP", "&", false )
-		for i = 1,3 do
-			ModSettingSetNextValue( "mnee.BINDINGS_"..i, "&", false )
-			ModSettingSetNextValue( "mnee.BINDINGS_ALT_"..i, "&", false )
-			if( is_proper ) then
-				mnee.update_bindings( i )
-			end
+		ModSettingSetNextValue( "mnee.PROFILE", "", 1 )
+		ModSettingSetNextValue( "mnee.SETUP", "", false )
+		ModSettingSetNextValue( "mnee.BINDINGS", "", false )
+		if( is_proper ) then
+			dofile_once( "mods/mnee/lib.lua" )
+			mnee.update_bindings( "nuke_em" )
 		end
-
+		
 		mnee_it_is_done = true
 		print( "IT IS GONE" )
 		if( is_proper ) then GamePrint( GameTextGetTranslatedOrNot( setting.ui_extra )) end

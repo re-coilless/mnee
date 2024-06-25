@@ -9,10 +9,8 @@ function OnModInit()
 		ModSettingSetNextValue( "mnee.CTRL_AUTOMAPPING", true, false )
 	end
 	
-	--reorder the funcs
-	
+	--most likely all the shit will be broken by globals being editable, clone them all
 	--make sure that all resetting business is done per-profile
-	--all "getting" funcs must have a fallback inside them if the getting failed
 	--swap all set_binging with update_bindings
 	--26 profiles in total
 	--jpad must be -1 instread of false
@@ -185,7 +183,7 @@ function OnWorldPreUpdate()
 			local button_deadzone = ModSettingGetNextValue( "mnee.DEADZONE_BUTTON" )/20
 			for ax,v in pairs( axis_core ) do
 				if( math.abs( v ) > button_deadzone ) then
-					active_core = active_core..string.gsub( ax, "gpd_axis", "gpd_btn" ).."_"..( v > 0 and "+" or "-" )..pen.DIV_1
+					active_core = table.concat({ active_core, string.gsub( ax, "gpd_axis", "gpd_btn" ), "_", ( v > 0 and "+" or "-" ), pen.DIV_1 })
 				end
 			end
 			for mode,func in pairs( mnee.INMODES ) do
@@ -274,17 +272,18 @@ end
 
 function OnPlayerSpawned( hooman )
 	dofile_once( "mods/mnee/lib.lua" )
+
+	GameAddFlagRun( mnee.INITER )
 	GameRemoveFlagRun( mnee.SERV_MODE )
 	GlobalsSetValue( mnee.PRIO_MODE, "0" )
-	GameAddFlagRun( mnee.INITER )
 	GlobalsSetValue( "PROSPERO_IS_REAL", "1" )
 	
 	local world_id = GameGetWorldStateEntity()
-	local entity_id = pen.get_child( world_id, "mnee_ctrl" ) or 0
+	local entity_id = pen.get_child( world_id, "mnee_ctrl" )
 	if( pen.vld( entity_id, true )) then EntityKill( entity_id ) end
 	entity_id = EntityLoad( "mods/mnee/files/ctrl_body.xml" )
 	EntityAddChild( GameGetWorldStateEntity(), entity_id )
-
+	
 	EntityAddComponent( entity_id, "VariableStorageComponent", { name = "mnee_down" })
 	EntityAddComponent( entity_id, "VariableStorageComponent", { name = "mnee_disarmer" })
 	EntityAddComponent( entity_id, "VariableStorageComponent", { name = "mnee_triggers" })

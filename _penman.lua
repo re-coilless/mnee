@@ -20,18 +20,23 @@ end
 
 --https://github.com/LuaLS/lua-language-server/wiki/Annotations
 
+--check looping string concat and transition it to table.concat
+--separate new_pager into a core func
+--add pen.t.loop
+
+--raytrace_entities
 --sule-based lua context independent gateway (and steal ModMagicNumbersFileAdd from init.lua via it)
 --basic plotter (customizable step size and line thickness, autoscaling, extremum highlight)
+--in-gui particle system
 --extract hybrid gui from 19a and make it better
 --add basicmost full in-gui inter-mod onworldpostupdate unified context with z-level sorting
 --separate table getting part from clone_comp/clone_entity to get_comp_data/get_entity_data
 --transition all the stuff to child_play
 --lists of every single vanilla thing (maybe ask nathan for modfile checking thing to get true lists of every entity)
---cleanup, make sure all the funcs reference the right stuff, variable naming consistency
+--add fullish unicode font
 --make sure that all returned id values are nil
 --actually test all the stuff
 
---add api doc to mnee + make mnee main propero mod (p2k must pull all the sounds and such from it)
 --remove old penman from index
 --transition mrshll to penman
 
@@ -111,6 +116,21 @@ end
 
 function pen.rotate_offset( x, y, angle )
 	return x*math.cos( angle ) - y*math.sin( angle ), x*math.sin( angle ) + y*math.cos( angle )
+end
+
+function pen.magic_uint( color )
+	if( type( color ) == "table" ) then
+		color[2] = bit.lshift( color[2], 8 )
+		color[3] = bit.lshift( color[3], 16 )
+		color[4] = bit.lshift( color[4] or 1, 24 )
+		return bit.bor( unpack( color ))
+	end
+	return {
+		bit.band( color, 0xff ),
+		bit.band( bit.rshift( color, 8 ), 0xff ),
+		bit.band( bit.rshift( color, 16 ), 0xff ),
+		bit.band( bit.rshift( color, 24 ), 0xff )
+	}
 end
 
 function pen.hash_me( str, is_huge )
@@ -234,7 +254,10 @@ function pen.animate( delta, frame, data ) --https://easings.net/
 		local a, b = unpack( delta )
 		delta = { b - a, a }
 	else delta[2] = 0 end
-	
+
+	if( type( frame ) == "string" ) then
+		frame = pen.atimer( frame, data.frames, data.reset_now )
+	end
 	local time = frame/data.frames
 	if( time == 0 ) then return delta[2] end
 	if( time == 1 ) then return delta[1] end
@@ -320,9 +343,22 @@ end
 
 function pen.t.loop( tbl, func )
 	if( not( pen.vld( tbl ))) then return end
+	if( type( tbl ) ~= "table" ) then return func( 0, tbl ) end
 	for i,v in ipairs( tbl ) do
-		func(i,v)
+		func( i, v )
 	end
+end
+
+function pen.t.loop_concat( tbl, func )
+	if( not( pen.vld( tbl ))) then return end
+
+	local out = {}
+	for i,v in ipairs( tbl ) do
+		pen.t.loop( func( i, v ), function( e, value )
+			table.insert( out, value )
+		end)
+	end
+	return table.concat( out )
 end
 
 function pen.t.count( tbl, just_checking )
@@ -370,10 +406,16 @@ end
 
 function pen.t.unarray( tbl, dft )
 	local new_tbl = {}
-	for i,v in ipairs( tbl ) do
-		if( type( v ) == "table" ) then
-			new_tbl[ v[1]] = v[2]
-		else new_tbl[v] = dft or i end
+	if( pen.t.is_unarray( tbl )) then
+		for k,v in pairs( tbl ) do
+			table.insert( new_tbl, { k, v })
+		end
+	else
+		for i,v in ipairs( tbl ) do
+			if( type( v ) == "table" ) then
+				new_tbl[ v[1]] = v[2] or dft or i
+			else new_tbl[ v ] = dft or i end
+		end
 	end
 	return new_tbl
 end
@@ -1281,7 +1323,7 @@ function pen.magic_comp( id, data, func )
 	end
 end
 
-function pen.get_storage( entity_id, name, field, value )
+function pen.magic_storage( entity_id, name, field, value )
 	local out = nil
 
 	local comps = EntityGetComponentIncludingDisabled( entity_id, "VariableStorageComponent" )
@@ -1294,15 +1336,12 @@ function pen.get_storage( entity_id, name, field, value )
 		end
 	end
 	
-	if( pen.vld( out, true ) and field ~= nil ) then
-		if( value == nil ) then
-			out = { pen.magic_comp( out, field )}
-			return unpack( out )
-		else
-			pen.magic_comp( out, field, value )
+	if( field ~= nil ) then
+		if( not( pen.vld( out, true )) and value ~= nil ) then
+			out = EntityAddComponent2( entity_id, "VariableStorageComponent", { name = name })
 		end
+		if( pen.vld( out, true )) then return pen.magic_comp( out, field, value ) end
 	end
-
 	return out
 end
 
@@ -1550,7 +1589,7 @@ end
 
 function pen.setting_set( id, value )
 	ModSettingSet( id, value )
-	ModSettingSetNextValue( id, value )
+	ModSettingSetNextValue( id, value, false )
 end
 function pen.setting_get( id )
 	-- local settings = pen.cache({ "setting_dump", "stuff" }, function()
@@ -1563,7 +1602,7 @@ function pen.setting_get( id )
 	-- end)
 	
 	-- local _, value, value_next = ModSettingGetAtIndex( settings[ id ] or -1 )
-	return ModSettingGet( id ), ModSettingGetNextValue( id )
+	return ModSettingGetNextValue( id ), ModSettingGet( id )
 end
 
 function pen.get_time( secs )
@@ -1719,7 +1758,7 @@ function pen.get_creature_head( entity_id, x, y )
 		x, y = EntityGetTransform( entity_id )
 	end
 
-	local custom_off = pen.get_storage( entity_id, "head_offset", "value_int" )
+	local custom_off = pen.magic_storage( entity_id, "head_offset", "value_int" )
 	if( pen.vld( custom_off )) then
 		return x, y + custom_off
 	end
@@ -2080,7 +2119,7 @@ function pen.rate_projectile( proj_id, hooman, data )--sparkbolt at 20m is ~1
 	if( EntityGetRootEntity( proj_id ) ~= proj_id ) then
 		return 0
 	end
-	local custom_points = pen.get_storage( proj_id, "custom_rating", "value_float" )
+	local custom_points = pen.magic_storage( proj_id, "custom_rating", "value_float" )
 	if( pen.vld( custom_points )) then
 		return custom_points
 	end
@@ -2167,7 +2206,7 @@ function pen.rate_wand( wand_id, data )--sollex is 1
 	if( not( pen.vld( wand_id, true ))) then
 		return 0	
 	end
-	local custom_points = pen.get_storage( wand_id, "custom_rating", "value_float" )
+	local custom_points = pen.magic_storage( wand_id, "custom_rating", "value_float" )
 	if( pen.vld( custom_points )) then
 		return custom_points
 	end
@@ -2232,7 +2271,7 @@ function pen.rate_creature( entity_id, hooman, data )--hamis at 20m is 1
 	if( EntityGetRootEntity( entity_id ) ~= entity_id ) then
 		return 0
 	end
-	local custom_points = pen.get_storage( entity_id, "custom_rating", "value_float" )
+	local custom_points = pen.magic_storage( entity_id, "custom_rating", "value_float" )
 	if( pen.vld( custom_points )) then
 		return custom_points
 	end
@@ -2331,21 +2370,6 @@ function pen.rate_creature( entity_id, hooman, data )--hamis at 20m is 1
 end
 
 --[INTERFACE]
-function pen.magic_uint( color )
-	if( type( color ) == "table" ) then
-		color[2] = bit.lshift( color[2], 8 )
-		color[3] = bit.lshift( color[3], 16 )
-		color[4] = bit.lshift( color[4] or 1, 24 )
-		return bit.bor( unpack( color ))
-	end
-	return {
-		bit.band( color, 0xff ),
-		bit.band( bit.rshift( color, 8 ), 0xff ),
-		bit.band( bit.rshift( color, 16 ), 0xff ),
-		bit.band( bit.rshift( color, 24 ), 0xff )
-	}
-end
-
 function pen.magic_rgb( c, to_rbg, mode )
 	--HSV: https://github.com/iskolbin/lhsx/blob/master/hsx.lua
 	--OKLAB: https://bottosson.github.io/posts/oklab/#converting-from-linear-srgb-to-oklab
@@ -2466,8 +2490,8 @@ end
 
 function pen.play_entity_sound( entity_id, x, y, event_mutator, no_bullshit )
 	local sound_table = {
-		pen.get_storage( entity_id, "sound_bank", "value_string" ),
-		pen.get_storage( entity_id, "sound_event", "value_string" ),
+		pen.magic_storage( entity_id, "sound_bank", "value_string" ),
+		pen.magic_storage( entity_id, "sound_event", "value_string" ),
 	}
 
 	if( pen.vld( sound_table[2])) then

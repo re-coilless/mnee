@@ -1,13 +1,11 @@
-if( ctl_panel == nil and jpad_count > 0 ) then
-    ctl_panel = true
-    stp_panel = false
-end
-
 --add buttons anims + main window frame opening bounce anim + side bars opening anims
 
 local keys = mnee.get_bindings()
 local is_disabled = GameHasFlagRun( mnee.TOGGLER )
 local key_type = show_alt and "keys_alt" or "keys"
+if( mnee.G.ctl_panel == nil and mnee.G.jpad_count > 0 ) then
+    mnee.G.ctl_panel, mnee.G.stp_panel = true, false
+end
 
 local clicked, r_clicked, pic_z = 0, 0, -50
 local uid = 0

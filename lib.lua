@@ -20,10 +20,10 @@ end
 
 function mnee.apply_deadzone( v, kind, zero_offset )
 	if( v == 0 ) then return 0 end
-	zero_offset = ModSettingGetNextValue( "mnee.LIVING" ) and 0 or ( zero_offset or 0 )
+	zero_offset = pen.setting_get( "mnee.LIVING" ) and 0 or ( zero_offset or 0 )
 	
 	local total = 1000
-	local deadzone = total*math.min( zero_offset + ModSettingGetNextValue( "mnee.DEADZONE_"..( kind or "EXTRA" ))/20, 0.999 )
+	local deadzone = total*math.min( zero_offset + pen.setting_get( "mnee.DEADZONE_"..( kind or "EXTRA" ))/20, 0.999 )
 	v = math.floor( total*v )
 	v = math.abs( v ) < deadzone and 0 or v
 	if( math.abs( v ) > 0 ) then
@@ -39,7 +39,7 @@ function mnee.aim_assist( hooman, pos, angle, is_active, is_searching, data )
 	data.pic = data.pic or "mods/mnee/files/pics/autoaim.png"
 	data.do_lining = data.do_lining or false
 	
-	local autoaim = ModSettingGetNextValue( data.setting )
+	local autoaim = pen.setting_get( data.setting )
 	if( autoaim < 0.1 or ( is_active ~= nil and not( is_active ))) then
 		return angle, false
 	end
@@ -344,7 +344,7 @@ function mnee.get_bindings( binds_only )
 		local skip_list = pen.t.unarray({ "keys", "keys_alt" })
 		for mod,mod_tbl in pairs( binding_data ) do
 			for bind,bind_tbl in pairs( mod_tbl ) do
-				for k,v in pairs( bindings[ mod ][ bind ]) do
+				for k,v in pairs( _BINDINGS[ mod ][ bind ]) do
 					if( skip_list[ k ] == nil ) then binding_data[ mod ][ bind ][ k ] = v end
 				end
 			end
@@ -380,13 +380,13 @@ function mnee.set_bindings( binding_data )
 	pen.setting_set( "mnee.BINDINGS", pen.t.parse( key_data ))
 	GlobalsSetValue( mnee.UPDATER, GameGetFrameNum())
 end
-function mnee.update_bindings( force_update )
+function mnee.update_bindings( force_update ) --this should take binding table as input
 	dofile_once( "mods/mnee/bindings.lua" )
 	
 	local updated = force_update or false
 	local reset = updated == "nuke_it"
 	local current_tbl = reset and {} or mnee.get_bindings( true )
-	for mod,mod_tbl in pairs( bindings ) do
+	for mod,mod_tbl in pairs( _BINDINGS ) do
 		if( current_tbl[ mod ] == nil ) then
 			current_tbl[ mod ], updated = {}, true
 		end
@@ -731,46 +731,35 @@ function mnee.play_sound( event )
 	pen.play_sound({ "mods/mnee/files/sfx/mnee.bank", event })
 end
 
-function mnee.new_tooltip( gui, uid, pic_z, text ) --nope
-	if( not( tooltip_opened )) then
-		local _, _, t_hov = GuiGetPreviousWidgetInfo( gui )
-		if( t_hov ) then
-			tooltip_opened = true
-			local w, h = GuiGetScreenDimensions( gui )
-			local pic_x, pic_y = pen.get_mouse_pos( gui )
-			pic_x = pic_x + 10
-			
-			if( not( pen.vld( text ))) then
-				return uid
-			end
-			
-			text = pen.liner( text, w*0.9, h - 2, 5.8 )
-			local length = 0
-			for i,line in ipairs( text ) do
-				local current_length = GuiGetTextDimensions( gui, line, 1, 2 )
-				if( current_length > length ) then
-					length = current_length
-				end
-			end
-			local extra = #text > 1 and 3 or 0
-			local x_offset = length + extra
-			local y_offset = 9*#text + 1 + extra - ( #text > 1 and 3 or 0 )
-			if( w < pic_x + x_offset ) then
-				pic_x = w - x_offset
-			end
-			if( h < pic_y + y_offset ) then
-				pic_y = h - y_offset
-			end
-			uid = pen.new_image( gui, uid, pic_x, pic_y, pic_z, "mods/mnee/files/pics/dot_purple_dark.png", {
-				s_x = x_offset, s_y = y_offset })
-			uid = pen.new_image( gui, uid, pic_x + 1, pic_y + 1, pic_z - 0.01, "mods/mnee/files/pics/dot_white.png", {
-				s_x = x_offset - 2, s_y = y_offset - 2 })
-			
-			pen.new_text( gui, pic_x + 2, pic_y, pic_z - 0.02, text, {136,121,247})
-		end
-	end
-	
-	return uid
+function mnee.new_tooltip( gui, uid, text, data )
+	return pen.new_tooltip( gui, uid, text, data, function( gui, uid, text, data )
+		local size_x, size_y = unpack( data.dims )
+		local pic_x, pic_y, pic_z = unpack( data.pos )
+
+		local clr = pen.PALETTE.PRSP.BLUE
+		uid = pen.new_text( gui, uid, pic_x + data.edging, pic_y + data.edging - 2, pic_z, text, {
+			dims = { size_x - data.edging, size_y },
+			line_offset = data.line_offset or -2,
+			funcs = data.font_mods,
+			color = { clr[1], clr[2], clr[3], pen.animate( 1, data.anim_frame, {
+				ease_out = "sin3", frames = data.anim_frames,
+			})},
+		})
+		
+		local scale_x = math.max( size_x*pen.animate( 1, data.anim_frame, {
+			ease_out = "sin3", frames = data.anim_frames,
+		}), 2 )
+		local scale_y = math.max( size_y*pen.animate( 1, data.anim_frame, {
+			ease_out = "sin10", frames = data.anim_frames,
+		}), 2 )
+		
+		local shift_x, shift_y = ( size_x - scale_x )/2, ( size_y - scale_y )/2
+		uid = pen.new_image( gui, uid, pic_x + shift_x, pic_y + shift_y, pic_z, "mods/mnee/files/pics/dot_purple_dark.png", {
+			s_x = scale_x, s_y = scale_y })
+		uid = pen.new_image( gui, uid, pic_x + shift_x + 1, pic_y + shift_y + 1, pic_z - 0.01, "mods/mnee/files/pics/dot_white.png", {
+			s_x = scale_x - 2, s_y = scale_y - 2 })
+		return uid
+	end)
 end
 
 function mnee.new_pager( gui, uid, pic_x, pic_y, pic_z, page, max_page, profile_mode )

@@ -8,16 +8,30 @@ function OnModInit()
 		pen.setting_set( "mnee.CTRL_AUTOMAPPING", true )
 	end
 	
-	--make sure that all resetting business is done per-profile
-	--swap all set_binging with update_bindings
-	--26 profiles in total
-	
 	--implant penman into mnee (and test it with most disgusting malformed data possible)
 	--LLS documentation of all funcs
 	--make mnee main propero mod (p2k must pull all the sounds and such from it)
 
 	-- make procedural pause screen keyboard that highlights all the bind's keys on hover of one of them (only if the moddev marked the binding as show_on_pause)
 	-- add separate full-sized fancy key name getter with full length names
+
+	mnee.G.stp_panel = mnee.G.stp_panel or false
+	mnee.G.setup_page = mnee.G.setup_page or 1
+	mnee.G.show_alt = mnee.G.show_alt or false
+
+	mnee.G.mod_page = mnee.G.mod_page or 1
+	mnee.G.current_mod = mnee.G.current_mod or "mnee"
+	mnee.G.binding_page = mnee.G.binding_page or 1
+	mnee.G.current_binding = mnee.G.current_binding or ""
+
+	mnee.G.doing_axis = mnee.G.doing_axis or false
+	mnee.G.btn_axis_mode = mnee.G.btn_axis_mode or false
+	mnee.G.advanced_mode = mnee.G.advanced_mode or false
+	mnee.G.advanced_timer = mnee.G.advanced_timer or 0
+
+	mnee.G.gui_active = mnee.G.gui_active or false
+	mnee.G.gui_retoggler = mnee.G.gui_retoggler or false
+	mnee.G.max_profiles = mnee.G.max_profiles or 26
 
 	mnee.G.jpad_count = 0
 	mnee.G.jpad_maps = mnee.G.jpad_maps or { -1, -1, -1, -1 }
@@ -139,26 +153,6 @@ function OnModInit()
 	end
 end
 
-mnee.G.pic_x = mnee.G.pic_x or nil
-mnee.G.pic_y = mnee.G.pic_y or 246
-
-mnee.G.stp_panel = mnee.G.stp_panel or false
-mnee.G.setup_page = mnee.G.setup_page or 1
-mnee.G.show_alt = mnee.G.show_alt or false
-
-mnee.G.mod_page = mnee.G.mod_page or 1
-mnee.G.current_mod = mnee.G.current_mod or "mnee"
-mnee.G.binding_page = mnee.G.binding_page or 1
-mnee.G.current_binding = mnee.G.current_binding or ""
-
-mnee.G.doing_axis = mnee.G.doing_axis or false
-mnee.G.btn_axis_mode = mnee.G.btn_axis_mode or false
-mnee.G.advanced_mode = mnee.G.advanced_mode or false
-mnee.G.advanced_timer = mnee.G.advanced_timer or 0
-
-mnee.G.gui_active = mnee.G.gui_active or false
-mnee.G.gui_retoggler = mnee.G.gui_retoggler or false
-
 function OnWorldPreUpdate()
 	dofile_once( "mods/mnee/lib.lua" )
 	if( not( GameHasFlagRun( mnee.INITER ))) then return end
@@ -205,7 +199,7 @@ function OnWorldPreUpdate()
 	end
 	if( mnee.mnin( "bind", { "mnee", "profile_change" }, { pressed = true })) then
 		local prf = pen.setting_get( "mnee.PROFILE" ) + 1
-		prf = prf > 26 and 1 or prf
+		prf = prf > mnee.G.max_profiles and 1 or prf
 		pen.setting_set( "mnee.PROFILE", prf )
 		GamePrint( GameTextGetTranslatedOrNot( "$mnee_this_profile" )..": "..string.char( prf + 64 ))
 		mnee.play_sound( "switch_page" )
@@ -213,11 +207,10 @@ function OnWorldPreUpdate()
 	end
 	
 	mnee.stl = {
-		ctrl_body = ctrl_body,
 		jslots = { false, false, false, false, },
 		jauto = pen.setting_get( "mnee.CTRL_AUTOMAPPING" ),
 	}
-	if( not( pen.is_inv_active())) then
+	if( mnee.G.gui_active and not( pen.is_inv_active())) then
 		mnee.G.UI = mnee.G.UI or GuiCreate()
 		GuiStartFrame( mnee.G.UI )
 		dofile( "mods/mnee/files/gui.lua" )

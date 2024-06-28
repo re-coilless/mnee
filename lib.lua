@@ -380,12 +380,16 @@ function mnee.set_bindings( binding_data )
 	pen.setting_set( "mnee.BINDINGS", pen.t.parse( key_data ))
 	GlobalsSetValue( mnee.UPDATER, GameGetFrameNum())
 end
-function mnee.update_bindings( force_update ) --this should take binding table as input
+function mnee.update_bindings( force_update )
 	dofile_once( "mods/mnee/bindings.lua" )
 	
 	local updated = force_update or false
 	local reset = updated == "nuke_it"
-	local current_tbl = reset and {} or mnee.get_bindings( true )
+	local current_tbl = force_update
+	if( type( current_tbl ) ~= "table" ) then
+		current_tbl = reset and {} or mnee.get_bindings( true )
+	end
+
 	for mod,mod_tbl in pairs( _BINDINGS ) do
 		if( current_tbl[ mod ] == nil ) then
 			current_tbl[ mod ], updated = {}, true
@@ -399,6 +403,8 @@ function mnee.update_bindings( force_update ) --this should take binding table a
 		end
 	end
 
+	--apply setup on per-key basis (replace the section of code above with it)
+	--return the table that was assigned
 	if( updated ) then mnee.set_bindings( current_tbl ) end
 	if( reset ) then mnee.apply_setup() end
 end
@@ -732,27 +738,22 @@ function mnee.play_sound( event )
 end
 
 function mnee.new_tooltip( gui, uid, text, data )
-	return pen.new_tooltip( gui, uid, text, data, function( gui, uid, text, data )
-		local size_x, size_y = unpack( data.dims )
-		local pic_x, pic_y, pic_z = unpack( data.pos )
+	return pen.new_tooltip( gui, uid, text, data, function( gui, uid, text, d )
+		local size_x, size_y = unpack( d.dims )
+		local pic_x, pic_y, pic_z = unpack( d.pos )
 
 		local clr = pen.PALETTE.PRSP.BLUE
-		uid = pen.new_text( gui, uid, pic_x + data.edging, pic_y + data.edging - 2, pic_z, text, {
-			dims = { size_x - data.edging, size_y },
-			line_offset = data.line_offset or -2,
-			funcs = data.font_mods,
-			color = { clr[1], clr[2], clr[3], pen.animate( 1, data.anim_frame, {
-				ease_out = "sin3", frames = data.anim_frames,
+		uid = pen.new_text( gui, uid, pic_x + d.edging, pic_y + d.edging - 2, pic_z, text, {
+			dims = { size_x - d.edging, size_y },
+			line_offset = d.line_offset or -2,
+			funcs = d.font_mods,
+			color = { clr[1], clr[2], clr[3], pen.animate( 1, d.anim_frame, {
+				ease_out = "sin3", frames = d.anim_frames,
 			})},
 		})
 		
-		local scale_x = math.max( size_x*pen.animate( 1, data.anim_frame, {
-			ease_out = "sin3", frames = data.anim_frames,
-		}), 2 )
-		local scale_y = math.max( size_y*pen.animate( 1, data.anim_frame, {
-			ease_out = "sin10", frames = data.anim_frames,
-		}), 2 )
-		
+		local scale_x = pen.animate({2,size_x}, d.anim_frame, { ease_out = "sin3", frames = d.anim_frames })
+		local scale_y = pen.animate({2,size_y}, d.anim_frame, { ease_out = "sin10", frames = d.anim_frames })
 		local shift_x, shift_y = ( size_x - scale_x )/2, ( size_y - scale_y )/2
 		uid = pen.new_image( gui, uid, pic_x + shift_x, pic_y + shift_y, pic_z, "mods/mnee/files/pics/dot_purple_dark.png", {
 			s_x = scale_x, s_y = scale_y })
@@ -762,63 +763,67 @@ function mnee.new_tooltip( gui, uid, text, data )
 	end)
 end
 
-function mnee.new_pager( gui, uid, pic_x, pic_y, pic_z, page, max_page, profile_mode )
-	profile_mode = profile_mode or false
-	
-	local clicked, r_clicked = 0, 0, 0
-	uid, clicked, r_clicked = pen.new_button( gui, uid, pic_x, pic_y, pic_z, "mods/mnee/files/pics/key_left.png" )
-	if( clicked and max_page > 1 ) then
-		mnee.play_sound( "button_special" )
-		page = page - 1
-		if( page < 1 ) then
-			page = max_page
-		end
-	end
-	if( r_clicked and max_page > 5 ) then
-		mnee.play_sound( "switch_page" )
-		page = page - 5
-		if( page < 1 ) then
-			page = max_page + page
-		end
-	end
-	
-	if( profile_mode ) then
-		pic_y = pic_y + 11
-	else
-		pic_x = pic_x + 11
-	end
-	uid = pen.new_button( gui, uid, pic_x, pic_y, pic_z, "mods/mnee/files/pics/button_21_B.png" )
-	if( profile_mode ) then
-		uid = mnee.new_tooltip( gui, uid, pic_z - 200, GameTextGetTranslatedOrNot( "$mnee_this_profile" ).."." )
-	end
-	pen.new_text( gui, pic_x + 2, pic_y, pic_z - 0.01, tostring( profile_mode == true and string.char( page + 64 ) or page ), {136,121,247})
+function mnee.new_button( gui, uid, pic_x, pic_y, pic_z, pic, data )
+	data = data or {}
+	data.frames = data.frames or 20
+	data.auid = data.auid or pic..pic_z
+	data.no_anim = data.no_anim or false
+	data.highlight = data.highlight or pen.PALETTE.PRSP.RED
+	return pen.new_button( gui, uid, pic_x, pic_y, pic_z, pic, {
+		lmb_event = function( gui, uid, pic_x, pic_y, pic_z, pic, d )
+			if( not( data.no_anim )) then pen.animate( 1, data.auid.."l", { frames = data.frames, reset_now = true }) end
+			return uid, pic_x, pic_y, pic_z, pic, d
+		end,
+		rmb_event = function( gui, uid, pic_x, pic_y, pic_z, pic, d )
+			if( not( data.no_anim )) then pen.animate( 1, data.auid.."r", { frames = data.frames, reset_now = true }) end
+			return uid, pic_x, pic_y, pic_z, pic, d
+		end,
+		hov_event = function( gui, uid, pic_x, pic_y, pic_z, pic, d )
+			if( pen.vld( data.tip )) then uid = mnee.new_tooltip( gui, uid, data.tip, { is_active = true }) end
+			uid = pen.new_image( gui, uid, pic_x - 0.5, pic_y - 0.5, pic_z + 0.001, pen.FILE_PIC_NUL, {
+				s_x = d.pic_w/2 + 1, s_y = d.pic_h/2 + 1, color = data.highlight })
+			return uid, pic_x, pic_y, pic_z, pic, d
+		end,
+		pic_func = function( gui, uid, pic_x, pic_y, pic_z, pic, d )
+			local a = ( data.no_anim or false ) and 1 or math.min(
+				pen.animate( 1, data.auid.."l", { frames = data.frames }),
+				pen.animate( 1, data.auid.."r", { frames = data.frames })
+			)
+
+			local c_anim, s_anim = 0.75 + 0.25*a, 2*( 1 - a )/d.pic_w
+			local clr = pen.magic_rgb({255,255,255}, false, "hsv" ); clr[3] = c_anim
+			return pen.new_image( gui, uid, pic_x + ( 1 - s_anim )*d.pic_w, pic_y - ( 1 - s_anim )*d.pic_h, pic_z, pic, {
+				s_x = s_anim, s_y = s_anim, color = pen.magic_rgb( crl, true, "hsv" )
+			})
+		end,
+	})
+end
+
+function mnee.new_pager( gui, uid, pic_x, pic_y, pic_z, data )
+	local clicked, r_clicked, sfx_type = {false,false}, {false,false}, 0
+	uid, clicked[1], r_clicked[1] = mnee.new_button( gui, uid, pic_x, pic_y, pic_z, "mods/mnee/files/pics/key_left.png" )
+
+	if( data.profile_mode ) then pic_y = pic_y + 11 else pic_x = pic_x + 11 end
+	uid = pen.new_image( gui, uid, pic_x, pic_y, pic_z, "mods/mnee/files/pics/button_21_B.png", { can_click = true })
+	if( data.profile_mode ) then uid = mnee.new_tooltip( gui, uid, GameTextGetTranslatedOrNot( "$mnee_this_profile" ).."." ) end
+	local text = ( data.profile_mode or false ) and string.char( data.page + 64 ) or data.page
+	uid = pen.new_text( gui, uid, pic_x + 2, pic_y, pic_z, text, { color = pen.PALETTE.PRSP.BLUE })
 	
 	pic_x = pic_x + 22
-	if( profile_mode ) then
-		pic_x = pic_x - 11
-		pic_y = pic_y - 11
-	end
-	uid, clicked, r_clicked = pen.new_button( gui, uid, pic_x, pic_y, pic_z - 0.01, "mods/mnee/files/pics/key_right.png" )
-	if( clicked and max_page > 1 ) then
+	if( data.profile_mode ) then pic_x, pic_y = pic_x - 11, pic_y - 11 end
+	uid, clicked[2], r_clicked[2] = mnee.new_button( gui, uid, pic_x, pic_y, pic_z, "mods/mnee/files/pics/key_right.png" )
+	
+	uid, data.page, sfx_type = pen.new_pager( gui, uid, pic_x, pic_y, pic_z, {
+		func = data.func, order_func = data.order_func,
+		list = data.list, page = data.page, items_per_page = data.items_per_page,
+		click = { clicked[1] and 1 or ( r_clicked[1] and -1 or 0 ), clicked[2] and 1 or ( r_clicked[2] and -1 or 0 )}
+	})
+	if( sfx_type == 1 ) then
 		mnee.play_sound( "button_special" )
-		page = page + 1
-		if( page > max_page ) then
-			page = 1
-		end
-	end
-	if( r_clicked and max_page > 5 ) then
+	elseif( sfx_type == -1 ) then
 		mnee.play_sound( "switch_page" )
-		page = page + 5
-		if( page > max_page ) then
-			page = page - max_page
-		end
 	end
-	
-	if( max_page > 0 and page > max_page ) then
-		page = max_page
-	end
-	
-	return uid, page
+	return uid, data.page
 end
 
 --[GLOBALS]

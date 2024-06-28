@@ -1,6 +1,6 @@
 pen = pen or {}
 pen.t = pen.t or {}
-pen.cached = pen.cached or {}
+pen.c = pen.c or {}
 GlobalsSetValue( "PROSPERO_IS_REAL", "1" )
 
 --[WRITING]
@@ -22,16 +22,17 @@ end
 
 --check looping string concat and transition it to table.concat
 --separate new_pager into a core func
---add pen.t.loop
+--pen.t.loop/pen.t.loop_concat everywhere
+--transition all the stuff to child_play
+--universal color text mod through comment system
 
 --raytrace_entities
 --sule-based lua context independent gateway (and steal ModMagicNumbersFileAdd from init.lua via it)
---basic plotter (customizable step size and line thickness, autoscaling, extremum highlight)
 --in-gui particle system
 --extract hybrid gui from 19a and make it better
 --add basicmost full in-gui inter-mod onworldpostupdate unified context with z-level sorting
 --separate table getting part from clone_comp/clone_entity to get_comp_data/get_entity_data
---transition all the stuff to child_play
+--cached get_terrain via raymarched GetSurfaceNormal (https://youtu.be/BNZtUB7yhX4?t=92)
 --lists of every single vanilla thing (maybe ask nathan for modfile checking thing to get true lists of every entity)
 --add fullish unicode font
 --make sure that all returned id values are nil
@@ -134,21 +135,20 @@ function pen.magic_uint( color )
 end
 
 function pen.hash_me( str, is_huge )
-	is_huge = is_huge or false
-	
-	local a, b, c = 0, 0, is_huge and 4294967295 or 65535
+	if( type( str ) == "table" ) then str = pen.t.parse( str ) end
+	local a, b, c = 0, 0, ( is_huge or false ) and 4294967295 or 65535
 	for i = 1,#str do
 		a = ( a + string.byte( str, i ))%c
 		b = ( a + b )%c
 	end
-	return is_huge and tostring( b*c + a ) or ( b*c + a )
+	return ( is_huge or false ) and tostring( b*c + a ) or ( b*c + a )
 end
 
 --add autotuning with visualizer
 function pen.pid( pid, delta, k ) --https://www.robotsforroboticists.com/pid-control/
 	k = k or {}
-	pen.cached.pid_memo = pen.cached.pid_memo or {}
-	pen.cached.pid_memo[ pid ] = pen.cached.pid_memo[ pid ] or {0,0}
+	pen.c.pid_memo = pen.c.pid_memo or {}
+	pen.c.pid_memo[ pid ] = pen.c.pid_memo[ pid ] or {0,0}
 	k.p, k.i, k.d, k.bias = k.p or 1, k.i or 0, k.d or 0, k.bias or 0
 
 	-- Tuning guide:
@@ -157,9 +157,9 @@ function pen.pid( pid, delta, k ) --https://www.robotsforroboticists.com/pid-con
 	-- KU and the oscillation period PU are used to set the gains as shown: k.p = 0.6*KU; k.i = 2*k.p/PU; k.d = k.p*PU/8
 
 	local time = 1
-	local int = pen.cached.pid_memo[ pid ][2] + delta*time
-	local der = ( delta - pen.cached.pid_memo[ pid ][1])/time
-	pen.cached.pid_memo[ pid ] = { delta, int }
+	local int = pen.c.pid_memo[ pid ][2] + delta*time
+	local der = ( delta - pen.c.pid_memo[ pid ][1])/time
+	pen.c.pid_memo[ pid ] = { delta, int }
 	return k.p*delta + k.i*int + k.d*der + k.bias
 end
 
@@ -170,7 +170,7 @@ function pen.atimer( tid, duration, reset_now )
 	end, { reset_count = 0, reset_now = reset_now }) - frame_num, duration )
 end
 
-function pen.animate( delta, frame, data ) --https://easings.net/
+function pen.animate( delta, frame, data ) --https://www.febucci.com/2018/08/easing-functions/
 	data = data or {}
 	data.type = data.type or "lerp"
 	data.params = data.params or {}
@@ -180,53 +180,90 @@ function pen.animate( delta, frame, data ) --https://easings.net/
 	data.ease_in = pen.get_hybrid_table( data.ease_in or "" )
 	data.ease_out = pen.get_hybrid_table( data.ease_out or "" )
 	
-	local easings = {
+	local easings = { --https://easings.net/
+		nul = function( t )
+			return t
+		end,
 		flp = function( t )
 			return 1 - t
 		end,
 		pow = function( t, a )
-			return math.pow( t, ( a or 2 ))
+			return t^( a or 2 )
 		end,
 		sin = function( t, a )
-			return math.cos( t*math.pi/2 )
+			return math.sin( t*math.pi/2 )^( 1/( a or 1 ))
 		end,
 		exp = function( t, a )
-			return math.pow(( a or 2 ), 10*( t - 1 ))
+			return ( a or 2 )^( 10*( t - 1 ))
 		end,
 		crc = function( t, a )
-			return math.sqrt( 1 - math.pow( t, ( a or 2 )))
+			return math.sqrt( 1 - t^( a or 2 ))
 		end,
 		bck = function( t, a )
 			a = a or 1
 			return t*t*(( a + 1 )*t - a )
 		end,
-		rbr = function( t, a )
-			t, a = t - 1, a or 12
-			local temp = 10*math.floor( a/10 )
-			return -( math.pow( 2, t*temp )*math.sin(( a - temp )*t*math.pi ))
+		log = function( t, a )
+			a = a or math.exp( 1 )
+			return math.log(( a - 1 )*t + 1 )/math.log( a )
 		end,
-		bnc = function( t, a )--paramitrize this
-			local n, d = 7.5625, 2.75
-			if( t < 1/d ) then
-				return n*t*t
-			elseif( t < 2/d ) then
-				t = t - 1.5/d
-				return n*t*t + 0.75
-			elseif( t < 2.5/d ) then
-				t = t - 2.25/d
-				return n*t*t + 0.9375
+		wav = function( t, a )
+			t = 2*math.pi*math.floor( a or 2 )*( t - 1 )
+			return math.sin( t )/t
+		end,
+		rbr = function( t, a )
+			t, a = 10*( t - 1 ), a or 2
+			return -( math.pow( 2, t )*math.sin( a*( t - 1.5/a )*math.pi/3 ))
+		end,
+		bnc = function( t, a ) --https://gist.github.com/mbostock/5743979
+			t, a = 1 - t, ( a or 25 )/100
+
+			local b0 = 1 - a
+			local b1 = b0*( 1 - b0 ) + b0
+			local b2 = b0*( 1 - b1 ) + b1
+
+			local x0 = 2*math.sqrt( a )
+			local x1 = x0*math.sqrt( a )
+			local x2 = x1*math.sqrt( a )
+
+			local t0 = 1/( 1 + x0 + x1 + x2 )
+			local t1 = t0 + t0*x0
+			local t2 = t1 + t0*x1
+
+			local m0 = t0 + t0*x0/2
+			local m1 = t1 + t0*x1/2
+			local m2 = t2 + t0*x2/2
+
+			local v = 1/( t0*t0 )
+			if( t >= 1 ) then
+				v = 1
+			elseif( t < t0 ) then
+				v = v*t*t
+			elseif( t < t1 ) then
+				t = t - m0
+				v = v*t*t + b0
+			elseif( t < t2 ) then
+				t = t - m1
+				v = v*t*t + b1
 			else
-				t = t - 2.625/d
-				return n*t*t + 0.984375
+				t = t - m2
+				v = v*t*t + b2
 			end
+			return 1 - v
 		end,
 	}
 	local inters = {
 		lerp = function( t, delta )
-			return delta[2] + delta[1]*t
+			return delta[2] + ( delta[1] - delta[2])*t
 		end,
-		sine = function( t, delta )
-			return delta[2] + delta[1]*( 1 + math.sin( math.pi*( t - 0.5 )))/2
+		spke = function( t, delta )
+			return delta[2] + delta[1]*(( t < 0.5 ) and 2*t or -2*( t - 1 ))
+		end,
+		hill = function( t, delta, params )
+			return delta[2] + delta[1]*( math.sin( t*math.pi )^( params[1] or 1 ))
+		end,
+		sine = function( t, delta, params )
+			return delta[2] + delta[1]*( 1 + math.sin( math.pi*( t - 0.5 ))^( 2*( params[1] or 0 ) + 1 ))/2
 		end,
 		bzir = function( t, delta, params )
 			return delta[2]*( 1 - t )^3
@@ -262,7 +299,7 @@ function pen.animate( delta, frame, data ) --https://easings.net/
 	if( time == 0 ) then return delta[2] end
 	if( time == 1 ) then return delta[1] end
 
-	local orig_t = t
+	local orig_time = time
 	for i = 1,math.max( #data.ease_in, #data.ease_out ) do
 		local eases = {}
 		for k = 1,2 do
@@ -273,18 +310,16 @@ function pen.animate( delta, frame, data ) --https://easings.net/
 					func = { easings[ string.sub( ease, 1, 3 )], tonumber( string.sub( ease, 4, -1 ))}
 				end
 				if( k == 1 ) then
-					eases[k] = func[1]( t, func[2])
+					eases[k] = func[1]( time, func[2])
 				else
-					eases[k] = easings.flp( func[1]( easings.flp( t ), func[2]))
+					eases[k] = easings.flp( func[1]( easings.flp( time ), func[2]))
 				end
 			end
 		end
-
+		
 		if( eases[1] ~= nil and eases[2] ~= nil ) then
-			t = inters[ data.ease_int ]( orig_t, eases, data.params_ease )
-		else
-			t = eases[1] or eases[2]
-		end
+			time = inters[ data.ease_int ]( orig_time, eases, data.params_ease )
+		else time = eases[1] or eases[2] end
 	end
 	
 	if( data.type == "function" ) then
@@ -350,14 +385,12 @@ function pen.t.loop( tbl, func )
 end
 
 function pen.t.loop_concat( tbl, func )
-	if( not( pen.vld( tbl ))) then return end
-
 	local out = {}
-	for i,v in ipairs( tbl ) do
+	pen.t.loop( tbl, function( i, v )
 		pen.t.loop( func( i, v ), function( e, value )
 			table.insert( out, value )
 		end)
-	end
+	end)
 	return table.concat( out )
 end
 
@@ -473,7 +506,7 @@ function pen.t.add( a, b )
 		for k,v in pairs( b ) do
 			if( is_weird ) then
 				if( a[k] == nil ) then a[k] = v end
-			elseif( not( pen.vld( pen.t.get( a, v )))) then
+			else
 				table.insert( a, v )
 			end
 		end
@@ -568,15 +601,15 @@ function pen.t.parse( data, is_pretty )
 	end
 	
 	local function ser( tbl ) --special thanks to ImmortalDamned
-		local out = nil
+		local out = {"{"}
 		if( type( tbl ) == "table" ) then
-			out = "{"
-			local i, l = 1, pen.t.count( t )
-			for k,v in pairs( t ) do
-				out = table.concat({ out, "[", ser( k ), "]=", ser( v ), i < l and "," or "" })
+			local i, l = 1, pen.t.count( tbl )
+			for k,v in pairs( tbl ) do
+				pen.t.add( out, { "[", ser( k ), "]=", ser( v ), i < l and "," or "" })
 				i = i + 1
 			end
-			out = out.."}"
+			table.insert( out, "}" )
+			out = table.concat( out )
 		else out = pen.v2s( tbl, is_pretty ) end
 		return out
 	end
@@ -659,21 +692,21 @@ function pen.cache( structure, update_func, data )
 	data.reset_frame = data.reset_frame or 0 --36000
 
 	local name = structure[1]
-	pen.cached = pen.cached or {}
-	pen.cached[ name ] = pen.cached[ name ] or {}
-	pen.cached[ name ].cache_reset_count = pen.cached[ name ].cache_reset_count or 0
-	pen.cached[ name ].cache_reset_frame = pen.cached[ name ].cache_reset_frame or 0
+	pen.c = pen.c or {}
+	pen.c[ name ] = pen.c[ name ] or {}
+	pen.c[ name ].cache_reset_count = pen.c[ name ].cache_reset_count or 0
+	pen.c[ name ].cache_reset_frame = pen.c[ name ].cache_reset_frame or 0
 
 	local frame_num = GameGetFrameNum()
-	local is_too_many = data.reset_count > 0 and pen.cached[ name ].cache_reset_count > data.reset_count
+	local is_too_many = data.reset_count > 0 and pen.c[ name ].cache_reset_count > data.reset_count
 	local is_too_long = data.reset_frame > 0 and frame_num > data.reset_frame
 	if( data.reset_now or ( update_func ~= nil and ( is_too_many or is_too_long ))) then
-		pen.cached[ name ] = {}
-		pen.cached[ name ].cache_reset_count = 0
-		pen.cached[ name ].cache_reset_frame = frame_num + data.reset_frame
+		pen.c[ name ] = {}
+		pen.c[ name ].cache_reset_count = 0
+		pen.c[ name ].cache_reset_frame = frame_num + data.reset_frame
 	end
 
-	local the_one = pen.cached[ name ]
+	local the_one = pen.c[ name ]
 	structure = pen.get_hybrid_table( structure )
 	for i = 2,( #structure - 1 ) do
 		the_one[ structure[i]] = the_one[ structure[i]] or {}
@@ -686,7 +719,7 @@ function pen.cache( structure, update_func, data )
 		if( pen.vld( new_val )) then the_one[ val ] = new_val end
 	elseif( the_one[ val ] == nil and update_func ~= nil ) then
 		the_one[ val ] = { update_func()}
-		pen.cached[ name ].cache_reset_count = pen.cached[ name ].cache_reset_count + 1
+		pen.c[ name ].cache_reset_count = pen.c[ name ].cache_reset_count + 1
 	end
 	return unpack( the_one[ val ] or {})
 end
@@ -897,7 +930,7 @@ function pen.liner( text, length, height, font, data )
 	if( not( pen.vld( text ))) then
 		text = data.nil_val
 	end
-
+	
 	local is_pixel_font = false
 	font, is_pixel_font = pen.font_cancer( font )
 	local space_l, font_height = pen.get_char_dims( " ", nil, font )
@@ -1219,14 +1252,13 @@ end
 
 function pen.catch_comp( comp_name, field_name, index, func, args, forced )
 	local will_set = index == "set"
-	pen.cached.catch_comp = pen.cached.catch_comp or {}
-	pen.cached.catch_comp[ comp_name ] = pen.cached.catch_comp[ comp_name ] or {}
-	pen.cached.catch_comp[ comp_name ][ field_name ] = pen.cached.catch_comp[ comp_name ][ field_name ] or {}
+	pen.c.catch_comp = pen.c.catch_comp or {}
+	pen.c.catch_comp[ comp_name ] = pen.c.catch_comp[ comp_name ] or {}
+	pen.c.catch_comp[ comp_name ][ field_name ] = pen.c.catch_comp[ comp_name ][ field_name ] or {}
 
-	local v = pen.cached.catch_comp[ comp_name ][ field_name ][ index ]
-	if( forced ) then
-		v = nil
-	end
+	local v = pen.c.catch_comp[ comp_name ][ field_name ][ index ]
+	if( forced ) then v = nil end
+
 	local check_val = 0
 	if( pen.CANCER_COMPS[ comp_name ] ~= nil ) then
 		check_val = pen.CANCER_COMPS[ comp_name ][ field_name ] or (( index == "obj" ) and -2 or check_val )
@@ -1249,7 +1281,7 @@ function pen.catch_comp( comp_name, field_name, index, func, args, forced )
 		v = out[1] ~= nil --cannot check write
 		table.insert( out, 1, v )
 
-		pen.cached.catch_comp[ comp_name ][ field_name ][ index ] = v or will_set
+		pen.c.catch_comp[ comp_name ][ field_name ][ index ] = v or will_set
 		pen.silent_catch = nil
 	end
 	
@@ -1459,7 +1491,7 @@ function pen.clone_entity( entity_id, x, y, mutators )
 	end
 	
 	if( pen.clone_comp_debug == true ) then
-		for name,fields in pen.t.order( pen.cached.catch_comp ) do
+		for name,fields in pen.t.order( pen.c.catch_comp ) do
 			print( "**************"..name )
 			for field,tbl in pen.t.order( fields ) do
 				if( tbl.get == false ) then
@@ -1667,10 +1699,10 @@ function pen.generic_random( a, b, macro_drift, bidirectional )
 end
 
 function pen.is_game_restarted()
-	local is_nil = pen.cached.restart_check == nil
+	local is_nil = pen.c.restart_check == nil
 	local has_flag = GameHasFlagRun( pen.FLAG_RESTART_CHECK )
 
-	pen.cached.restart_check = 1
+	pen.c.restart_check = 1
 	GameAddFlagRun( pen.FLAG_RESTART_CHECK )
 	
 	return is_nil and has_flag
@@ -2479,9 +2511,9 @@ function pen.play_sound( event, x, y, no_bullshit )
 	if( not( no_bullshit )) then
 		local frame_num = GameGetFrameNum()
 		local sfx_id = table.concat({ event[1], event[2]})
-		pen.cached.play_sound_memo = pen.cached.play_sound_memo or {}
-		if( pen.cached.play_sound_memo[ sfx_id ] == frame_num ) then return end
-		pen.cached.play_sound_memo[ sfx_id ] = frame_num
+		pen.c.play_sound_memo = pen.c.play_sound_memo or {}
+		if( pen.c.play_sound_memo[ sfx_id ] == frame_num ) then return end
+		pen.c.play_sound_memo[ sfx_id ] = frame_num
 	end
 	
 	if( x == nil ) then x, y = GameGetCameraPos() end
@@ -2518,13 +2550,12 @@ function pen.get_screen_data()
 
 	local w, h = GuiGetScreenDimensions( gui )
 	local m_x, m_y = InputGetMousePosOnScreen()
-	pen.cached.screen_data = pen.cached.screen_data or { 1280, 720 } -- thanks Horscht
-	if( m_x > pen.cached.screen_data[1]) then pen.cached.screen_data[1] = m_x end
-	if( m_y > pen.cached.screen_data[2]) then pen.cached.screen_data[2] = m_y end
+	pen.c.screen_data = pen.c.screen_data or { 1280, 720 } -- thanks Horscht
+	if( m_x > pen.c.screen_data[1]) then pen.c.screen_data[1] = m_x end
+	if( m_y > pen.c.screen_data[2]) then pen.c.screen_data[2] = m_y end
 
 	GuiDestroy( gui )
-
-	return w, h, pen.cached.screen_data[1], pen.cached.screen_data[2]
+	return w, h, pen.c.screen_data[1], pen.c.screen_data[2]
 end
 
 ---Returns delta in GUI units between in-world and on-screen pointer position.
@@ -2614,13 +2645,13 @@ function pen.new_interface( gui, uid, pic_x, pic_y, s_x, s_y, ignore_multihover,
 			GuiOptionsAddForNextWidget( gui, 2 ) --NonInteractive
 			GuiColorSetForNextWidget( gui, 1, 0, 0, 1 )
 			GuiZSetForNextWidget( gui, 10*pen.Z_LAYERS.tips )
-			GuiImage( gui, uid, pic_x, pic_y, "data/ui_gfx/empty_white.png", 0.75, s_x/2, s_y/2 )
+			GuiImage( gui, uid, pic_x, pic_y, pen.FILE_PIC_NUL, 0.75, s_x/2, s_y/2 )
 		end
 
 		uid = uid + 1
 		GuiIdPush( gui, uid )
 		GuiZSetForNextWidget( gui, 10*pen.Z_LAYERS.tips )
-		GuiImage( gui, uid, m_x - 10, m_y - 10, "data/ui_gfx/empty.png", 1, 10, 10 )
+		GuiImage( gui, uid, m_x - 10, m_y - 10, pen.FILE_PIC_NIL, 1, 10, 10 )
 		if( is_new ) then clicked, r_clicked = GuiGetPreviousWidgetInfo( gui ) end
 		is_hovered = is_new or not( ignore_multihover )
 	end
@@ -2632,6 +2663,7 @@ function pen.new_image( gui, uid, pic_x, pic_y, pic_z, pic, data )
 
 	uid = uid + 1
 	GuiIdPush( gui, uid )
+	pen.colourer( gui, data.color )
 	GuiZSetForNextWidget( gui, pic_z )
 	GuiOptionsAddForNextWidget( gui, 2 ) --NonInteractive
 	GuiImage( gui, uid, pic_x, pic_y, pic,
@@ -2647,26 +2679,28 @@ function pen.new_image( gui, uid, pic_x, pic_y, pic_z, pic, data )
 	return uid, data.clicked, data.r_clicked, data.is_hovered
 end
 
-function pen.new_key( gui, uid, pic_x, pic_y, pic_z, pics, data )
+function pen.new_button( gui, uid, pic_x, pic_y, pic_z, pic, data )
 	data = data or {}
+	data.pic_func = data.pic_func or function( gui, uid, pic_x, pic_y, pic_z, pic, data )
+		return pen.new_image( gui, uid, pic_x, pic_y, pic_z, pic )
+	end
 
-	local w, h = pen.get_pic_dims( pic )
+	data.pic_w, data.pic_h = pen.get_pic_dims(( pen.get_hybrid_table( pic ))[1])
 	uid, data.clicked, data.r_clicked, data.is_hovered = pen.new_interface(
 		gui, uid, pic_x, pic_y, w*( data.s_x or 1 ), h*( data.s_y or 1 ), true
 	)
 	
-	if( data.clicked ) then uid, pic_x, pic_y, pic_z, pics, data = data.lmb_event( gui, uid, pic_x, pic_y, pic_z, pics, data ) end
-	if( data.r_clicked ) then uid, pic_x, pic_y, pic_z, pics, data = data.rmb_event( gui, uid, pic_x, pic_y, pic_z, pics, data ) end
-	if( data.is_hovered ) then uid, pic_x, pic_y, pic_z, pics, data = data.hov_event( gui, uid, pic_x, pic_y, pic_z, pics, data )
-	else uid, pic_x, pic_y, pic_z, pics, data = data.idle_event( gui, uid, pic_x, pic_y, pic_z, pics, data ) end
-
-	for i,pic in ipairs( pen.get_hybrid_table( pics )) do uid = data.func( gui, uid, pic_x, pic_y, pic_z, pic, data ) end
+	if( data.clicked ) then uid, pic_x, pic_y, pic_z, pic, data = data.lmb_event( gui, uid, pic_x, pic_y, pic_z, pic, data ) end
+	if( data.r_clicked ) then uid, pic_x, pic_y, pic_z, pic, data = data.rmb_event( gui, uid, pic_x, pic_y, pic_z, pic, data ) end
+	if( data.is_hovered ) then uid, pic_x, pic_y, pic_z, pic, data = data.hov_event( gui, uid, pic_x, pic_y, pic_z, pic, data )
+	else uid, pic_x, pic_y, pic_z, pic, data = data.idle_event( gui, uid, pic_x, pic_y, pic_z, pic, data ) end
+	uid = data.pic_func( gui, uid, pic_x, pic_y, pic_z, pic, data )
 	return uid, data.clicked, data.r_clicked, data.is_hovered
 end
 
 function pen.new_dragger( gui, uid, did, pic_x, pic_y, s_x, s_y, is_debugging )
-	pen.cached.dragger_data = pen.cached.dragger_data or {}
-	pen.cached.dragger_data[ did ] = pen.cached.dragger_data[ did ] or { false, 0, 0, true }
+	pen.c.dragger_data = pen.c.dragger_data or {}
+	pen.c.dragger_data[ did ] = pen.c.dragger_data[ did ] or { false, 0, 0, true }
 
 	local frame_num = GameGetFrameNum()
 	local is_new = tonumber( GlobalsGetValue( pen.GLOBAL_DRAGGER_SAFETY, "0" )) ~= frame_num
@@ -2678,42 +2712,22 @@ function pen.new_dragger( gui, uid, did, pic_x, pic_y, s_x, s_y, is_debugging )
 	
 	local state = 0
 	local mouse_state = InputIsMouseButtonDown( 1 )
-	if( pen.cached.dragger_data[ did ][1]) then
+	if( pen.c.dragger_data[ did ][1]) then
 		if( mouse_state ) then
-			pic_x = m_x + pen.cached.dragger_data[ did ][2]
-			pic_y = m_y + pen.cached.dragger_data[ did ][3]
+			pic_x = m_x + pen.c.dragger_data[ did ][2]
+			pic_y = m_y + pen.c.dragger_data[ did ][3]
 			state = 2
 		else
-			pen.cached.dragger_data[ did ] = { false, 0, 0, true }
+			pen.c.dragger_data[ did ] = { false, 0, 0, true }
 			state = -1
 		end
-	elseif( is_hovered and ( mouse_state and not( pen.cached.dragger_data[ did ][4]))) then
-		pen.cached.dragger_data[ did ] = { true, pic_x - m_x, pic_y - m_y, true }
+	elseif( is_hovered and ( mouse_state and not( pen.c.dragger_data[ did ][4]))) then
+		pen.c.dragger_data[ did ] = { true, pic_x - m_x, pic_y - m_y, true }
 		clicked, state = true, 1
-	else pen.cached.dragger_data[ did ][4] = mouse_state end
+	else pen.c.dragger_data[ did ][4] = mouse_state end
 	
 	if( state > 0 ) then GlobalsSetValue( pen.GLOBAL_DRAGGER_SAFETY, frame_num ) end
 	return uid, pic_x, pic_y, state, clicked, r_clicked, is_hovered
-end
-
-function pen.new_button( gui, uid, pic_x, pic_y, pic_z, pic, can_gamepad )
-	uid = uid + 1
-	GuiIdPush( gui, uid )
-	GuiZSetForNextWidget( gui, pic_z )
-	
-	local clicked, r_clicked = false, false
-	if( GameGetIsGamepadConnected() and not( can_gamepad )) then
-		GuiOptionsAddForNextWidget( gui, 2 ) --NonInteractive
-		GuiImage( gui, uid, pic_x, pic_y, pic )
-	else
-		GuiOptionsAddForNextWidget( gui, 4 ) --ClickCancelsDoubleClick
-		GuiOptionsAddForNextWidget( gui, 6 ) --NoPositionTween
-		GuiOptionsAddForNextWidget( gui, 8 ) --HandleDoubleClickAsClick
-		GuiOptionsAddForNextWidget( gui, 21 ) --DrawNoHoverAnimation
-		GuiOptionsAddForNextWidget( gui, 47 ) --NoSound
-		clicked, r_clicked = GuiImageButton( gui, uid, pic_x, pic_y, "", pic )
-	end
-	return uid, clicked, r_clicked
 end
 
 function pen.new_cutout( gui, uid, pic_x, pic_y, size_x, size_y, func, v ) --credit goes to aarvlo
@@ -2768,11 +2782,11 @@ function pen.new_text( gui, uid, pic_x, pic_y, pic_z, text, data )
 			local temp = line
 			local l_pos, r_pos = {0,0,0}, {0,0,0}
 			local new_element = { x = 0, y = height_counter }
-			if( data.is_centered_x ) then
+			if( data.is_centered_x or data.is_right_x ) then
 				local _,off = pen.liner( line, nil, nil, data.font )
-				new_element.x = ( data.dims[1] - off[1])/2
+				new_element.x = ( data.is_right_x or false ) and -off[1] or ( data.dims[1] - off[1])/2
 			end
-
+			
 			while( pen.vld( temp )) do
 				local gotcha = 0
 				for i = 1,2 do
@@ -2903,22 +2917,22 @@ function pen.new_tooltip( gui, uid, text, data, func )
 	data.do_corrections = data.do_corrections or not( pen.vld( data.pos ))
 	
 	local frame_num = GameGetFrameNum()
-	pen.cached.ttips = pen.cached.ttips or {}
-	pen.cached.ttips[data.tid] = pen.cached.ttips[data.tid] or { going = 0, anim = {frame_num,0,0}, inter_state = {}}
+	pen.c.ttips = pen.c.ttips or {}
+	pen.c.ttips[data.tid] = pen.c.ttips[data.tid] or { going = 0, anim = {frame_num,0,0}, inter_state = {}}
 	if( data.is_active == nil ) then
 		_,_,data.is_active = GuiGetPreviousWidgetInfo( gui )
 	end
-	if( data.allow_hover ) then
-		data.is_active = data.is_active or pen.cached.ttips[data.tid].inter_state[3]
+	if( data.allow_hover and pen.vld( pen.c.ttips[data.tid].inter_state )) then
+		data.is_active = data.is_active or pen.c.ttips[data.tid].inter_state[3]
 	end
 	if( not( data.is_active )) then
 		return uid
 	end
 
-	if( pen.cached.ttips[data.tid].going ~= frame_num ) then
-		pen.cached.ttips[data.tid].going = frame_num
+	if( pen.c.ttips[data.tid].going ~= frame_num ) then
+		pen.c.ttips[data.tid].going = frame_num
 
-		local tip_anim = pen.cached.ttips[data.tid].anim
+		local tip_anim = pen.c.ttips[data.tid].anim
 		if(( frame_num - tip_anim[2]) > ( data.anim_frames + 5 )) then
 			tip_anim[1] = frame_num -1
 		end
@@ -2967,11 +2981,12 @@ function pen.new_tooltip( gui, uid, text, data, func )
 
 		if( func == nil ) then
 			func = function( gui, uid, text, data )
-				local anim_frame = pen.cached.ttips[data.tid].anim[3]
-				local pic_x, pic_y, pic_z = unpack( data.pos )
 				local size_x, size_y = unpack( data.dims )
+				local pic_x, pic_y, pic_z = unpack( data.pos )
 
-				local inter_alpha = math.sin( math.min( anim_frame, 10 )*math.pi/20 )--this should be interpolation libbed
+				local inter_alpha = pen.animate( 1, data.anim_frame, {
+					ease_out = "exp", frames = data.anim_frames,
+				})
 				uid = pen.new_text( gui, uid, pic_x + data.edging, pic_y + data.edging - 2, pic_z, text, {
 					dims = { size_x - data.edging, size_y },
 					line_offset = data.line_offset or -2,
@@ -2979,27 +2994,29 @@ function pen.new_tooltip( gui, uid, text, data, func )
 					color = {255,255,255,inter_alpha},
 				})
 				
-				local inter_size = 30*math.sin(( anim_frame + 1 )*0.3937 )/( anim_frame + 1 )
+				local inter_size = 15*( 1 - pen.animate( 1, data.anim_frame, {
+					ease_out = "wav1.5", frames = data.anim_frames,
+				}))
 				pic_x, pic_y = pic_x + 0.5*inter_size, pic_y + 0.5*inter_size
 				size_x, size_y = size_x - inter_size, size_y - inter_size
-				inter_alpha = math.max( 1 - inter_alpha/6, 0.1 )
 				
 				local clicked, r_clicked, is_hovered = false, false, false
 				uid, clicked, r_clicked, is_hovered = pen.new_image(
-					gui, uid, pic_x, pic_y, pic_z, "data/ui_gfx/empty.png", { s_x = size_x, s_y = size_y, can_click = true }
+					gui, uid, pic_x, pic_y, pic_z, pen.FILE_PIC_NIL, { s_x = size_x, s_y = size_y, can_click = true }
 				)
 				
 				uid = uid + 1
+				GuiOptionsAddForNextWidget( gui, 2 ) --NonInteractive
 				GuiZSetForNextWidget( gui, pic_z + 0.01 )
-				GuiImageNinePiece( gui, uid, pic_x, pic_y, size_x, size_y, 1.15*inter_alpha )
-				
+				GuiImageNinePiece( gui, uid, pic_x, pic_y, size_x, size_y, 1.15*math.max( 1 - inter_alpha/6, 0.1 ))
 				return uid, { clicked, r_clicked, is_hovered }
 			end
 		end
 		
-		uid, pen.cached.ttips[data.tid].inter_state = func( gui, uid, text, data )
+		data.anim_frame = pen.c.ttips[data.tid].anim[3]
+		uid, pen.c.ttips[data.tid].inter_state = func( gui, uid, text, data )
 	else
-		pen.cached.ttips[data.tid].inter_state = {}
+		pen.c.ttips[data.tid].inter_state = {}
 	end
 	
 	return uid, data.is_active
@@ -3018,7 +3035,7 @@ function pen.new_input( gui, uid, iid, pic_x, pic_y, pic_z, data )
 	--legit full keyboard that is stolen from mnee
 	--copypaste support (through global var)
 	--multiline cursor with arrow control
-
+	
 	uid = pen.new_tooltip( gui, uid, text, {
 		is_active = true,
 		tid = iid, pic_z = pic_z, pos = {pic_x,pic_y},
@@ -3026,9 +3043,76 @@ function pen.new_input( gui, uid, iid, pic_x, pic_y, pic_z, data )
 		edging = data.edging, line_offset = data.line_offset
 	}, data.tip_func )
 
-	print( tostring( pen.cached.ttips[iid].inter_state[1]))
+	print( tostring( pen.c.ttips[iid].inter_state[1]))
 	
 	return uid
+end
+
+function pen.new_pager( gui, uid, pic_x, pic_y, pic_z, data )
+	local counter, sfx_type = 1, 0
+	local max_page = math.ceil(( counter - 1 )/data.items_per_page )
+    local starter, ender = data.items_per_page*( data.page[1] - 1 ), data.items_per_page*data.page[1] + 1
+    for k,v in ( data.order_func or pen.t.order )( data.list ) do
+		counter = counter + 1
+		if( counter > starter and counter < ender ) then
+			uid, counter = data.func( gui, uid, pic_x, pic_y, pic_z, k, v, starter - counter, counter )
+        end
+    end
+
+	for i = 1,2 do
+		local sign = i == 1 and -1 or 1
+		if( data.click[i] == 1 and max_page > 1 ) then
+			data.page = data.page - 1; sfx_type = 1
+		elseif( data.click[i] == -1 and max_page > 5 ) then
+			data.page = data.page - 5; sfx_type = -1
+		end
+		if( sfx_type ~= 0 ) then
+			if( data.page < 1 ) then data.page = math.max( data.page + max_page, 1 ) end
+			if( data.page > max_page ) then data.page = math.min( data.page - max_page, max_page ) end
+			break
+		end
+	end
+
+	return uid, data.page, sfx_type
+end
+
+function pen.new_plot( pic_x, pic_y, pic_z, data )
+	data = data or {}
+	data.scale = { 100, 100 }
+	data.step = data.step or 0.01
+	data.range = data.range or {0,1}
+	data.thickness = data.thickness or 0.5
+	data.func = data.func or math.sin
+	data.input = data.input or function( x ) return x end
+
+	--grid
+	--cache it
+	--autoscaling
+	--should be capable of plotting a table
+	local gui = GuiCreate()
+	GuiStartFrame( gui )
+	
+	local memo = {}
+	local uid, last_dot = 1, {}
+	for x = data.range[1],(data.range[2]+data.step/2),data.step do
+		local y = data.func( data.input( x ))
+		if( pen.vld( last_dot )) then
+			local delta_x, delta_y = data.step, last_dot[2] - y
+			local width, rotation = data.thickness/2, math.atan2( delta_y, delta_x )
+			local x_shift, y_shift = pen.rotate_offset( 0, -width/2, rotation )
+			local pos_x, pos_y = pic_x + x_shift, pic_y - data.scale[2]*last_dot[2] + y_shift
+			uid = pen.new_image( gui, uid, pos_x, pos_y, pic_z, pen.FILE_PIC_NUL, {
+				s_x = math.sqrt(( data.scale[1]*delta_x )^2 + ( data.scale[2]*delta_y )^2 )/2,
+				s_y = width, angle = rotation, color = data.color,
+			})
+			pic_x = pic_x + data.scale[1]*data.step
+		end
+		last_dot = { x, y }
+		table.insert( memo, last_dot )
+	end
+	
+	GuiDestroy( gui )
+	return memo
 end
 
 function pen.gui_killer( gui )
@@ -3050,6 +3134,8 @@ pen.MARKER_TAB = "\\_"
 pen.MARKER_FANCY_TEXT = { "{>%S->{", "}<%S-<}", "{%-}%S-{%-}" }
 pen.MARKER_MAGIC_APPEND = "%-%-<{> MAGICAL APPEND MARKER <}>%-%-"
 
+pen.FILE_PIC_NIL = "data/ui_gfx/empty.png"
+pen.FILE_PIC_NUL = "data/ui_gfx/empty_white.png"
 pen.FILE_MATTER = "data/debug/matter_test.xml"
 pen.FILE_T2F = "data/debug/vpn"
 
@@ -3180,7 +3266,7 @@ pen.FONT_MODS = {
 		color = ( clicked or 0 ) == 0 and pen.PALETTE.VNL.MANA or pen.PALETTE.VNL.RED
 		if( frame_num < ( is_hovered or 0 )) then
 			pen.colourer( gui, color )
-			uid = pen.new_image( gui, uid, pic_x[2], pic_y[2] + off_y*0.8, pic_z + 0.001, "data/ui_gfx/empty_white.png", {
+			uid = pen.new_image( gui, uid, pic_x[2], pic_y[2] + off_y*0.8, pic_z + 0.001, pen.FILE_PIC_NUL, {
 				s_x = off_x*0.5, s_y = 0.5 })
 		end
 		

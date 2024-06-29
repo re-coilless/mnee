@@ -10,20 +10,19 @@ function OnModInit()
 	
 	--implant penman into mnee (and test it with most disgusting malformed data possible)
 	--LLS documentation of all funcs
-	--make mnee main propero mod (p2k must pull all the sounds and such from it)
+	--make mnee the main propero mod (p2k must pull all the sounds and such from it)
 
 	-- make procedural pause screen keyboard that highlights all the bind's keys on hover of one of them (only if the moddev marked the binding as show_on_pause)
 	-- add separate full-sized fancy key name getter with full length names
-
-	mnee.G.stp_panel = mnee.G.stp_panel or false
-	mnee.G.setup_page = mnee.G.setup_page or 1
-	mnee.G.show_alt = mnee.G.show_alt or false
 
 	mnee.G.mod_page = mnee.G.mod_page or 1
 	mnee.G.current_mod = mnee.G.current_mod or "mnee"
 	mnee.G.binding_page = mnee.G.binding_page or 1
 	mnee.G.current_binding = mnee.G.current_binding or ""
+	mnee.G.stp_panel = mnee.G.stp_panel or false
+	mnee.G.setup_page = mnee.G.setup_page or 1
 
+	mnee.G.show_alt = mnee.G.show_alt or false
 	mnee.G.doing_axis = mnee.G.doing_axis or false
 	mnee.G.btn_axis_mode = mnee.G.btn_axis_mode or false
 	mnee.G.advanced_mode = mnee.G.advanced_mode or false

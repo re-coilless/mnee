@@ -771,11 +771,11 @@ function mnee.new_button( gui, uid, pic_x, pic_y, pic_z, pic, data )
 	data.highlight = data.highlight or pen.PALETTE.PRSP.RED
 	return pen.new_button( gui, uid, pic_x, pic_y, pic_z, pic, {
 		lmb_event = function( gui, uid, pic_x, pic_y, pic_z, pic, d )
-			if( not( data.no_anim )) then pen.animate( 1, data.auid.."l", { frames = data.frames, reset_now = true }) end
+			if( not( data.no_anim )) then pen.atimer( data.auid.."l", nil, true ) end
 			return uid, pic_x, pic_y, pic_z, pic, d
 		end,
 		rmb_event = function( gui, uid, pic_x, pic_y, pic_z, pic, d )
-			if( not( data.no_anim )) then pen.animate( 1, data.auid.."r", { frames = data.frames, reset_now = true }) end
+			if( not( data.no_anim )) then pen.atimer( data.auid.."r", nil, true ) end
 			return uid, pic_x, pic_y, pic_z, pic, d
 		end,
 		hov_event = function( gui, uid, pic_x, pic_y, pic_z, pic, d )

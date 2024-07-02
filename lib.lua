@@ -1,4 +1,4 @@
-dofile_once( "mods/mnee/_penman.lua" )
+dofile_once( "mods/penman/_penman.lua" )
 
 mnee = mnee or {}
 mnee.G = mnee.G or {}
@@ -221,7 +221,7 @@ function mnee.get_setup_memo()
 
 		setup_tbl = {{}}
 		for mod_id,_ in pairs( _BINDINGS ) do
-			setup_tbl[1][ mod_id ] = "dft"
+			setup_tbl[1][ mod_id ] = "_dft"
 		end
 		mnee.set_setup_memo( setup_tbl )
 	end
@@ -229,7 +229,7 @@ function mnee.get_setup_memo()
 end
 function mnee.get_setup_id( mod_id )
 	local setup_memo = mnee.get_setup_memo()
-	return ( setup_memo[ pen.setting_get( "mnee.PROFILE" )] or setup_memo[1])[ mod_id ]
+	return ( setup_memo[ pen.setting_get( "mnee.PROFILE" )] or setup_memo[1])[ mod_id ] or "_dft"
 end
 function mnee.set_setup_id( mod_id, setup_id )
 	local setup_memo = mnee.get_setup_memo()
@@ -243,44 +243,10 @@ function mnee.set_setup_id( mod_id, setup_id )
 		mnee.set_setup_memo( setup_memo )
 
 		dofile_once( "mods/mnee/bindings.lua" )
-		if( _MNEEDATA[ mod_id ].on_setup ~= nil ) then
+		if( _MNEEDATA[ mod_id ] ~= nil and _MNEEDATA[ mod_id ].on_setup ~= nil ) then
 			_MNEEDATA[ mod_id ].on_setup( _MNEEDATA[ mod_id ].setup_modes, setup_id )
 		end
-		mnee.update_bindings( true )
 	end
-end
-function mnee.apply_setup( mod_id )
-	dofile_once( "mods/mnee/bindings.lua" )
-	
-	local current_tbl = mnee.get_bindings( true )
-	local profile = pen.setting_get( "mnee.PROFILE" )
-	for mod,mod_tbl in pairs( _BINDINGS ) do
-		local setup_id, new_keys = mnee.get_setup_id( mod_id, profile ), {}
-		if(( mod_id or mod ) ~= mod ) then goto continue end
-		if( _MNEEDATA[ mod ] == nil or _MNEEDATA[ mod ].setup_modes == nil ) then goto continue end
-		
-		for bind,bind_tbl in pairs( mod_tbl ) do
-			if( setup_id == "dft" ) then
-				current_tbl[ mod ][ bind ].keys[ profile ].main = bind_tbl.keys
-				current_tbl[ mod ][ bind ].keys[ profile ].alt = bind_tbl.keys_alt
-			else
-				new_keys = pen.t.get( _MNEEDATA[ mod ].setup_modes, setup_id ).binds[ bind ]
-				if( new_keys ~= nil ) then
-					if( type( new_keys[1]) == "table" ) then
-						current_tbl[ mod ][ bind ].keys[ profile ].main = new_keys[1]
-						current_tbl[ mod ][ bind ].keys[ profile ].alt = new_keys[2]
-					else
-						current_tbl[ mod ][ bind ].keys[ profile ].main = new_keys
-						current_tbl[ mod ][ bind ].keys[ profile ].alt = { ["_"] = 1 }
-					end
-				end
-			end
-		end
-
-		::continue::
-	end
-
-	mnee.update_bindings( true )
 end
 
 function mnee.apply_jpads( jpad_tbl, no_update )
@@ -361,9 +327,10 @@ function mnee.set_bindings( binding_data )
 	for mod,mod_tbl in pairs( binding_data ) do
 		key_data[ mod ] = {}
 		for bind,bind_tbl in pairs( mod_tbl ) do
+			key_data[ mod ][ bind ] = {}
 			key_data[ mod ][ bind ].keys = bind_tbl.keys
 			for profile,key_tbl in pairs( bind_tbl.keys ) do
-				if( not( pen.vld( key_tbl[ profile ].main ))) then
+				if( not( pen.vld( key_tbl.main ))) then
 					key_data[ mod ][ bind ].keys[ profile ].main = key_data[ mod ][ bind ].keys[1].main
 				end
 				if( not( pen.vld( key_tbl.alt ))) then
@@ -383,354 +350,130 @@ end
 function mnee.update_bindings( force_update )
 	dofile_once( "mods/mnee/bindings.lua" )
 	
-	local updated = force_update or false
-	local reset = updated == "nuke_it"
+	local updated = force_update
 	local current_tbl = force_update
 	if( type( current_tbl ) ~= "table" ) then
-		current_tbl = reset and {} or mnee.get_bindings( true )
+		current_tbl = updated == "nuke_it" and {} or mnee.get_bindings( true )
 	end
-
+	
+	local profile = pen.setting_get( "mnee.PROFILE" )
 	for mod,mod_tbl in pairs( _BINDINGS ) do
-		if( current_tbl[ mod ] == nil ) then
-			current_tbl[ mod ], updated = {}, true
+		local setup_id = "_dft"
+		if( current_tbl[ mod ] == nil ) then current_tbl[ mod ] = {} end
+		if( _MNEEDATA[ mod ] ~= nil and _MNEEDATA[ mod ].setup_modes ~= nil ) then
+			setup_id = mnee.get_setup_id( mod, profile )
 		end
+		
 		for bind,bind_tbl in pairs( mod_tbl ) do
 			if( current_tbl[ mod ][ bind ] == nil ) then
-				current_tbl[ mod ][ bind ], updated = {}, true
-				current_tbl[ mod ][ bind ].keys[1].main = bind_tbl.keys
-				current_tbl[ mod ][ bind ].keys[1].alt = bind_tbl.keys_alt
+				current_tbl[ mod ][ bind ] = {}
+			end
+			if( current_tbl[ mod ][ bind ].keys == nil ) then
+				current_tbl[ mod ][ bind ].keys = {}
+			end
+
+			for i,v in ipairs({ 1, profile }) do
+				local new_keys = {}
+				if( current_tbl[ mod ][ bind ].keys[ v ] ~= nil ) then
+					goto continue
+				else current_tbl[ mod ][ bind ].keys[ v ], updated = {}, true end
+				if( _MNEEDATA[ mod ] ~= nil ) then
+					new_keys = pen.t.get( _MNEEDATA[ mod ].setup_modes, setup_id )
+				end
+
+				if( pen.vld( new_keys )) then
+					new_keys = new_keys.binds[ bind ]
+					if( type( new_keys[1]) == "table" ) then
+						current_tbl[ mod ][ bind ].keys[ v ].main = new_keys[1]
+						current_tbl[ mod ][ bind ].keys[ v ].alt = new_keys[2]
+					else current_tbl[ mod ][ bind ].keys[ v ].main = new_keys end
+				else
+					current_tbl[ mod ][ bind ].keys[ v ].main = bind_tbl.keys
+					current_tbl[ mod ][ bind ].keys[ v ].alt = bind_tbl.keys_alt
+				end
+
+			    ::continue::
 			end
 		end
 	end
-
-	--apply setup on per-key basis (replace the section of code above with it)
-	--return the table that was assigned
+	
 	if( updated ) then mnee.set_bindings( current_tbl ) end
-	if( reset ) then mnee.apply_setup() end
-end
-
---[INPUT]
-function mnee.vanilla_input( name )
-	local frame, out = GameGetFrameNum(), {false,false}
-	local ctrl_comp = pen.magic_comp( mnee.get_ctrl(), "ControlsComponent" )
-	if( pen.vld( ctrl_comp, true )) then
-		out = { ComponentGetValue2( ctrl_comp, "mButtonDown"..name ), ComponentGetValue2( ctrl_comp, "mButtonFrame"..name ) == frame }
-	end
-	return out
-end
-
-function mnee.mnin_key( name, pressed_mode, is_vip, key_mode )
-	if(( GameHasFlagRun( mnee.SERV_MODE ) and not( mnee.ignore_service_mode ))
-			or ( GameHasFlagRun( mnee.TOGGLER ) and not( is_vip ))) then
-		return false
-	end
-	
-	local keys_down = mnee.get_keys( key_mode )
-	if( pen.vld( keys_down )) then
-		for i,key in ipairs( keys_down ) do
-			if( key == name ) then
-				if( pressed_mode ) then
-					local check = mnee.get_disarmer()[ "key"..key ] == nil
-					mnee.add_disarmer( "key"..key )
-					return check
-				else
-					return true
-				end
-			end
-		end
-	end
-	
-	return false
-end
-
-function mnee.mnin_bind( mod_id, name, dirty_mode, pressed_mode, is_vip, loose_mode, key_mode )
-	if(( GameHasFlagRun( mnee.SERV_MODE ) and not( mnee.ignore_service_mode ))
-			or not( mnee.is_priority_mod( mod_id ))
-			or ( GameHasFlagRun( mnee.TOGGLER ) and not( is_vip ))) then
-		return false, false, false
-	end
-	
-	local keys_down = mnee.get_keys( key_mode )
-	if( pen.vld( keys_down )) then
-		local binding = mnee.get_bindings()[ mod_id ][ name ]
-		if( binding ~= nil ) then
-			local out, is_gone, is_alt, is_jpad = false, true, false, false
-			for i = 1,2 do
-				local bind = mnee.get_bind( binding )[ i == 1 and "main" or "alt" ]
-				local high_score, score = pen.t.count( bind ), 0
-
-				if( bind["_"] ~= nil ) then
-					goto continue
-				end
-				is_gone = false
-				if( high_score < 1 or ( high_score > 1 and not( loose_mode ) and high_score ~= #keys_down )) then
-					goto continue
-				end
-				
-				if( high_score == 1 and not( dirty_mode )) then
-					for i,key in ipairs( keys_down ) do
-						if( mnee.SPECIAL_KEYS[ key ] ~= nil ) then
-							out = true
-						end
-					end
-					if( out ) then
-						out = false
-						goto continue
-					end
-				end
-				
-				for i,key in ipairs( keys_down ) do
-					if( bind[ key ] ~= nil ) then
-						score = score + 1
-					end
-				end
-				
-				if( score == high_score ) then
-					if( pressed_mode ) then
-						local check = mnee.get_disarmer()[ mod_id..name ] == nil
-						mnee.add_disarmer( mod_id..name )
-						if( not( check )) then return false, false, false end
-						out = check
-					else
-						out = true
-					end
-				end
-				
-				::continue::
-				if( out ) then
-					is_alt = i == 2
-					is_jpad = mnee.jpad_check( bind )
-					break
-				end
-			end
-			if( out and binding.on_down ~= nil ) then
-				out = binding.on_down( binding, is_alt, is_jpad )
-			end
-			return out, is_gone, is_jpad
-		end
-	end
-	
-	return false, false, false
-end
-
-function mnee.mnin_axis( mod_id, name, dirty_mode, pressed_mode, is_vip, key_mode, skip_deadzone )
-	if(( GameHasFlagRun( mnee.SERV_MODE ) and not( mnee.ignore_service_mode ))
-			or not( mnee.is_priority_mod( mod_id ))
-			or ( GameHasFlagRun( mnee.TOGGLER ) and not( is_vip ))) then
-		return 0, false, false, false
-	end
-	
-	local binding = mnee.get_bindings()[ mod_id ][ name ]
-	if( binding ~= nil ) then
-		local out, is_gone, is_buttoned, is_jpad = 0, true, false, false
-		for i = 1,2 do
-			local bind = mnee.get_bind( binding )[ i == 1 and "main" or "alt" ]
-			if( bind[2] == "_" ) then
-				goto continue
-			end
-			is_gone = false
-			
-			is_buttoned = bind[3] ~= nil
-			if( is_buttoned ) then
-				if( mnee.mnin_key( bind[2], dirty_mode, pressed_mode, is_vip, key_mode )) then
-					out = -1
-				elseif( mnee.mnin_key( bind[3], dirty_mode, pressed_mode, is_vip, key_mode )) then
-					out = 1
-				end
-			else
-				local value = mnee.get_axes()[ bind[2]] or 0
-				if( not( skip_deadzone )) then
-					value = mnee.apply_deadzone( value, binding.jpad_type, binding.deadzone )
-				end
-				if( pressed_mode ) then
-					local memo = mnee.get_axis_memo()
-					if( memo[ bind[2]] == nil ) then
-						if( math.abs( value ) > 0.5 ) then
-							mnee.toggle_axis_memo( bind[2])
-							out = pen.get_sign( value )
-						end
-					elseif( math.abs( value ) < 0.2 ) then
-						mnee.toggle_axis_memo( bind[2])
-					end
-				else
-					out = value
-				end
-			end
-			
-			::continue::
-			if( out ~= 0 ) then
-				is_jpad = mnee.jpad_check( bind )
-				break
-			end
-		end
-		return out, is_gone, is_buttoned, is_jpad
-	end
-
-	return 0, false, false, false
-end
-
-function mnee.mnin_stick( mod_id, name, dirty_mode, pressed_mode, is_vip, key_mode )
-	if(( GameHasFlagRun( mnee.SERV_MODE ) and not( mnee.ignore_service_mode ))
-			or not( mnee.is_priority_mod( mod_id ))
-			or ( GameHasFlagRun( mnee.TOGGLER ) and not( is_vip ))) then
-		return {0,0}, false, {false,false}, 0
-	end
-	
-	local binding = mnee.get_bindings()[ mod_id ][ name ]
-	if( binding ~= nil ) then
-		local acc = 100
-		local val_x, gone_x, buttoned_x = mnee.mnin_axis( mod_id, binding.axes[1], dirty_mode, pressed_mode, is_vip, key_mode, true )
-		local val_y, gone_y, buttoned_y = mnee.mnin_axis( mod_id, binding.axes[2], dirty_mode, pressed_mode, is_vip, key_mode, true )
-		local magnitude = mnee.apply_deadzone( math.sqrt( val_x^2 + val_y^2 ), binding.jpad_type, binding.deadzone )
-		local direction = math.rad( math.floor( math.deg( math.atan2( val_y, val_x )) + 0.5 ))
-		val_x, val_y = math.floor( acc*magnitude*math.cos( direction ))/acc, math.floor( acc*magnitude*math.sin( direction ))/acc
-		return {val_x,val_y}, gone_x or gone_y, {buttoned_x,buttoned_y}, direction
-	end
-
-	return {0,0}, false, {false,false}, 0
-end
-
-function mnee.mnin( mode, id_data, data )
-	local map = {
-		key = { mnee.mnin_key, {1}, { "pressed", "vip", "mode" }},
-		bind = { mnee.mnin_bind, {1,2}, { "dirty", "pressed", "vip", "loose", "mode" }},
-		axis = { mnee.mnin_axis, {1,2}, { "dirty", "pressed", "vip", "mode" }},
-		stick = { mnee.mnin_stick, {1,2}, { "dirty", "pressed", "vip", "mode" }},
-	}
-
-	data = data or {}
-	func = map[ mode ]
-	id_data = pen.get_hybrid_table( id_data )
-	
-	local inval = {}
-	for i,v in ipairs( func[2]) do
-		if( id_data[v] ~= nil ) then table.insert( inval, id_data[v]) end
-	end
-	for i,v in ipairs( func[3]) do
-		table.insert( inval, data[v] or false )
-	end
-	return func[1]( unpack( inval ))
-end
-
-function mnee.get_keyboard_input( no_shifting )
-	no_shifting = no_shifting or false
-	local lists = dofile_once( "mods/mnee/lists.lua" )
-
-	local is_shifted = not( no_shifting ) and ( InputIsKeyDown( 225 ) or InputIsKeyDown( 229 ))
-	for i = 4,56 do
-		if( InputIsKeyJustDown( i )) then
-			local value = lists[1][i]
-			if( is_shifted ) then
-				value = mnee.get_shifted_key( value )
-			elseif( i > 39 and i < 45 ) then
-				if( i == 40 ) then
-					value = 3
-				elseif( i == 41 ) then
-					value = 0
-				elseif( i == 42 ) then
-					value = 2
-				elseif( i == 43 ) then
-					value = 4
-				elseif( i == 44 ) then
-					value = " "
-				end
-			end
-			return value
-		end
-	end
-	for i = 1,10 do
-		if( InputIsKeyJustDown( 88 + i )) then
-			return string.sub( tostring( i ), -1 )
-		end
-	end
 end
 
 --[FRONTEND]
-function mnee.get_fancy_key( key )
-	local out, is_jpad = string.gsub( key, "%dgpd_", "" )
-	local lists = dofile_once( "mods/mnee/lists.lua" )
-	out = lists[5][ out ] or out
-	if( is_jpad > 0 ) then
-		out = table.concat({ "GP", string.sub( key, 1, 1 ), "(", out, ")" })
-	end
-	return out
-end
-
 function mnee.get_shifted_key( c )
 	local check = string.byte( c ) 
 	if( check > 96 and check < 123 ) then
 		return string.char( check - 32 )
-	else
-		local lists = dofile_once( "mods/mnee/lists.lua" )
-		return lists[4][c] or c
-	end
+	else return dofile_once( "mods/mnee/lists.lua" )[4][c] or c end
+end
+
+function mnee.get_fancy_key( key )
+	local out, is_jpad = string.gsub( key, "%dgpd_", "" )
+	out = dofile_once( "mods/mnee/lists.lua" )[5][ out ] or out
+	if( is_jpad > 0 ) then
+		return table.concat({ "GP", string.sub( key, 1, 1 ), "(", out, ")" })
+	else return out end
 end
 
 function mnee.get_binding_keys( mod_id, name, is_compact )
-	is_compact = is_compact or false
-	
 	local binding = mnee.get_bindings()[ mod_id ][ name ]
-	local profile, out = pen.setting_get( "mnee.PROFILE" ), ""
 	if( binding.axes ~= nil ) then
-		local symbols = is_compact and {"|","v:","; h:"} or {"|","ver: ","; hor: "}
 		local v = mnee.get_binding_keys( mod_id, binding.axes[1], is_compact )
 		local h = mnee.get_binding_keys( mod_id, binding.axes[2], is_compact )
-		out = table.concat({ symbols[1], symbols[2], v, symbols[3], h, symbols[1]})
-	else
-		local function figure_it_out( tbl )
-			local symbols = is_compact and {"","-","",","} or {"["," + ","]","/"}
-			local out = symbols[1]
-			if( tbl["_"] ~= nil or tbl[2] == "_" ) then
-				out = GameTextGetTranslatedOrNot( "$mnee_nil" )
-			elseif( tbl[1] == "is_axis" ) then
-				out = table.concat({ out, mnee.get_fancy_key( tbl[2])})
-				if( tbl[3] ~= nil ) then
-					out = table.concat({ out, symbols[4], mnee.get_fancy_key( tbl[3])})
-				end
-			else
-				for key in pen.t.order( tbl ) do
-					out = table.concat({ out, mnee.get_fancy_key( key ), symbols[2]})
-				end
-				out = string.sub( out, 1, -( #symbols[2] + 1 ))
+		local symbols = ( is_compact or false ) and {"|","v:","; h:"} or {"|","ver: ","; hor: "}
+		return table.concat({ symbols[1], symbols[2], v, symbols[3], h, symbols[1]})
+	end
+	
+	local function figure_it_out( tbl )
+		local symbols = ( is_compact or false ) and {"","-","",","} or {"["," + ","]","/"}
+		local out = symbols[1]
+		if( tbl["_"] ~= nil or tbl[2] == "_" ) then
+			out = GameTextGetTranslatedOrNot( "$mnee_nil" )
+		elseif( tbl[1] == "is_axis" ) then
+			out = table.concat({ out, mnee.get_fancy_key( tbl[2])})
+			if( tbl[3] ~= nil ) then
+				out = table.concat({ out, symbols[4], mnee.get_fancy_key( tbl[3])})
 			end
-			return out..symbols[3]
+		else
+			for key in pen.t.order( tbl ) do
+				out = table.concat({ out, mnee.get_fancy_key( key ), symbols[2]})
+			end
+			out = string.sub( out, 1, -( #symbols[2] + 1 ))
 		end
-		
-		local b = mnee.get_bind( binding, profile )
-		local got_alt = not( b.alt["_"] ~= nil or b.alt[2] == "_" )
-		out = figure_it_out( b[( got_alt and is_compact == 2 ) and "alt" or "main" ])
-		if( is_compact ) then
-			out = string.lower( out )
-		elseif( got_alt ) then
-			out = table.concat({ out, " or ", figure_it_out( b.alt )})
-		end
+		return out..symbols[3]
 	end
 
+	local b = mnee.get_bind( binding )
+	local got_alt = not( b.alt["_"] ~= nil or b.alt[2] == "_" )
+	local out = figure_it_out( b[( got_alt and is_compact == 2 ) and "alt" or "main" ])
+	if( is_compact ) then
+		out = string.lower( out )
+	elseif( got_alt ) then
+		out = table.concat({ out, " or ", figure_it_out( b.alt )})
+	end
 	return out
 end
 
 function mnee.bind2string( binds, bind, key_type )
 	local out = "["
 	if( binds == nil and bind.axes ~= nil ) then
-		out = "|"
-		out = table.concat({ out, mnee.bind2string( nil, binds[ bind.axes[1]], key_type ), "|" })
-		out = table.concat({ out, mnee.bind2string( nil, binds[ bind.axes[2]], key_type ), "|" })
-	else
-		local b = mnee.get_bind( bind )[ key_type ]
-		if( b[1] == "is_axis" ) then
-			out = out..b[2]
-			if( b[3] ~= nil ) then
-				out = table.concat({ out, "; ", b[3]})
-			end
-		else
-			for b in pairs( b ) do
-				out = table.concat({ out, ( out == "[" and "" or "; " ), b })
-			end
-		end
-		out = out.."]"
+		return table.concact({
+			"|", mnee.bind2string( nil, binds[ bind.axes[1]], key_type ),
+			"|", mnee.bind2string( nil, binds[ bind.axes[2]], key_type ), "|",
+		})
 	end
 
-	return out
+	local b = mnee.get_bind( bind )[ key_type or "main" ]
+	if( b[1] == "is_axis" ) then
+		out = out..b[2]
+		if( b[3] ~= nil ) then out = table.concat({ out, "; ", b[3]}) end
+	else
+		for b in pairs( b ) do
+			out = table.concat({ out, ( out == "[" and "" or "; " ), b })
+		end
+	end
+	return out.."]"
 end
 
 function mnee.play_sound( event )
@@ -746,7 +489,7 @@ function mnee.new_tooltip( gui, uid, text, data )
 		uid = pen.new_text( gui, uid, pic_x + d.edging, pic_y + d.edging - 2, pic_z, text, {
 			dims = { size_x - d.edging, size_y },
 			line_offset = d.line_offset or -2,
-			funcs = d.font_mods,
+			fast_render = true, --funcs = d.font_mods,
 			color = { clr[1], clr[2], clr[3], pen.animate( 1, d.anim_frame, {
 				ease_out = "sin3", frames = d.anim_frames,
 			})},
@@ -787,9 +530,7 @@ function mnee.new_button( gui, uid, pic_x, pic_y, pic_z, pic, data )
 		pic_func = function( gui, uid, pic_x, pic_y, pic_z, pic, d )
 			local a = ( data.no_anim or false ) and 1 or math.min(
 				pen.animate( 1, data.auid.."l", { frames = data.frames }),
-				pen.animate( 1, data.auid.."r", { frames = data.frames })
-			)
-
+				pen.animate( 1, data.auid.."r", { frames = data.frames }))
 			local c_anim, s_anim = 0.75 + 0.25*a, 2*( 1 - a )/d.pic_w
 			local clr = pen.magic_rgb({255,255,255}, false, "hsv" ); clr[3] = c_anim
 			return pen.new_image( gui, uid, pic_x + ( 1 - s_anim )*d.pic_w, pic_y - ( 1 - s_anim )*d.pic_h, pic_z, pic, {
@@ -801,17 +542,19 @@ end
 
 function mnee.new_pager( gui, uid, pic_x, pic_y, pic_z, data )
 	local clicked, r_clicked, sfx_type = {false,false}, {false,false}, 0
-	uid, clicked[1], r_clicked[1] = mnee.new_button( gui, uid, pic_x, pic_y, pic_z, "mods/mnee/files/pics/key_left.png" )
-
+	uid, clicked[1], r_clicked[1] = mnee.new_button( gui, uid, pic_x, pic_y, pic_z, "mods/mnee/files/pics/key_left.png", {
+		auid = table.concat({ "page_", data.auid, "_l" })})
+	
 	if( data.profile_mode ) then pic_y = pic_y + 11 else pic_x = pic_x + 11 end
 	uid = pen.new_image( gui, uid, pic_x, pic_y, pic_z, "mods/mnee/files/pics/button_21_B.png", { can_click = true })
 	if( data.profile_mode ) then uid = mnee.new_tooltip( gui, uid, GameTextGetTranslatedOrNot( "$mnee_this_profile" ).."." ) end
 	local text = ( data.profile_mode or false ) and string.char( data.page + 64 ) or data.page
-	uid = pen.new_text( gui, uid, pic_x + 2, pic_y, pic_z, text, { color = pen.PALETTE.PRSP.BLUE })
+	uid = pen.new_text( gui, uid, pic_x + 2, pic_y, pic_z, text, { fast_render = true, color = pen.PALETTE.PRSP.BLUE })
 	
 	pic_x = pic_x + 22
 	if( data.profile_mode ) then pic_x, pic_y = pic_x - 11, pic_y - 11 end
-	uid, clicked[2], r_clicked[2] = mnee.new_button( gui, uid, pic_x, pic_y, pic_z, "mods/mnee/files/pics/key_right.png" )
+	uid, clicked[2], r_clicked[2] = mnee.new_button( gui, uid, pic_x, pic_y, pic_z, "mods/mnee/files/pics/key_right.png", {
+		auid = table.concat({ "page_", data.auid, "_r" })})
 	
 	uid, data.page, sfx_type = pen.new_pager( gui, uid, pic_x, pic_y, pic_z, {
 		func = data.func, order_func = data.order_func,
@@ -824,6 +567,198 @@ function mnee.new_pager( gui, uid, pic_x, pic_y, pic_z, data )
 		mnee.play_sound( "switch_page" )
 	end
 	return uid, data.page
+end
+
+--[INPUT]
+function mnee.vanilla_input( name )
+	local frame, out = GameGetFrameNum(), {false,false}
+	local ctrl_comp = pen.magic_comp( mnee.get_ctrl(), "ControlsComponent" )
+	if( pen.vld( ctrl_comp, true )) then
+		out = { ComponentGetValue2( ctrl_comp, "mButtonDown"..name ), ComponentGetValue2( ctrl_comp, "mButtonFrame"..name ) == frame }
+	end
+	return out
+end
+
+function mnee.mnin_key( name, pressed_mode, is_vip, key_mode )
+	if( GameHasFlagRun( mnee.SERV_MODE ) and not( mnee.ignore_service_mode )) then return false end
+	if( GameHasFlagRun( mnee.TOGGLER ) and not( is_vip )) then return false end
+	return pen.t.loop( mnee.get_keys( key_mode ), function( i, key )
+		if( key ~= name ) then return end
+		if( pressed_mode ) then
+			if( mnee.get_disarmer()[ "key"..key ] == nil ) then
+				mnee.add_disarmer( "key"..key )
+				return true
+			else return false end
+		else return true end
+	end) or false
+end
+
+function mnee.mnin_bind( mod_id, name, dirty_mode, pressed_mode, is_vip, loose_mode, key_mode )
+	local abort_tbl = { false, false, false }
+	if( GameHasFlagRun( mnee.SERV_MODE ) and not( mnee.ignore_service_mode )) then return unpack( abort_tbl ) end
+	if( GameHasFlagRun( mnee.TOGGLER ) and not( is_vip )) then return unpack( abort_tbl ) end
+	if( not( mnee.is_priority_mod( mod_id ))) then return unpack( abort_tbl ) end
+	
+	local keys_down = mnee.get_keys( key_mode )
+	local out, is_gone, is_jpad = false, true, false
+	local binding = mnee.get_bindings()[ mod_id ][ name ]
+	if( not( pen.vld( binding ))) then return unpack( abort_tbl ) end
+	if( not( pen.vld( keys_down ))) then return unpack( abort_tbl ) end
+	
+	for i = 1,2 do
+		local bind = mnee.get_bind( binding )[ i == 1 and "main" or "alt" ]
+		local high_score, score = pen.t.count( bind ), 0
+		if( bind["_"] ~= nil ) then
+			goto continue
+		else is_gone = false end
+
+		if( high_score < 1 ) then goto continue end
+		if( high_score > 1 and not( loose_mode ) and high_score ~= #keys_down ) then goto continue end
+		if( high_score == 1 and not( dirty_mode )) then
+			for i,key in ipairs( keys_down ) do
+				if( mnee.SPECIAL_KEYS[ key ] ~= nil ) then goto continue end
+			end
+		end
+		
+		for i,key in ipairs( keys_down ) do
+			if( bind[ key ] ~= nil ) then score = score + 1 end
+		end
+		if( score == high_score ) then
+			if( pressed_mode ) then
+				if( mnee.get_disarmer()[ mod_id..name ] == nil ) then
+					mnee.add_disarmer( mod_id..name )
+				else return unpack( abort_tbl ) end
+			end
+			out = true
+		end
+		
+		::continue::
+		if( out ) then
+			is_jpad = mnee.jpad_check( bind )
+			if( binding.on_down ~= nil ) then out = binding.on_down( binding, i == 2, is_jpad ) end
+			break
+		end
+	end
+	return out, is_gone, is_jpad
+end
+
+function mnee.mnin_axis( mod_id, name, dirty_mode, pressed_mode, is_vip, key_mode, skip_deadzone )
+	local abort_tbl = { 0, false, false, false }
+	if( GameHasFlagRun( mnee.SERV_MODE ) and not( mnee.ignore_service_mode )) then return unpack( abort_tbl ) end
+	if( GameHasFlagRun( mnee.TOGGLER ) and not( is_vip )) then return unpack( abort_tbl ) end
+	if( not( mnee.is_priority_mod( mod_id ))) then return unpack( abort_tbl ) end
+	
+	local binding = mnee.get_bindings()[ mod_id ][ name ]
+	local out, is_gone, is_buttoned, is_jpad = 0, true, false, false
+	if( not( pen.vld( binding ))) then return unpack( abort_tbl ) end
+
+	for i = 1,2 do
+		local bind = mnee.get_bind( binding )[ i == 1 and "main" or "alt" ]
+		local value, memo = mnee.get_axes()[ bind[2]] or 0, {}
+		if( bind[2] == "_" ) then
+			goto continue
+		else is_gone = false end
+		
+		is_buttoned = bind[3] ~= nil
+		if( is_buttoned ) then
+			if( mnee.mnin_key( bind[2], dirty_mode, pressed_mode, is_vip, key_mode )) then
+				out = -1
+			elseif( mnee.mnin_key( bind[3], dirty_mode, pressed_mode, is_vip, key_mode )) then
+				out = 1
+			end
+			goto continue
+		end
+		
+		if( not( skip_deadzone )) then
+			value = mnee.apply_deadzone( value, binding.jpad_type, binding.deadzone )
+		end
+
+		if( pressed_mode ) then
+			memo = mnee.get_axis_memo()
+			if( memo[ bind[2]] == nil ) then
+				if( math.abs( value ) > 0.5 ) then
+					mnee.toggle_axis_memo( bind[2])
+					out = pen.get_sign( value )
+				end
+			elseif( math.abs( value ) < 0.2 ) then
+				mnee.toggle_axis_memo( bind[2])
+			end
+		else out = value end
+
+		::continue::
+		if( out ~= 0 ) then is_jpad = mnee.jpad_check( bind ); break end
+	end
+	return out, is_gone, is_buttoned, is_jpad
+end
+
+function mnee.mnin_stick( mod_id, name, dirty_mode, pressed_mode, is_vip, key_mode )
+	local abort_tbl = {{ 0, 0 }, false, { false, false }, 0 }
+	if( GameHasFlagRun( mnee.SERV_MODE ) and not( mnee.ignore_service_mode )) then return unpack( abort_tbl ) end
+	if( GameHasFlagRun( mnee.TOGGLER ) and not( is_vip )) then return unpack( abort_tbl ) end
+	if( not( mnee.is_priority_mod( mod_id ))) then return unpack( abort_tbl ) end
+	
+	local binding = mnee.get_bindings()[ mod_id ][ name ]
+	if( binding == nil ) then return unpack( abort_tbl ) end
+
+	local acc = 100
+	local val_x, gone_x, buttoned_x = mnee.mnin_axis( mod_id, binding.axes[1], dirty_mode, pressed_mode, is_vip, key_mode, true )
+	local val_y, gone_y, buttoned_y = mnee.mnin_axis( mod_id, binding.axes[2], dirty_mode, pressed_mode, is_vip, key_mode, true )
+	local magnitude = mnee.apply_deadzone( math.sqrt( val_x^2 + val_y^2 ), binding.jpad_type, binding.deadzone )
+	local direction = math.rad( math.floor( math.deg( math.atan2( val_y, val_x )) + 0.5 ))
+	val_x, val_y = pen.rounder( magnitude*math.cos( direction ), acc ), pen.rounder( magnitude*math.sin( direction ), acc )
+	return { val_x, val_y }, gone_x or gone_y, { buttoned_x, buttoned_y }, direction
+end
+
+function mnee.mnin( mode, id_data, data )
+	local map = {
+		key = { mnee.mnin_key, {1}, { "pressed", "vip", "mode" }},
+		bind = { mnee.mnin_bind, {1,2}, { "dirty", "pressed", "vip", "loose", "mode" }},
+		axis = { mnee.mnin_axis, {1,2}, { "dirty", "pressed", "vip", "mode" }},
+		stick = { mnee.mnin_stick, {1,2}, { "dirty", "pressed", "vip", "mode" }},
+	}
+
+	data, func = data or {}, map[ mode ]
+	id_data = pen.get_hybrid_table( id_data )
+	
+	local inval = {}
+	for i,v in ipairs( func[2]) do
+		if( id_data[v] ~= nil ) then table.insert( inval, id_data[v]) end
+	end
+	for i,v in ipairs( func[3]) do
+		table.insert( inval, data[v] or false )
+	end
+	return func[1]( unpack( inval ))
+end
+
+function mnee.get_keyboard_input( no_shifting )
+	local lists = dofile_once( "mods/mnee/lists.lua" )
+	local is_shifted = ( InputIsKeyDown( 225 ) or InputIsKeyDown( 229 )) and not( no_shifting )
+	for i = 4,56 do
+		if( InputIsKeyJustDown( i )) then
+			local value = lists[1][i]
+			if( is_shifted ) then
+				value = mnee.get_shifted_key( value )
+			elseif( i > 39 and i < 45 ) then
+				if( i == 40 ) then
+					value = 3
+				elseif( i == 41 ) then
+					value = 0
+				elseif( i == 42 ) then
+					value = 2
+				elseif( i == 43 ) then
+					value = 4
+				elseif( i == 44 ) then
+					value = " "
+				end
+			end
+			return value
+		end
+	end
+	for i = 1,10 do
+		if( InputIsKeyJustDown( 88 + i )) then
+			return string.sub( tostring( i ), -1 )
+		end
+	end
 end
 
 --[GLOBALS]

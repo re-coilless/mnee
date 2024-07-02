@@ -8,10 +8,23 @@ function OnModInit()
 		pen.setting_set( "mnee.CTRL_AUTOMAPPING", true )
 	end
 	
-	--implant penman into mnee (and test it with most disgusting malformed data possible)
-	--LLS documentation of all funcs
-	--make mnee the main propero mod (p2k must pull all the sounds and such from it)
+	pen.migrate( "mnee", {
+		[2] = function( prefix, current_version )
+			pen.setting_set( prefix.."SETUP", "" )
+			pen.setting_set( prefix.."PROFILE", 2 )
+			for i = 1,3 do
+				ModSettingRemove( prefix.."BINDINGS_"..i )
+				ModSettingRemove( prefix.."BINDINGS_ALT_"..i )
+			end
+		end,
+	})
 
+	--implant penman into mnee (and test it with most disgusting malformed data possible)
+	--test performance
+	--change penman/_penman back to mnee/_penman
+	--LLS documentation of all funcs + update actual documentation
+	--make mnee the main propero mod (p2k must pull all the sounds and such from it)
+	
 	-- make procedural pause screen keyboard that highlights all the bind's keys on hover of one of them (only if the moddev marked the binding as show_on_pause)
 	-- add separate full-sized fancy key name getter with full length names
 
@@ -46,14 +59,12 @@ function OnModInit()
 			else
 				if( is_real ) then
 					if( j > 0 and not( init_only )) then
-						mnee.G.jpad_states[i] = 0
-						return i - 1
+						mnee.G.jpad_states[i] = 0; return i - 1
 					end
 				else
 					for e,jp in ipairs( mnee.G.jpad_maps ) do
 						if( jp == ( i - 1 )) then
-							mnee.G.jpad_maps[e] = -1
-							break
+							mnee.G.jpad_maps[e] = -1; break
 						end
 					end
 					
@@ -81,23 +92,16 @@ function OnModInit()
 		end
 	end
 	mnee.jpad_update = function( num )
-		local out, callbacking = nil, false
+		local out = 0
 		if( num < 0 ) then
 			mnee.G.jpad_states[ mnee.G.jpad_maps[ math.abs( num )] + 1 ] = 1
 			mnee.G.jpad_maps[ math.abs( num )] = -1
-			callbacking = true
 		else
-			local val = mnee.jpad_next()
-			if( val > 0 ) then
-				mnee.G.jpad_maps[ num ] = val
-				callbacking = true
-			end
-			out = val
+			out = mnee.jpad_next()
+			if( out > 0 ) then mnee.G.jpad_maps[ num ] = out end
 		end
 
-		if( callbacking ) then
-			mnee.jpad_callback( out, num )
-		end
+		if( num < 0 or out > 0 ) then mnee.jpad_callback( out, num ) end
 		return out
 	end
 	
@@ -165,14 +169,9 @@ function OnWorldPreUpdate()
 	if( GameHasFlagRun( mnee.JPAD_UPDATE )) then
 		GameRemoveFlagRun( mnee.JPAD_UPDATE )
 		pen.t.loop( pen.t.pack( pen.magic_storage( ctrl_body, "mnee_jpads", "value_string" )), function( i, v )
-			if( mnee.G.jpad_maps[i] ~= v ) then
-				mnee.G.jpad_maps[i] = v
-				mnee.jpad_callback( v, i )
-			end
+			if( mnee.G.jpad_maps[i] ~= v ) then mnee.G.jpad_maps[i] = v; mnee.jpad_callback( v, i ) end
 		end)
-	else
-		mnee.apply_jpads( mnee.G.jpad_maps, true )
-	end
+	else mnee.apply_jpads( mnee.G.jpad_maps, true ) end
 
 	local button_deadzone = pen.setting_get( "mnee.DEADZONE_BUTTON" )/20
 	local active_core = mnee.get_current_keys()..pen.t.loop_concat( pen.t.unarray( mnee.get_axes()), function( i, v )

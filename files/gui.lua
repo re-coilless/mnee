@@ -1,6 +1,4 @@
---make sure that all resetting business is done per-profile
 --main window frame opening bounce anim + side bars opening anims (call pen.atimer( auid, nil, true ) to init it)
---add anim ids
 
 local KEYS = mnee.get_bindings()
 local profile = pen.setting_get( "mnee.PROFILE" )
@@ -24,22 +22,25 @@ local gonna_rebind = pen.vld( mnee.G.current_binding )
 if( not( gonna_rebind )) then
     local txt = GameTextGetTranslatedOrNot( "$mnee_title"..( mnee.G.show_alt and "B" or "A" ))
     if( mnee.G.show_alt ) then uid = pen.new_image( gui, uid, pic_x, pic_y, pic_z + 0.001, "mods/mnee/files/pics/title_bg.png" ) end
-    uid = pen.new_text( gui, uid, pic_x + 142, pic_y, pic_z, txt, {
+    uid = pen.new_text( gui, uid, pic_x + 142, pic_y, pic_z, txt, { fast_render = true,
         is_right_x = true, color = pen.PALETTE.PRSP[ mnee.G.show_alt and "BLUE" or "WHITE" ]})
     
     uid, clicked = mnee.new_button( gui, uid, pic_x + pic_w - 8, pic_y + 2, pic_z,
         "mods/mnee/files/pics/key_close.png", {
+        auid = "window_close", no_anim = true,
         tip = GameTextGetTranslatedOrNot( "$mnee_close" ),
         highlight = pen.PALETTE.PRSP.WHITE })
     if( clicked ) then mnee.G.gui_active = false; mnee.play_sound( "close_window" ) end
     
     uid, clicked = mnee.new_button( gui, uid, pic_x + pic_w - 15, pic_y + 2, pic_z,
         "mods/mnee/files/pics/key_"..( mnee.G.show_alt and "B" or "A" )..".png", {
+        auid = "window_alt",
         tip = GameTextGetTranslatedOrNot( "$mnee_alt"..( mnee.G.show_alt and "B" or "A" )),
         highlight = pen.PALETTE.PRSP.WHITE })
     if( clicked ) then mnee.G.show_alt = not( mnee.G.show_alt ); mnee.play_sound( "button_special" ) end
     
     uid, mnee.G.mod_page = mnee.new_pager( gui, uid, pic_x + 2, pic_y, pic_z, {
+        auid = "mod",
         list = KEYS, items_per_page = 8, page = mnee.G.mod_page,
         func = function( gui, uid, pic_x, pic_y, pic_z, i,v,k,c )
             local is_fancy = _MNEEDATA[i] ~= nil
@@ -52,9 +53,10 @@ if( not( gonna_rebind )) then
             local name = pen.magic_translate( is_fancy and _MNEEDATA[i].name or i )
             uid, clicked = mnee.new_button( gui, uid, t_x, t_y, pic_z,
                 "mods/mnee/files/pics/button_43_"..( is_current and "B" or "A" )..".png", {
+                auid = "mod",
                 tip = name..( is_current and (( is_fancy and _MNEEDATA[i].desc ~= nil ) and " @ "..pen.magic_translate( _MNEEDATA[i].desc ) or "" ) or " @ "..GameTextGetTranslatedOrNot( "$mnee_lmb_keys" )),
                 highlight = pen.PALETTE.PRSP[ is_current and "BLUE" or "RED" ]})
-            uid = pen.new_text( gui, uid, t_x + 43/2, t_y, pic_z - 0.01, name, {
+            uid = pen.new_text( gui, uid, t_x + 43/2, t_y, pic_z - 0.01, name, { fast_render = true,
                 dims = {39,0}, is_centered_x = true, color = pen.PALETTE.PRSP[ is_current and "RED" or "WHITE" ]})
             if( clicked ) then mnee.G.binding_page, mnee.G.current_mod = 1, i; mnee.play_sound( "button_special" ) end
 
@@ -66,25 +68,26 @@ if( not( gonna_rebind )) then
     if( _MNEEDATA[ mnee.G.current_mod ] ~= nil ) then
         meta.func = _MNEEDATA[ mnee.G.current_mod ].func
         meta.is_advanced = _MNEEDATA[ mnee.G.current_mod ].is_advanced or false
-        meta.is_locked = pen.get_hybrid_function( _MNEEDATA[ mnee.G.current_mod ].is_locked, { mnee.G.current_mod, mnee.G.jpad_maps }) or false
+        meta.is_locked = pen.get_hybrid_function( _MNEEDATA[ mnee.G.current_mod ].is_locked, {
+            mnee.G.current_mod, mnee.G.jpad_maps
+        }) or false
     end
 
     if( meta.func ~= nil ) then
         local result = false
         uid, result = pen.catch( meta.func, { gui, uid, t_x, t_y, pic_z, {
-            a = starter,
-            b = ender,
             ks = KEYS,
             k_type = key_type,
-        }}, {uid,false})
+        }}, { uid, false })
         if( result ) then
-            current_binding = result.set_bind
-            doing_axis = result.will_axis
-            btn_axis_mode = result.btn_axis
-            advanced_mode = result.set_advanced
+            mnee.G.current_binding = result.set_bind
+            mnee.G.doing_axis = result.will_axis
+            mnee.G.btn_axis_mode = result.btn_axis
+            mnee.G.advanced_mode = result.set_advanced
         end
     else
         uid, mnee.G.binding_page = mnee.new_pager( gui, uid, pic_x + 48, pic_y, pic_z, {
+            auid = "bind",
             list = KEYS[ mnee.G.current_mod ], items_per_page = 8, page = mnee.G.binding_page,
             func = function( gui, uid, pic_x, pic_y, pic_z, i,v,k,c )
                 if( pen.get_hybrid_function( v.is_hidden, {{ mnee.G.current_mod, i }, mnee.G.jpad_maps })) then
@@ -100,6 +103,7 @@ if( not( gonna_rebind )) then
                 local t_x, t_y = pic_x, pic_y + k*11
                 uid, clicked, r_clicked = pen.catch( mnee.new_button, { gui, uid, t_x, t_y, pic_z,
                     "mods/mnee/files/pics/button_74_"..( is_static and "B" or "A" )..".png", {
+                    auid = "bind", no_anim = true,
                     tip = table.concat({
                         is_axis and ( GameTextGet( "$mnee_axis", v.jpad_type or "EXTRA" )..( is_static and "" or " @ " )) or "",
                         is_static and GameTextGetTranslatedOrNot( "$mnee_static" ).." @ " or "",
@@ -108,7 +112,7 @@ if( not( gonna_rebind )) then
                         is_axis and " @ "..GameTextGetTranslatedOrNot( "$mnee_lmb_axis" ) or "",
                     }),
                     highlight = pen.PALETTE.PRSP[ is_static and "BLUE" or "RED" ]}})
-                uid = pen.new_text( gui, uid, t_x + 74/2, t_y, pic_z - 0.01, pen.magic_translate( v.name ), {
+                uid = pen.new_text( gui, uid, t_x + 74/2, t_y, pic_z - 0.01, pen.magic_translate( v.name ), { fast_render = true,
                     dims = {70,0}, is_centered_x = true, color = pen.PALETTE.PRSP[ is_static and "BLUE" or "WHITE" ]})
                 if( clicked or r_clicked ) then
                     if( not( is_static )) then
@@ -117,13 +121,11 @@ if( not( gonna_rebind )) then
                         mnee.G.btn_axis_mode = is_axis and r_clicked
                         mnee.play_sound( "select" )
                         
-                        if( v.never_advanced ) then
-                            mnee.G.advanced_mode = false
-                        else
+                        if( not( v.never_advanced )) then
                             mnee.G.advanced_mode = v.is_advanced
                             if( mnee.G.advanced_mode == nil ) then mnee.G.advanced_mode = meta.is_advanced or false end
                             mnee.G.advanced_mode = mnee.G.advanced_mode or ( r_clicked and not( is_axis ))
-                        end
+                        else mnee.G.advanced_mode = false end
                     else
                         GamePrint( GameTextGetTranslatedOrNot( "$mnee_error" ).." "..GameTextGetTranslatedOrNot( "$mnee_no_change" ))
                         mnee.play_sound( "error" )
@@ -132,15 +134,14 @@ if( not( gonna_rebind )) then
                 
                 uid, clicked, r_clicked = mnee.new_button( gui, uid, t_x + 75, t_y, pic_z,
                     "mods/mnee/files/pics/key_delete.png", {
+                    auid = "bind_delete",
                     tip = GameTextGetTranslatedOrNot( "$mnee_rmb_default" )})
                 if( r_clicked ) then
-                    -- if( v.axes ~= nil ) then
-                    --     KEYS[ mnee.G.current_mod ][ v.axes[1]] = nil
-                    --     KEYS[ mnee.G.current_mod ][ v.axes[2]] = nil
-                    -- else
-                    --     KEYS[ mnee.G.current_mod ][ i ] = nil
-                    -- end
-                    -- KEYS = mnee.update_bindings( KEYS )
+                    if( v.axes ~= nil ) then
+                        mnee.get_bind( KEYS[ mnee.G.current_mod ][ v.axes[1]]) = nil
+                        mnee.get_bind( KEYS[ mnee.G.current_mod ][ v.axes[2]]) = nil
+                    else mnee.get_bind( KEYS[ mnee.G.current_mod ][ i ]) = nil end
+                    mnee.update_bindings( KEYS )
                     mnee.play_sound( "clear_all" )
                     
                     if( _MNEEDATA[ mnee.G.current_mod ] ~= nil ) then
@@ -158,6 +159,7 @@ if( not( gonna_rebind )) then
     
     uid = mnee.new_button( gui, uid, pic_x + 101, pic_y + 99, pic_z,
         "mods/mnee/files/pics/help.png", {
+        auid = "help_main",
         tip = table.concat({
             GameTextGetTranslatedOrNot( "$mnee_lmb_bind" ), " @ ",
             GameTextGetTranslatedOrNot( "$mnee_rmb_advanced" ), " @ ",
@@ -168,9 +170,13 @@ if( not( gonna_rebind )) then
     
     uid, clicked, r_clicked = mnee.new_button( gui, uid, pic_x + 112, pic_y + 99, pic_z,
         "mods/mnee/files/pics/button_dft.png", {
+        auid = "mod_reset",
         tip = GameTextGetTranslatedOrNot( "$mnee_rmb_mod" )})
     if( r_clicked ) then
-        -- mnee.apply_setup( current_mod, mnee.get_setup_id( current_mod, profile ))
+        for bind,bind_tbl in pairs( KEYS[ mnee.G.current_mod ]) do
+            if( bind_tbl.axes == nil ) then mnee.get_bind( bind_tbl ) = nil end
+        end
+        mnee.update_bindings( KEYS )
         mnee.play_sound( "clear_all" )
         
         if( _MNEEDATA[ mnee.G.current_mod ] ~= nil ) then
@@ -185,6 +191,7 @@ if( not( gonna_rebind )) then
     
     uid, clicked = mnee.new_button( gui, uid, pic_x + 136, pic_y + 11, pic_z,
         "mods/mnee/files/pics/button_tgl_"..( is_disabled and "A" or "B" )..".png", {
+        auid = "main_toggle",
         tip = GameTextGetTranslatedOrNot( "$mnee_lmb_input"..( is_disabled and "A" or "B" )),
         highlight = pen.PALETTE.PRSP[ is_disabled and "BLUE" or "RED" ]})
     if( clicked ) then
@@ -195,10 +202,12 @@ if( not( gonna_rebind )) then
     
     uid, clicked, r_clicked = mnee.new_button( gui, uid, pic_x + 136, pic_y + 22, pic_z,
         "mods/mnee/files/pics/button_rst.png", {
+        auid = "full_reset",
         tip = GameTextGetTranslatedOrNot( "$mnee_rmb_reset" )})
     if( r_clicked ) then
         mnee.play_sound( "delete" )
         pen.setting_set( "mnee.SETUP", "" )
+        pen.setting_set( "mnee.PROFILE", 2 )
         pen.setting_set( "mnee.BINDINGS", "" )
         GlobalsSetValue( mnee.UPDATER, GameGetFrameNum())
     end
@@ -206,6 +215,7 @@ if( not( gonna_rebind )) then
     if( _MNEEDATA[ mnee.G.current_mod ] ~= nil and _MNEEDATA[ mnee.G.current_mod ].setup_modes ~= nil ) then
         uid, clicked = mnee.new_button( gui, uid, pic_x + 136, pic_y + 66, pic_z,
             "mods/mnee/files/pics/button_stp_"..( mnee.G.stp_panel and "B" or "A" )..".png", {
+            auid = "setup_toggle",
             tip = GameTextGetTranslatedOrNot( "$mnee_lmb_setups" )
             highlight = pen.PALETTE.PRSP[ mnee.G.stp_panel and "BLUE" or "RED" ]})
         if( clicked ) then
@@ -217,6 +227,7 @@ if( not( gonna_rebind )) then
 
     uid, clicked = mnee.new_button( gui, uid, pic_x + 136, pic_y + 77, pic_z,
         "mods/mnee/files/pics/button_ctl_"..( mnee.G.ctl_panel and "B" or "A" )..".png", {
+        auid = "ctrl_toggle",
         tip = GameTextGetTranslatedOrNot( "$mnee_lmb_jpads" ),
         highlight = pen.PALETTE.PRSP[ mnee.G.ctl_panel and "BLUE" or "RED" ]})
     if( clicked ) then
@@ -226,32 +237,38 @@ if( not( gonna_rebind )) then
     end
     
     if( mnee.G.stp_panel ) then
-        if( not( _MNEEDATA[ mnee.G.current_mod ].setup_modes[1].dtf )) then
+        if( not( _MNEEDATA[ mnee.G.current_mod ].setup_modes[1].dft )) then
             table.insert( _MNEEDATA[ mnee.G.current_mod ].setup_modes, 1, _MNEEDATA[ mnee.G.current_mod ].setup_default or {
                 name = "$mnee_default",
                 desc = "$mnee_default_desc",
             })
-            _MNEEDATA[ mnee.G.current_mod ].setup_modes[1].id = "dft"
-            _MNEEDATA[ mnee.G.current_mod ].setup_modes[1].dtf = true
+            _MNEEDATA[ mnee.G.current_mod ].setup_modes[1].id = "_dft"
+            _MNEEDATA[ mnee.G.current_mod ].setup_modes[1].dft = true
         end
         
         local setup_memo = mnee.get_setup_memo()
         uid, mnee.G.setup_page = mnee.new_pager( gui, uid, pic_x + 160, pic_y + 33, pic_z, {
+            auid = "setup",
             list = _MNEEDATA[ mnee.G.current_mod ].setup_modes, items_per_page = 5, page = mnee.G.setup_page,
             func = function( gui, uid, pic_x, pic_y, pic_z, i,v,k,c )
                 local t_x, t_y = pic_x, pic_y + k*11
                 local is_going = ( setup_memo[ profile ] or setup_memo[1])[ mnee.G.current_mod ] == v.id
                 uid, clicked = mnee.new_button( gui, uid, t_x, t_y, pic_z,
                     "mods/mnee/files/pics/button_21_"..( is_going and "B" or "A" )..".png", {
+                    auid = "setup",
                     tip = table.concat({
                         GameTextGetTranslatedOrNot( "$mnee_setup_warning" ), " @ ",
                         pen.magic_translate( setup.name ), ": ", pen.magic_translate( setup.desc )
                     }),
                     highlight = pen.PALETTE.PRSP[ is_going and "BLUE" or "RED" ]})
                 uid = pen.new_text( gui, uid, t_x + 21/2, t_y, pic_z - 0.01, string.upper( string.sub( setup.btn or setup.id, 1, 3 )), {
-                    dims = {17,0}, is_centered_x = true, color = pen.PALETTE.PRSP[ is_going and "RED" or "WHITE" ]})
+                    fast_render = true, dims = {17,0}, is_centered_x = true, color = pen.PALETTE.PRSP[ is_going and "RED" or "WHITE" ]})
                 if( clicked ) then
-                    -- mnee.apply_setup( current_mod, setup.id )
+                    mnee.set_setup_id( mnee.G.current_mod, v.id )
+                    for bind,bind_tbl in pairs( KEYS[ mnee.G.current_mod ]) do
+                        if( bind_tbl.axes == nil ) then mnee.get_bind( bind_tbl ) = nil end
+                    end
+                    mnee.update_bindings( KEYS )
                     mnee.play_sound( "switch_page" )
                 end
 
@@ -269,6 +286,7 @@ if( not( gonna_rebind )) then
 
         uid, clicked, r_clicked = mnee.new_button( gui, uid, pic_x + 160, pic_y + 55, pic_z,
             "mods/mnee/files/pics/scan/_hitbox.png", {
+            auid = "automap_toggle", no_anim = true,
             tip = table.concat({ GameTextGet( "$mnee_jpad_count", mnee.G.jpad_count ), " @ ",
             GameTextGetTranslatedOrNot( "$mnee_rmb_scan"..( mnee.stl.jauto and "B" or "A" ))})})  
         if( r_clicked ) then
@@ -279,7 +297,7 @@ if( not( gonna_rebind )) then
         for i = 1,4 do
             local is_real = mnee.G.jpad_maps[i]
             uid, clicked, r_clicked = pen.new_button( gui, uid, pic_x + 160, pic_y + 66 + 11*( i - 1 ), pic_z,
-                "mods/mnee/files/pics/button_10_"..( is_real and "B" or "A" )..".png", {
+                "mods/mnee/files/pics/button_10_"..( is_real > 0 and "B" or "A" )..".png", {
                 tip = table.concat(
                     is_real > 0 and {
                         GameTextGetTranslatedOrNot( "$mnee_jpad_id" ),
@@ -290,12 +308,12 @@ if( not( gonna_rebind )) then
                         GameTextGetTranslatedOrNot( "$mnee_rmb_dummy" )
                     }
                 ),
-                highlight = pen.PALETTE.PRSP[ is_real and "BLUE" or "RED" ]})
-            uid = pen.new_text( gui, uid, pic_x + 160 + 10/2, pic_y + 66 + 11*( i - 1 ), pic_z - 0.01, i, {
+                highlight = pen.PALETTE.PRSP[ is_real > 0 and "BLUE" or "RED" ]})
+            uid = pen.new_text( gui, uid, pic_x + 160 + 10/2, pic_y + 66 + 11*( i - 1 ), pic_z - 0.01, i, { fast_render = true,
                 dims = {10,0}, is_centered_x = true, color = pen.PALETTE.PRSP[ is_real > 0 and ( is_real > 4 and "BLUE" or "RED" ) or "WHITE" ]})
             if( clicked ) then
                 if( mnee.G.jpad_count > 0 or mnee.G.jpad_maps[i] > 4 ) then
-                    if( is_real ) then
+                    if( is_real > 0 ) then
                         mnee.jpad_update( -i )
                         mnee.play_sound( "delete" )
                     else
@@ -312,7 +330,7 @@ if( not( gonna_rebind )) then
                     mnee.play_sound( "error" )
                 end
             end
-            if( not( is_real ) and r_clicked ) then
+            if( is_real < 0 and r_clicked ) then
                 mnee.G.jpad_maps[i] = 5
                 mnee.play_sound( "select" )
             end
@@ -322,7 +340,8 @@ if( not( gonna_rebind )) then
     end
     
     local new_profile = profile
-    uid, new_profile = mnee.new_pager( gui, uid, pic_x + 160, pic_y + 33, pic_z, { profile_mode = true, page = profile, list = 26 })
+    uid, new_profile = mnee.new_pager( gui, uid, pic_x + 160, pic_y + 33, pic_z, {
+        auid = "profile", profile_mode = true, page = profile, list = 26 })
     if( profile ~= new_profile ) then pen.setting_set( "mnee.PROFILE", new_profile ) end
     
     uid, mnee.G.pos[1], mnee.G.pos[2] = pen.new_dragger( gui, uid, "mnee_window", pic_x, pic_y, 142, 9, is_debugging )
@@ -409,6 +428,7 @@ else
     else
         uid = mnee.new_button( gui, uid, pic_x + 3, pic_y + 71, pic_z,
             "mods/mnee/files/pics/help.png", {
+            auid = "help_rebinding",
             tip = GameTextGetTranslatedOrNot( "$mnee_binding_"..( doing_jpad and "axis" or ( mnee.G.advanced_mode and "advanced" or "simple" )))
             no_anim = true, highlight = pen.PALETTE.PRSP.BLUE,
         })
@@ -418,6 +438,7 @@ else
         if(( mnee.G.btn_axis_counter or 1 )%2 == 1 ) then
             uid, clicked, r_clicked = mnee.new_button( gui, uid, pic_x + 146, pic_y + 71, pic_z,
                 "mods/mnee/files/pics/key_unbind.png", {
+                auid = "unbind", no_anim = true,
                 tip = GameTextGetTranslatedOrNot( "$mnee_lmb_unbind" )..(
                     doing_swap and " @ "..GameTextGetTranslatedOrNot( "$mnee_rmb_unbind" ) or ""
                 ),
@@ -433,7 +454,7 @@ else
             if( pen.vld( active )) then
                 mnee.G.advanced_timer = mnee.G.advanced_timer + 1
                 pen.new_text( gui, pic_x + 77, pic_y + 73, pic_z, math.ceil(( 300 - mnee.G.advanced_timer )/60 ), {
-                    color = pen.PALETTE.PRSP.RED})
+                    fast_render = true, color = pen.PALETTE.PRSP.RED})
                 if( mnee.G.advanced_timer >= 300 ) then enter_down, mnee.G.advanced_timer = true, 0 end
             else mnee.G.advanced_timer = 0 end
         end
@@ -469,38 +490,29 @@ else
             end
         end
 
-        local this_b = KEYS[ mnee.G.current_mod ][ c_bind ]
+        local this_b = mnee.get_bind( KEYS[ mnee.G.current_mod ][ c_bind ])
         if( nuke_em ) then
             local k_type = key_type
             if( doing_swap ) then
-                if( nuke_em ~= 1 ) then
-                    this_b.keys = this_b.keys_alt
-                end
-                k_type = "keys_alt"
+                if( nuke_em ~= 1 ) then this_b.main = this_b.alt end
+                k_type = "alt"
             end
-            if( doing_jpad ) then
-                this_b[ k_type ] = { "is_axis", "_", }
-            else
+            if( not( doing_jpad )) then
                 local new_bind = {}
                 if( mnee.G.btn_axis_mode ) then
                     new_bind = this_b[ k_type ]
                     new_bind[ 2 ] = "_"
                     new_bind[ 3 ] = "_"
                     mnee.G.btn_axis_counter = ( mnee.G.btn_axis_counter or 1 ) + 1
-                else
-                    new_bind[ "_" ] = 1
-                end
+                else new_bind[ "_" ] = 1 end
                 this_b[ k_type ] = new_bind
-            end
-            if( nuke_em == 1 ) then
-                this_b.keys = this_b.keys_alt
-            end
+            else this_b[ k_type ] = { "is_axis", "_", } end
+            if( nuke_em == 1 ) then this_b.main = this_b.alt end
             mnee.G.gui_retoggler = true
             mnee.play_sound( "delete" )
         elseif( doing_jpad ) then
-            local axes = mnee.get_axes()
             local champ = { 0, 0 }
-            for ax,v in pairs( axes ) do
+            for ax,v in pairs( mnee.get_axes()) do
                 if( math.abs( v ) > 0.8 ) then
                     champ = math.abs( champ[2]) < math.abs( v ) and { ax, v, } or champ
                 end
@@ -511,8 +523,7 @@ else
                 mnee.play_sound( "switch_dimension" )
             end
         elseif( enter_down ) then
-            local changed = false
-            local new_bind = {}
+            local new_bind, changed = {}, false
             for i,key in ipairs( active ) do
                 if( key ~= "return" ) then
                     changed = true
@@ -530,18 +541,18 @@ else
             end
             if( changed ) then
                 this_b[ key_type ] = new_bind
+                mnee.update_bindings( KEYS )
             end
             mnee.G.gui_retoggler = true
             mnee.play_sound( "switch_dimension" )
         end
         
         if( mnee.G.gui_retoggler ) then
-            mnee.set_bindings( KEYS )
             if( _MNEEDATA[ mnee.G.current_mod ] ~= nil and _MNEEDATA[ mnee.G.current_mod ].on_changed ~= nil ) then
                 _MNEEDATA[ mnee.G.current_mod ].on_changed( _MNEEDATA[ mnee.G.current_mod ])
             end
-            if( this_b.on_changed ~= nil ) then
-                this_b.on_changed( this_b )
+            if( KEYS[ mnee.G.current_mod ][ c_bind ].on_changed ~= nil ) then
+                KEYS[ mnee.G.current_mod ][ c_bind ].on_changed( KEYS[ mnee.G.current_mod ][ c_bind ])
             end
         end
     end

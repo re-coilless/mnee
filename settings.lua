@@ -13,7 +13,7 @@ function mod_setting_full_resetter( mod_id, gui, in_main_menu, im_id, setting )
 	if( right_clicked ) then
 		local is_proper = GameHasFlagRun( "MNEE_IS_GOING" )
 		
-		ModSettingSetNextValue( "mnee.PROFILE", "", 1 )
+		ModSettingSetNextValue( "mnee.PROFILE", 2, false )
 		ModSettingSetNextValue( "mnee.SETUP", "", false )
 		ModSettingSetNextValue( "mnee.BINDINGS", "", false )
 		if( is_proper ) then
@@ -99,13 +99,12 @@ function text_with_no_mod( key ) --inspired by Conga's approach
 end
 
 function add_dynamic_fields( tbl, fields ) --thanks to ImmortalDamned
-    setmetatable( tbl, {
+    return setmetatable( tbl, {
         __index = function( _, k )
             local f = fields[k]
             return f and f()
         end
     })
-    return tbl
 end
 
 local mod_id = "mnee"
@@ -208,7 +207,7 @@ mod_settings =
 		ui_name = "Binding Profile",
 		ui_description = "",
 		hidden = true,
-		value_default = 1,
+		value_default = 2,
 		scope = MOD_SETTING_SCOPE_RUNTIME,
 	},
 	{

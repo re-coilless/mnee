@@ -18,7 +18,10 @@ function OnModInit()
 			end
 		end,
 	})
-
+	
+	--fresh start is broken
+	--old saves are broken
+	
 	--implant penman into mnee (and test it with most disgusting malformed data possible)
 	--test performance
 	--change penman/_penman back to mnee/_penman
@@ -43,7 +46,7 @@ function OnModInit()
 
 	mnee.G.gui_active = mnee.G.gui_active or false
 	mnee.G.gui_retoggler = mnee.G.gui_retoggler or false
-	mnee.G.max_profiles = mnee.G.max_profiles or 26
+	mnee.G.max_profiles = mnee.G.max_profiles or 27
 
 	mnee.G.jpad_count = 0
 	mnee.G.jpad_maps = mnee.G.jpad_maps or { -1, -1, -1, -1 }
@@ -109,20 +112,20 @@ function OnModInit()
 		local lists = dofile_once( "mods/mnee/lists.lua" )
 		return table.concat({ pen.DIV_1,
 			pen.t.loop_concat( lists[1], function( i, key ) --keyboard
-				if( key ~= "[NONE]"  ) then return end
+				if( key == "[NONE]"  ) then return end
 				if( mnee.BANNED_KEYS[ key ]) then return end
 				if( not( InputIsKeyDown( i ))) then return end
 				return { key, pen.DIV_1 }
 			end),
 			pen.t.loop_concat( lists[2], function( i, key ) --mouse
-				if( key ~= "[NONE]"  ) then return end
+				if( key == "[NONE]"  ) then return end
 				if( not( InputIsMouseButtonDown( i ))) then return end
 				return { key, pen.DIV_1 }
 			end),
 			pen.t.loop_concat( mnee.G.jpad_maps, function( i, real_num ) --gamepad
 				if( real_num < 0 ) then return end
 				return pen.t.loop_concat( lists[3], function( k, key )
-					if( key ~= "[NONE]"  ) then return end
+					if( key == "[NONE]"  ) then return end
 					if( not( InputIsJoystickButtonDown( real_num, k ))) then return end
 					return { i, "gpd_", key, pen.DIV_1 }
 				end)..pen.t.loop_concat({0,1}, function( k, v )
@@ -161,7 +164,7 @@ function OnWorldPreUpdate()
 	if( not( GameHasFlagRun( mnee.INITER ))) then return end
 	local ctrl_body = mnee.get_ctrl()
 	if( not( pen.vld( ctrl_body, true ))) then return end
-
+	
 	mnee.clean_disarmer()
 	mnee.jpad_next( true )
 	pen.magic_storage( ctrl_body, "mnee_axis", "value_string", mnee.get_current_axes())
@@ -186,6 +189,7 @@ function OnWorldPreUpdate()
 	if( mnee.mnin( "bind", { "mnee", "menu" }, { pressed = true, vip = true })) then
 		mnee.play_sound( mnee.G.gui_active and "close_window" or "open_window" )
 		mnee.G.gui_active = not( mnee.G.gui_active )
+		if( mnee.G.gui_active ) then pen.atimer( "main_window", nil, true ) end
 	end
 	if( mnee.mnin( "bind", { "mnee", "off" }, { pressed = true, vip = true })) then
 		local has_flag = GameHasFlagRun( mnee.TOGGLER )
@@ -212,21 +216,17 @@ function OnWorldPreUpdate()
 		mnee.G.UI = mnee.G.UI or GuiCreate()
 		GuiStartFrame( mnee.G.UI )
 		dofile( "mods/mnee/files/gui.lua" )
-	else
-		mnee.G.UI = pen.gui_killer( mnee.G.UI )
-	end
+	else mnee.G.UI = pen.gui_killer( mnee.G.UI ) end
 	
 	for i,gslot in ipairs( mnee.stl.jslots ) do
 		if( gslot or mnee.stl.jauto ) then
 			if( mnee.G.jpad_maps[i] < 0 ) then
 				local ctl = mnee.jpad_update( i )
 				if( not( mnee.stl.jauto )) then
-					if(( ctl or -1 ) > 0 ) then
-						mnee.play_sound( "confirm" )
-					else
+					if(( ctl or -1 ) == -1 ) then
 						GamePrint( GameTextGetTranslatedOrNot( "$mnee_error" ))
 						mnee.play_sound( "error" )
-					end
+					else mnee.play_sound( "confirm" ) end
 				end
 			elseif( not( mnee.stl.jauto )) then
 				GamePrint( GameTextGetTranslatedOrNot( "$mnee_no_slot" ))
@@ -251,10 +251,10 @@ function OnPlayerSpawned( hooman )
 	EntityAddChild( world_id, entity_id )
 	
 	pen.magic_storage( entity_id, "mnee_down", "value_string", "" )
-	pen.magic_storage( entity_id, "mnee_disarmer", "value_string", "" )
+	pen.magic_storage( entity_id, "mnee_disarmer", "value_string", pen.DIV_1 )
 	pen.magic_storage( entity_id, "mnee_triggers", "value_string", "" )
 	pen.magic_storage( entity_id, "mnee_axis", "value_string", "" )
-	pen.magic_storage( entity_id, "mnee_axis_memo", "value_string", "" )
+	pen.magic_storage( entity_id, "mnee_axis_memo", "value_string", pen.DIV_1 )
 	pen.magic_storage( entity_id, "mnee_jpads", "value_string", "" )
 	
 	mnee.update_bindings()

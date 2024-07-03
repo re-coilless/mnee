@@ -10,7 +10,7 @@ function mnee.order_sorter( tbl )
 	end)
 end
 
-function mnee.get_bind( bind_data, profile )
+function mnee.get_pbd( bind_data, profile )
 	return bind_data.keys[ profile or pen.setting_get( "mnee.PROFILE" )] or bind_data.keys[1]
 end
 
@@ -203,7 +203,7 @@ function mnee.clean_disarmer()
 		local new_disarmer = {}
 		local current_frame = GameGetFrameNum()
 		for key,frame in pairs( disarmer ) do
-			if( current_frame - frame <= 1 ) then
+			if( current_frame - frame < 2 ) then
 				new_disarmer[ key ] = frame
 			end
 		end
@@ -310,9 +310,12 @@ function mnee.get_bindings( binds_only )
 		local skip_list = pen.t.unarray({ "keys", "keys_alt" })
 		for mod,mod_tbl in pairs( binding_data ) do
 			for bind,bind_tbl in pairs( mod_tbl ) do
+				if( _BINDINGS[ mod ] == nil or _BINDINGS[ mod ][ bind ] == nil ) then
+					goto continue end
 				for k,v in pairs( _BINDINGS[ mod ][ bind ]) do
 					if( skip_list[ k ] == nil ) then binding_data[ mod ][ bind ][ k ] = v end
 				end
+				::continue::
 			end
 		end
 		mnee.binding_data = binding_data
@@ -374,9 +377,9 @@ function mnee.update_bindings( force_update )
 
 			for i,v in ipairs({ 1, profile }) do
 				local new_keys = {}
-				if( current_tbl[ mod ][ bind ].keys[ v ] ~= nil ) then
-					goto continue
-				else current_tbl[ mod ][ bind ].keys[ v ], updated = {}, true end
+				if( current_tbl[ mod ][ bind ].keys[ v ] == nil ) then
+					current_tbl[ mod ][ bind ].keys[ v ], updated = {}, true
+				else goto continue end
 				if( _MNEEDATA[ mod ] ~= nil ) then
 					new_keys = pen.t.get( _MNEEDATA[ mod ].setup_modes, setup_id )
 				end
@@ -444,7 +447,7 @@ function mnee.get_binding_keys( mod_id, name, is_compact )
 		return out..symbols[3]
 	end
 
-	local b = mnee.get_bind( binding )
+	local b = mnee.get_pbd( binding )
 	local got_alt = not( b.alt["_"] ~= nil or b.alt[2] == "_" )
 	local out = figure_it_out( b[( got_alt and is_compact == 2 ) and "alt" or "main" ])
 	if( is_compact ) then
@@ -464,7 +467,7 @@ function mnee.bind2string( binds, bind, key_type )
 		})
 	end
 
-	local b = mnee.get_bind( bind )[ key_type or "main" ]
+	local b = mnee.get_pbd( bind )[ key_type or "main" ]
 	if( b[1] == "is_axis" ) then
 		out = out..b[2]
 		if( b[3] ~= nil ) then out = table.concat({ out, "; ", b[3]}) end
@@ -484,23 +487,23 @@ function mnee.new_tooltip( gui, uid, text, data )
 	return pen.new_tooltip( gui, uid, text, data, function( gui, uid, text, d )
 		local size_x, size_y = unpack( d.dims )
 		local pic_x, pic_y, pic_z = unpack( d.pos )
-
+		
 		local clr = pen.PALETTE.PRSP.BLUE
-		uid = pen.new_text( gui, uid, pic_x + d.edging, pic_y + d.edging - 2, pic_z, text, {
+		uid = pen.new_text( gui, uid, pic_x + d.edging, pic_y + d.edging - 2, pic_z - 0.01, text, {
 			dims = { size_x - d.edging, size_y },
 			line_offset = d.line_offset or -2,
 			fast_render = true, --funcs = d.font_mods,
-			color = { clr[1], clr[2], clr[3], pen.animate( 1, d.anim_frame, {
-				ease_out = "sin3", frames = d.anim_frames,
+			color = { clr[1], clr[2], clr[3], pen.animate( 1, d.t, {
+				ease_in = "exp", frames = d.frames,
 			})},
 		})
 		
-		local scale_x = pen.animate({2,size_x}, d.anim_frame, { ease_out = "sin3", frames = d.anim_frames })
-		local scale_y = pen.animate({2,size_y}, d.anim_frame, { ease_out = "sin10", frames = d.anim_frames })
+		local scale_x = pen.animate({2,size_x}, d.t, { ease_out = "log1.1", ease_out = "bck2", frames = d.frames })
+		local scale_y = pen.animate({2,size_y}, d.t, { ease_out = "sin10", frames = d.frames })
 		local shift_x, shift_y = ( size_x - scale_x )/2, ( size_y - scale_y )/2
-		uid = pen.new_image( gui, uid, pic_x + shift_x, pic_y + shift_y, pic_z, "mods/mnee/files/pics/dot_purple_dark.png", {
+		uid = pen.new_image( gui, uid, pic_x + shift_x, pic_y + shift_y, pic_z + 0.01, "mods/mnee/files/pics/dot_purple_dark.png", {
 			s_x = scale_x, s_y = scale_y })
-		uid = pen.new_image( gui, uid, pic_x + shift_x + 1, pic_y + shift_y + 1, pic_z - 0.01, "mods/mnee/files/pics/dot_white.png", {
+		uid = pen.new_image( gui, uid, pic_x + shift_x + 1, pic_y + shift_y + 1, pic_z, "mods/mnee/files/pics/dot_white.png", {
 			s_x = scale_x - 2, s_y = scale_y - 2 })
 		return uid
 	end)
@@ -511,7 +514,7 @@ function mnee.new_button( gui, uid, pic_x, pic_y, pic_z, pic, data )
 	data.frames = data.frames or 20
 	data.auid = data.auid or pic..pic_z
 	data.no_anim = data.no_anim or false
-	data.highlight = data.highlight or pen.PALETTE.PRSP.RED
+	if( data.highlight == nil ) then data.highlight = pen.PALETTE.PRSP.RED end
 	return pen.new_button( gui, uid, pic_x, pic_y, pic_z, pic, {
 		lmb_event = function( gui, uid, pic_x, pic_y, pic_z, pic, d )
 			if( not( data.no_anim )) then pen.atimer( data.auid.."l", nil, true ) end
@@ -523,38 +526,38 @@ function mnee.new_button( gui, uid, pic_x, pic_y, pic_z, pic, data )
 		end,
 		hov_event = function( gui, uid, pic_x, pic_y, pic_z, pic, d )
 			if( pen.vld( data.tip )) then uid = mnee.new_tooltip( gui, uid, data.tip, { is_active = true }) end
-			uid = pen.new_image( gui, uid, pic_x - 0.5, pic_y - 0.5, pic_z + 0.001, pen.FILE_PIC_NUL, {
-				s_x = d.pic_w/2 + 1, s_y = d.pic_h/2 + 1, color = data.highlight })
+			if( data.highlight ) then uid = pen.new_image( gui, uid, pic_x - 1, pic_y - 1, pic_z + 0.001,
+				pen.FILE_PIC_NUL, { s_x = ( d.pic_w + 2 )/2, s_y = ( d.pic_h + 2 )/2, color = data.highlight }) end
 			return uid, pic_x, pic_y, pic_z, pic, d
 		end,
 		pic_func = function( gui, uid, pic_x, pic_y, pic_z, pic, d )
 			local a = ( data.no_anim or false ) and 1 or math.min(
-				pen.animate( 1, data.auid.."l", { frames = data.frames }),
-				pen.animate( 1, data.auid.."r", { frames = data.frames }))
-			local c_anim, s_anim = 0.75 + 0.25*a, 2*( 1 - a )/d.pic_w
-			local clr = pen.magic_rgb({255,255,255}, false, "hsv" ); clr[3] = c_anim
-			return pen.new_image( gui, uid, pic_x + ( 1 - s_anim )*d.pic_w, pic_y - ( 1 - s_anim )*d.pic_h, pic_z, pic, {
-				s_x = s_anim, s_y = s_anim, color = pen.magic_rgb( crl, true, "hsv" )
-			})
+				pen.animate( 1, data.auid.."l", { type = "sine", frames = data.frames, stillborn = true }),
+				pen.animate( 1, data.auid.."r", { ease_out = "sin3", frames = data.frames, stillborn = true }))
+			local s_anim = {( 1 - a )/d.pic_w, ( 1 - a )/d.pic_h }
+			return pen.new_image( gui, uid, pic_x + s_anim[1]*d.pic_w/2, pic_y + s_anim[2]*d.pic_h/2, pic_z, pic, {
+				s_x = 1 - s_anim[1], s_y = 1 - s_anim[2]})
 		end,
 	})
 end
 
 function mnee.new_pager( gui, uid, pic_x, pic_y, pic_z, data )
+	local t_x, t_y = pic_x, pic_y + 99
+	if( data.compact_mode ) then t_y = t_y + 11 end
 	local clicked, r_clicked, sfx_type = {false,false}, {false,false}, 0
-	uid, clicked[1], r_clicked[1] = mnee.new_button( gui, uid, pic_x, pic_y, pic_z, "mods/mnee/files/pics/key_left.png", {
+	uid, clicked[1], r_clicked[1] = mnee.new_button( gui, uid, t_x, t_y, pic_z, "mods/mnee/files/pics/key_left.png", {
 		auid = table.concat({ "page_", data.auid, "_l" })})
-	
-	if( data.profile_mode ) then pic_y = pic_y + 11 else pic_x = pic_x + 11 end
-	uid = pen.new_image( gui, uid, pic_x, pic_y, pic_z, "mods/mnee/files/pics/button_21_B.png", { can_click = true })
-	if( data.profile_mode ) then uid = mnee.new_tooltip( gui, uid, GameTextGetTranslatedOrNot( "$mnee_this_profile" ).."." ) end
-	local text = ( data.profile_mode or false ) and string.char( data.page + 64 ) or data.page
-	uid = pen.new_text( gui, uid, pic_x + 2, pic_y, pic_z, text, { fast_render = true, color = pen.PALETTE.PRSP.BLUE })
-	
-	pic_x = pic_x + 22
-	if( data.profile_mode ) then pic_x, pic_y = pic_x - 11, pic_y - 11 end
-	uid, clicked[2], r_clicked[2] = mnee.new_button( gui, uid, pic_x, pic_y, pic_z, "mods/mnee/files/pics/key_right.png", {
+	if( not( data.compact_mode )) then t_x = t_x + 22 end
+	uid, clicked[2], r_clicked[2] = mnee.new_button( gui, uid, t_x + 11, t_y, pic_z, "mods/mnee/files/pics/key_right.png", {
 		auid = table.concat({ "page_", data.auid, "_r" })})
+	
+	if( data.compact_mode ) then t_y = t_y - 11 else t_x = pic_x + 11 end
+	uid = pen.new_image( gui, uid, t_x, t_y, pic_z, "mods/mnee/files/pics/button_21_B.png", { can_click = true })
+	if( data.compact_mode ) then uid = mnee.new_tooltip( gui, uid, GameTextGetTranslatedOrNot( "$mnee_this_profile" ).."." ) end
+	
+	local text = data.page
+	if( data.profile_mode ) then text = text - 1; text = string.char(( text < 1 and -29 or text ) + 64 ) end
+	uid = pen.new_text( gui, uid, t_x + 2, t_y, pic_z - 0.01, text, { fast_render = true, color = pen.PALETTE.PRSP.BLUE })
 	
 	uid, data.page, sfx_type = pen.new_pager( gui, uid, pic_x, pic_y, pic_z, {
 		func = data.func, order_func = data.order_func,
@@ -585,11 +588,11 @@ function mnee.mnin_key( name, pressed_mode, is_vip, key_mode )
 	return pen.t.loop( mnee.get_keys( key_mode ), function( i, key )
 		if( key ~= name ) then return end
 		if( pressed_mode ) then
-			if( mnee.get_disarmer()[ "key"..key ] == nil ) then
-				mnee.add_disarmer( "key"..key )
-				return true
-			else return false end
-		else return true end
+			local check = mnee.get_disarmer()[ "key"..key ] ~= nil
+			mnee.add_disarmer( "key"..key )
+			if( check ) then return false end
+		end
+		return true
 	end) or false
 end
 
@@ -601,12 +604,15 @@ function mnee.mnin_bind( mod_id, name, dirty_mode, pressed_mode, is_vip, loose_m
 	
 	local keys_down = mnee.get_keys( key_mode )
 	local out, is_gone, is_jpad = false, true, false
-	local binding = mnee.get_bindings()[ mod_id ][ name ]
+	local binding = mnee.get_bindings()
+	if( binding ~= nil ) then binding = binding[ mod_id ] end
+	if( binding ~= nil ) then binding = binding[ name ] end
+	if( binding == nil ) then return unpack( abort_tbl ) end
 	if( not( pen.vld( binding ))) then return unpack( abort_tbl ) end
 	if( not( pen.vld( keys_down ))) then return unpack( abort_tbl ) end
 	
 	for i = 1,2 do
-		local bind = mnee.get_bind( binding )[ i == 1 and "main" or "alt" ]
+		local bind = mnee.get_pbd( binding )[ i == 1 and "main" or "alt" ]
 		local high_score, score = pen.t.count( bind ), 0
 		if( bind["_"] ~= nil ) then
 			goto continue
@@ -625,9 +631,9 @@ function mnee.mnin_bind( mod_id, name, dirty_mode, pressed_mode, is_vip, loose_m
 		end
 		if( score == high_score ) then
 			if( pressed_mode ) then
-				if( mnee.get_disarmer()[ mod_id..name ] == nil ) then
-					mnee.add_disarmer( mod_id..name )
-				else return unpack( abort_tbl ) end
+				local check = mnee.get_disarmer()[ mod_id..name ] ~= nil
+				mnee.add_disarmer( mod_id..name )
+				if( check ) then return unpack( abort_tbl ) end
 			end
 			out = true
 		end
@@ -648,12 +654,15 @@ function mnee.mnin_axis( mod_id, name, dirty_mode, pressed_mode, is_vip, key_mod
 	if( GameHasFlagRun( mnee.TOGGLER ) and not( is_vip )) then return unpack( abort_tbl ) end
 	if( not( mnee.is_priority_mod( mod_id ))) then return unpack( abort_tbl ) end
 	
-	local binding = mnee.get_bindings()[ mod_id ][ name ]
+	local binding = mnee.get_bindings()
+	if( binding ~= nil ) then binding = binding[ mod_id ] end
+	if( binding ~= nil ) then binding = binding[ name ] end
+	if( binding == nil ) then return unpack( abort_tbl ) end
 	local out, is_gone, is_buttoned, is_jpad = 0, true, false, false
 	if( not( pen.vld( binding ))) then return unpack( abort_tbl ) end
 
 	for i = 1,2 do
-		local bind = mnee.get_bind( binding )[ i == 1 and "main" or "alt" ]
+		local bind = mnee.get_pbd( binding )[ i == 1 and "main" or "alt" ]
 		local value, memo = mnee.get_axes()[ bind[2]] or 0, {}
 		if( bind[2] == "_" ) then
 			goto continue
@@ -697,7 +706,9 @@ function mnee.mnin_stick( mod_id, name, dirty_mode, pressed_mode, is_vip, key_mo
 	if( GameHasFlagRun( mnee.TOGGLER ) and not( is_vip )) then return unpack( abort_tbl ) end
 	if( not( mnee.is_priority_mod( mod_id ))) then return unpack( abort_tbl ) end
 	
-	local binding = mnee.get_bindings()[ mod_id ][ name ]
+	local binding = mnee.get_bindings()
+	if( binding ~= nil ) then binding = binding[ mod_id ] end
+	if( binding ~= nil ) then binding = binding[ name ] end
 	if( binding == nil ) then return unpack( abort_tbl ) end
 
 	local acc = 100

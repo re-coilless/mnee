@@ -13,10 +13,11 @@ if( mnee.G.pos == nil ) then
     mnee.G.pos = { math.floor(( screen_w - pic_w )/2 ), math.floor( screen_h - ( pic_h + 10 ))}
 end
 
-local uid, pic_z = 0, -50
+local uid = 0
+local pic_z = pen.Z_LAYERS.background
 local clicked, r_clicked = false, false
 local pic_x, pic_y = unpack( mnee.G.pos )
-local gonna_rebind = pen.vld( mnee.G.current_binding )
+local gonna_rebind, gonna_update = pen.vld( mnee.G.current_binding ), false
 if( not( gonna_rebind )) then
     local txt = GameTextGetTranslatedOrNot( "$mnee_title"..( mnee.G.show_alt and "B" or "A" ))
     if( mnee.G.show_alt ) then uid = pen.new_image( gui, uid, pic_x, pic_y, pic_z + 0.001, "mods/mnee/files/pics/title_bg.png" ) end
@@ -69,7 +70,7 @@ if( not( gonna_rebind )) then
             mnee.G.current_mod, mnee.G.jpad_maps
         }) or false
     end
-
+    
     if( meta.func ~= nil ) then
         local result = false
         uid, result = pen.catch( meta.func, { gui, uid, t_x, t_y, pic_z, {
@@ -95,7 +96,7 @@ if( not( gonna_rebind )) then
                 if( is_static == nil ) then
                     is_static = meta.is_locked or false
                 else is_static = pen.get_hybrid_function( is_static, {{ mnee.G.current_mod, i }, mnee.G.jpad_maps }) end
-                local is_axis = mnee.get_pbd( KEYS[ mnee.G.current_mod ][i])[ key_type ][1] == "is_axis" or v.axes ~= nil
+                local is_axis = v.axes ~= nil or mnee.get_pbd( KEYS[ mnee.G.current_mod ][i])[ key_type ][1] == "is_axis"
 
                 local t_x, t_y = pic_x, pic_y + k*11
                 local name = pen.magic_translate( v.name )
@@ -106,7 +107,7 @@ if( not( gonna_rebind )) then
                         is_axis and ( GameTextGet( "$mnee_axis", v.jpad_type or "EXTRA" )..( is_static and "" or " @ " )) or "",
                         is_static and GameTextGetTranslatedOrNot( "$mnee_static" ).." @ " or "",
                         name, ": ", pen.magic_translate( v.desc ), " @ ", 
-                        mnee.bind2string( KEYS[ mnee.G.current_mod ], KEYS[ mnee.G.current_mod ][i], key_type ),
+                        mnee.bind2string( KEYS[ mnee.G.current_mod ][i], key_type, KEYS[ mnee.G.current_mod ]),
                         is_axis and " @ "..GameTextGetTranslatedOrNot( "$mnee_lmb_axis" ) or "",
                     })}})
                 uid = pen.new_text( gui, uid, t_x + 74/2, t_y, pic_z - 0.01, name, { fast_render = true,
@@ -138,8 +139,8 @@ if( not( gonna_rebind )) then
                         KEYS[ mnee.G.current_mod ][ v.axes[1]].keys[ profile ] = nil
                         KEYS[ mnee.G.current_mod ][ v.axes[2]].keys[ profile ] = nil
                     else KEYS[ mnee.G.current_mod ][ i ].keys[ profile ] = nil end
-                    mnee.update_bindings( KEYS )
                     mnee.play_sound( "clear_all" )
+                    gonna_update = true
                     
                     if( _MNEEDATA[ mnee.G.current_mod ] ~= nil ) then
                         local func = _MNEEDATA[ mnee.G.current_mod ].on_changed
@@ -173,10 +174,10 @@ if( not( gonna_rebind )) then
         fast_render = true, dims = {-17,0}, is_centered_x = true, color = pen.PALETTE.PRSP.WHITE })
     if( r_clicked ) then
         for bind,bind_tbl in pairs( KEYS[ mnee.G.current_mod ]) do
-            if( bind_tbl.axes == nil ) then bind_tbl.keys[ profile ] = nil end
+            if( bind_tbl.axes == nil ) then KEYS[ mnee.G.current_mod ][ bind ].keys[ profile ] = nil end
         end
-        mnee.update_bindings( KEYS )
         mnee.play_sound( "clear_all" )
+        gonna_update = true
         
         if( _MNEEDATA[ mnee.G.current_mod ] ~= nil ) then
             local func = _MNEEDATA[ mnee.G.current_mod ].on_reset or _MNEEDATA[ mnee.G.current_mod ].on_changed
@@ -242,11 +243,16 @@ if( not( gonna_rebind )) then
         if( mnee.G.ctl_panel ) then pen.atimer( "ctl_window", nil, true ) end
     end
     
+    local new_profile = profile
+    uid, new_profile = mnee.new_pager( gui, uid, pic_x + 136, pic_y - 11, pic_z, {
+        auid = "profile", compact_mode = true, profile_mode = true, page = profile, list = mnee.G.max_profiles })
+    if( profile ~= new_profile ) then pen.setting_set( "mnee.PROFILE", new_profile ) end
+    
     local w_anim = {
         5*( 1 - pen.animate( 1, "main_window", { ease_out = "wav1", frames = 15, stillborn = true }))/pic_w,
         4*( 1 - pen.animate( 1, "main_window", { ease_out = "wav", frames = 15, stillborn = true }))/pic_h }
     if( w_anim[1] > 0 ) then pen.atimer( "ctl_window", nil, true ); pen.atimer( "stp_window", nil, true ) end
-
+    
     if( mnee.G.stp_panel ) then
         local setup_memo = mnee.get_setup_memo()
         local t_x = pic_x + pen.animate({ 130, 160 }, "stp_window", { ease_in = "sin3", frames = 10, stillborn = true })
@@ -261,29 +267,29 @@ if( not( gonna_rebind )) then
             _MNEEDATA[ mnee.G.current_mod ].setup_modes[1].dft = true
         end
         
-        uid, mnee.G.setup_page = mnee.new_pager( gui, uid, t_x, pic_y - 11, pic_z + 0.1, {
+        uid, mnee.G.setup_page = mnee.new_pager( gui, uid, t_x, pic_y - 11, pic_z + 0.09, {
             auid = "setup", compact_mode = true,
             list = _MNEEDATA[ mnee.G.current_mod ].setup_modes or {}, items_per_page = 5, page = mnee.G.setup_page,
             func = function( gui, uid, pic_x, pic_y, pic_z, i,v,k,c )
-                pic_y = pic_y + k*11
-                local name = pen.magic_translate( setup.name )
+                pic_y = pic_y + ( k + 3 )*11
+                local name = pen.magic_translate( v.name )
                 local is_going = ( setup_memo[ profile ] or setup_memo[1])[ mnee.G.current_mod ] == v.id
                 uid, clicked = mnee.new_button( gui, uid, pic_x, pic_y, pic_z,
                     "mods/mnee/files/pics/button_21_"..( is_going and "B" or "A" )..".png", {
                     auid = table.concat({ mnee.G.current_mod, "_setup_", name }),
                     tip = table.concat({
                         GameTextGetTranslatedOrNot( "$mnee_setup_warning" ), " @ ",
-                        name, ": ", pen.magic_translate( setup.desc )
+                        name, ": ", pen.magic_translate( v.desc )
                     })})
-                uid = pen.new_text( gui, uid, pic_x + 21/2, pic_y, pic_z - 0.01, string.upper( string.sub( setup.btn or setup.id, 1, 3 )), {
+                uid = pen.new_text( gui, uid, pic_x + 21/2, pic_y, pic_z - 0.01, string.upper( string.sub( v.btn or v.id, 1, 3 )), {
                     fast_render = true, dims = {17,0}, is_centered_x = true, color = pen.PALETTE.PRSP[ is_going and "RED" or "WHITE" ]})
                 if( clicked ) then
                     mnee.set_setup_id( mnee.G.current_mod, v.id )
                     for bind,bind_tbl in pairs( KEYS[ mnee.G.current_mod ]) do
-                        if( bind_tbl.axes == nil ) then bind_tbl.keys[ profile ] = nil end
+                        if( bind_tbl.axes == nil ) then KEYS[ mnee.G.current_mod ][ bind ].keys[ profile ] = nil end
                     end
-                    mnee.update_bindings( KEYS )
                     mnee.play_sound( "switch_page" )
+                    gonna_update = true
                 end
 
                 return uid, c
@@ -350,16 +356,11 @@ if( not( gonna_rebind )) then
         
         uid = pen.new_image( gui, uid, t_x - 10, t_y - 2, pic_z + 0.1, "mods/mnee/files/pics/controller_panel.png", { can_click = true })
     end; ::continue::
-
-    local new_profile = profile
-    uid, new_profile = mnee.new_pager( gui, uid, pic_x + 136, pic_y - 11, pic_z, {
-        auid = "profile", compact_mode = true, profile_mode = true, page = profile, list = mnee.G.max_profiles })
-    if( profile ~= new_profile ) then pen.setting_set( "mnee.PROFILE", new_profile ) end
     
     uid, mnee.G.pos[1], mnee.G.pos[2] = pen.new_dragger( gui, uid, "mnee_window", pic_x, pic_y, 142, 9, is_debugging )
     uid = pen.new_image( gui, uid, pic_x + w_anim[1]*pic_w/2, pic_y + w_anim[2]*pic_h/2, pic_z + 0.05, "mods/mnee/files/pics/window.png", {
         s_x = 1 - w_anim[1], s_y = 1 - w_anim[2], can_click = true })
-    
+
     if( GameHasFlagRun( mnee.RETOGGLER )) then
         GameRemoveFlagRun( mnee.RETOGGLER )
         GameRemoveFlagRun( mnee.SERV_MODE )
@@ -503,8 +504,8 @@ else
             end
         end
         
-        local this_b = KEYS[ mnee.G.current_mod ][ c_bind ].keys[ profile ]
-        this_b = this_b or pen.t.clone( KEYS[ mnee.G.current_mod ][ c_bind ].keys[1])
+        local this_b = pen.t.clone( KEYS[ mnee.G.current_mod ][ c_bind ])
+        this_b = pen.t.clone( this_b.keys[ profile ] or this_b.keys[1])
         if( nuke_em ) then
             local k_type = key_type
             if( doing_swap ) then
@@ -555,8 +556,8 @@ else
             end
             if( changed ) then
                 KEYS[ mnee.G.current_mod ][ c_bind ].keys[ profile ] = pen.t.clone( this_b )
-                KEYS[ mnee.G.current_mod ][ c_bind ].keys[ profile ][ key_type ] = new_bind
-                mnee.update_bindings( KEYS )
+                KEYS[ mnee.G.current_mod ][ c_bind ].keys[ profile ][ key_type ] = pen.t.clone( new_bind )
+                gonna_update = true
             end
             mnee.G.gui_retoggler = true
             mnee.play_sound( "switch_dimension" )
@@ -572,3 +573,5 @@ else
         end
     end
 end
+
+if( gonna_update ) then mnee.update_bindings( KEYS ) end

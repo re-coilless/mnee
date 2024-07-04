@@ -16,8 +16,7 @@ _MNEEDATA["mnee"] = {
 	-- on_reset = function( data ) end, --[SET TO DEFAULT CALLBACK] on_changed is called if nil
 	-- on_jpad = function( data, jpad_id ) end, --[GAMEPAD SLOT CALLBACK] return true to set the slot to dummy
 	-- on_setup = function( data, setup_id ) end, --[SETUP CHANGE CALLBACK]
-
-	--[[
+	
 	setup_default = {
 		btn = "NRM",
 		name = "Normal",
@@ -30,16 +29,16 @@ _MNEEDATA["mnee"] = {
 			name = "Test",
 			desc = "Testing the setup modes.",
 			binds = {
-				menu = pen.t.unarray({ "8" }),
+				menu = {["8"] = 1 },
 				off = {
-					pen.t.unarray({ "9" }),
-					pen.t.unarray({ "0" }),
+					{["9"] = 1 },
+					{["0"] = 1 },
 				},
 			},
 		},
 	}
-	]]
 }
+
 _BINDINGS["mnee"] = {
 	menu = { --[ACTUAL BINDING ID]
 		order_id = "a", --[SORTING ORDER]

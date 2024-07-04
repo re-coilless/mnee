@@ -19,9 +19,6 @@ function OnModInit()
 		end,
 	})
 	
-	--fresh start is broken
-	--old saves are broken
-	
 	--implant penman into mnee (and test it with most disgusting malformed data possible)
 	--test performance
 	--change penman/_penman back to mnee/_penman
@@ -115,7 +112,7 @@ function OnModInit()
 				if( key == "[NONE]"  ) then return end
 				if( mnee.BANNED_KEYS[ key ]) then return end
 				if( not( InputIsKeyDown( i ))) then return end
-				return { key, pen.DIV_1 }
+				return { string.format( "%q", key ), pen.DIV_1 }
 			end),
 			pen.t.loop_concat( lists[2], function( i, key ) --mouse
 				if( key == "[NONE]"  ) then return end

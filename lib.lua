@@ -11,6 +11,7 @@ function mnee.order_sorter( tbl )
 end
 
 function mnee.get_pbd( bind_data, profile )
+	if( bind_data.axes ~= nil ) then return { "is_axis", "_" } end
 	return bind_data.keys[ profile or pen.setting_get( "mnee.PROFILE" )] or bind_data.keys[1]
 end
 
@@ -225,7 +226,7 @@ function mnee.get_setup_memo()
 		end
 		mnee.set_setup_memo( setup_tbl )
 	end
-	return setup_tbl
+	return pen.t.clone( setup_tbl )
 end
 function mnee.get_setup_id( mod_id )
 	local setup_memo = mnee.get_setup_memo()
@@ -234,14 +235,13 @@ end
 function mnee.set_setup_id( mod_id, setup_id )
 	local setup_memo = mnee.get_setup_memo()
 	local profile = pen.setting_get( "mnee.PROFILE" )
-	if( not( pen.vld( setup_memo[ profile ]))) then
-		setup_memo[ profile ] = pen.t.clone( setup_memo[1])
-	end
+	if( not( pen.vld( setup_memo[ profile ]))) then setup_memo[ profile ] = setup_memo[1] end
 	
 	if( setup_memo[ profile ][ mod_id ] ~= setup_id ) then
+		setup_memo[ profile ] = pen.t.clone( setup_memo[ profile ])
 		setup_memo[ profile ][ mod_id ] = setup_id
 		mnee.set_setup_memo( setup_memo )
-
+		
 		dofile_once( "mods/mnee/bindings.lua" )
 		if( _MNEEDATA[ mod_id ] ~= nil and _MNEEDATA[ mod_id ].on_setup ~= nil ) then
 			_MNEEDATA[ mod_id ].on_setup( _MNEEDATA[ mod_id ].setup_modes, setup_id )
@@ -300,7 +300,7 @@ function mnee.get_bindings( binds_only )
 	if( mnee.binding_data == nil ) then
 		dofile_once( "mods/mnee/bindings.lua" )
 
-		local binding_data = pen.t.parse( pen.setting_get( "mnee.BINDINGS" ))
+		local binding_data = pen.t.clone( pen.t.parse( pen.setting_get( "mnee.BINDINGS" )))
 		if( not( pen.vld( binding_data ))) then
 			mnee.update_bindings( "nuke_it" )
 			binding_data = pen.t.parse( pen.setting_get( "mnee.BINDINGS" ))
@@ -312,8 +312,12 @@ function mnee.get_bindings( binds_only )
 			for bind,bind_tbl in pairs( mod_tbl ) do
 				if( _BINDINGS[ mod ] == nil or _BINDINGS[ mod ][ bind ] == nil ) then
 					goto continue end
+				binding_data[ mod ] = pen.t.clone( binding_data[ mod ])
+				binding_data[ mod ][ bind ] = pen.t.clone( binding_data[ mod ][ bind ])
 				for k,v in pairs( _BINDINGS[ mod ][ bind ]) do
-					if( skip_list[ k ] == nil ) then binding_data[ mod ][ bind ][ k ] = v end
+					if( skip_list[ k ] == nil ) then
+						binding_data[ mod ][ bind ][ k ] = pen.t.clone( v )
+					end
 				end
 				::continue::
 			end
@@ -321,86 +325,91 @@ function mnee.get_bindings( binds_only )
 		mnee.binding_data = binding_data
 	end
 
-	return pen.t.clone( mnee.binding_data )
+	return mnee.binding_data
 end
 function mnee.set_bindings( binding_data )
 	if( not( pen.vld( binding_data ))) then return end
-
+	
 	local key_data = {}
 	for mod,mod_tbl in pairs( binding_data ) do
 		key_data[ mod ] = {}
 		for bind,bind_tbl in pairs( mod_tbl ) do
 			key_data[ mod ][ bind ] = {}
 			key_data[ mod ][ bind ].keys = bind_tbl.keys
+			if( bind_tbl.keys == "axes" ) then goto continue end
+
 			for profile,key_tbl in pairs( bind_tbl.keys ) do
-				if( not( pen.vld( key_tbl.main ))) then
+				if( not( pen.vld( key_data[ mod ][ bind ].keys[ profile ].main ))) then
 					key_data[ mod ][ bind ].keys[ profile ].main = key_data[ mod ][ bind ].keys[1].main
 				end
 				if( not( pen.vld( key_tbl.alt ))) then
-					local v = { ["_"] = 1 }
 					if( key_data[ mod ][ bind ].keys[ profile ].main[1] == "is_axis" ) then
-						v = { "is_axis", "_" }
-					end
-					key_data[ mod ][ bind ].keys[ profile ].alt = v
+						key_data[ mod ][ bind ].keys[ profile ].alt = { "is_axis", "_" }
+					else key_data[ mod ][ bind ].keys[ profile ].alt = { ["_"] = 1 } end
 				end
 			end
+
+			::continue::
 		end
 	end
 	
 	pen.setting_set( "mnee.BINDINGS", pen.t.parse( key_data ))
 	GlobalsSetValue( mnee.UPDATER, GameGetFrameNum())
 end
-function mnee.update_bindings( force_update )
+function mnee.update_bindings( current_tbl )
 	dofile_once( "mods/mnee/bindings.lua" )
 	
-	local updated = force_update
-	local current_tbl = force_update
 	if( type( current_tbl ) ~= "table" ) then
-		current_tbl = updated == "nuke_it" and {} or mnee.get_bindings( true )
+		current_tbl = current_tbl == "nuke_it" and {} or mnee.get_bindings( true )
 	end
 	
+	local new_keys = {}
 	local profile = pen.setting_get( "mnee.PROFILE" )
 	for mod,mod_tbl in pairs( _BINDINGS ) do
 		local setup_id = "_dft"
 		if( current_tbl[ mod ] == nil ) then current_tbl[ mod ] = {} end
 		if( _MNEEDATA[ mod ] ~= nil and _MNEEDATA[ mod ].setup_modes ~= nil ) then
-			setup_id = mnee.get_setup_id( mod, profile )
+			setup_id = mnee.get_setup_id( mod )
 		end
 		
 		for bind,bind_tbl in pairs( mod_tbl ) do
-			if( current_tbl[ mod ][ bind ] == nil ) then
-				current_tbl[ mod ][ bind ] = {}
-			end
-			if( current_tbl[ mod ][ bind ].keys == nil ) then
-				current_tbl[ mod ][ bind ].keys = {}
-			end
+			current_tbl[ mod ][ bind ] = current_tbl[ mod ][ bind ] or {}
+			if( bind_tbl.axes == nil ) then
+				current_tbl[ mod ][ bind ].keys = current_tbl[ mod ][ bind ].keys or {}
+			else current_tbl[ mod ][ bind ].keys = "axes"; goto continue end
 
 			for i,v in ipairs({ 1, profile }) do
-				local new_keys = {}
-				if( current_tbl[ mod ][ bind ].keys[ v ] == nil ) then
-					current_tbl[ mod ][ bind ].keys[ v ], updated = {}, true
-				else goto continue end
+				current_tbl[ mod ][ bind ].keys[ v ] = current_tbl[ mod ][ bind ].keys[ v ] or {}
 				if( _MNEEDATA[ mod ] ~= nil ) then
 					new_keys = pen.t.get( _MNEEDATA[ mod ].setup_modes, setup_id )
-				end
-
+					if( pen.vld( new_keys ) and new_keys.binds ~= nil ) then
+						new_keys = pen.t.clone( new_keys.binds[ bind ])
+					else new_keys = nil end
+				else new_keys = nil end
+				
 				if( pen.vld( new_keys )) then
-					new_keys = new_keys.binds[ bind ]
 					if( type( new_keys[1]) == "table" ) then
-						current_tbl[ mod ][ bind ].keys[ v ].main = new_keys[1]
-						current_tbl[ mod ][ bind ].keys[ v ].alt = new_keys[2]
-					else current_tbl[ mod ][ bind ].keys[ v ].main = new_keys end
+						current_tbl[ mod ][ bind ].keys[ v ].main =
+							current_tbl[ mod ][ bind ].keys[ v ].main or new_keys[1]
+						current_tbl[ mod ][ bind ].keys[ v ].alt =
+							current_tbl[ mod ][ bind ].keys[ v ].alt or new_keys[2]
+					else current_tbl[ mod ][ bind ].keys[ v ].main =
+						current_tbl[ mod ][ bind ].keys[ v ].main or new_keys
+					end
 				else
-					current_tbl[ mod ][ bind ].keys[ v ].main = bind_tbl.keys
-					current_tbl[ mod ][ bind ].keys[ v ].alt = bind_tbl.keys_alt
+					new_keys = pen.t.clone( bind_tbl )
+					current_tbl[ mod ][ bind ].keys[ v ].main =
+						current_tbl[ mod ][ bind ].keys[ v ].main or new_keys.keys
+					current_tbl[ mod ][ bind ].keys[ v ].alt =
+						current_tbl[ mod ][ bind ].keys[ v ].alt or new_keys.keys_alt
 				end
-
-			    ::continue::
 			end
+			
+			::continue::
 		end
 	end
 	
-	if( updated ) then mnee.set_bindings( current_tbl ) end
+	mnee.set_bindings( current_tbl )
 end
 
 --[FRONTEND]
@@ -458,12 +467,12 @@ function mnee.get_binding_keys( mod_id, name, is_compact )
 	return out
 end
 
-function mnee.bind2string( binds, bind, key_type )
+function mnee.bind2string( bind, key_type, binds )
 	local out = "["
-	if( binds == nil and bind.axes ~= nil ) then
-		return table.concact({
-			"|", mnee.bind2string( nil, binds[ bind.axes[1]], key_type ),
-			"|", mnee.bind2string( nil, binds[ bind.axes[2]], key_type ), "|",
+	if( binds ~= nil and bind.axes ~= nil ) then
+		return table.concat({
+			"|", mnee.bind2string( binds[ bind.axes[1]], key_type ),
+			"|", mnee.bind2string( binds[ bind.axes[2]], key_type ), "|",
 		})
 	end
 
@@ -484,6 +493,7 @@ function mnee.play_sound( event )
 end
 
 function mnee.new_tooltip( gui, uid, text, data )
+	data = data or {}; data.frames = data.frames or 10
 	return pen.new_tooltip( gui, uid, text, data, function( gui, uid, text, d )
 		local size_x, size_y = unpack( d.dims )
 		local pic_x, pic_y, pic_z = unpack( d.pos )
@@ -493,13 +503,11 @@ function mnee.new_tooltip( gui, uid, text, data )
 			dims = { size_x - d.edging, size_y },
 			line_offset = d.line_offset or -2,
 			fast_render = true, --funcs = d.font_mods,
-			color = { clr[1], clr[2], clr[3], pen.animate( 1, d.t, {
-				ease_in = "exp", frames = d.frames,
-			})},
+			color = { clr[1], clr[2], clr[3], pen.animate( 1, d.t, { ease_in = "exp5", frames = d.frames })},
 		})
 		
-		local scale_x = pen.animate({2,size_x}, d.t, { ease_out = "log1.1", ease_out = "bck2", frames = d.frames })
-		local scale_y = pen.animate({2,size_y}, d.t, { ease_out = "sin10", frames = d.frames })
+		local scale_x = pen.animate({2,size_x}, d.t, { ease_in = "exp1.1", ease_out = "bck1.5", frames = d.frames })
+		local scale_y = pen.animate({2,size_y}, d.t, { ease_out = "sin", frames = d.frames })
 		local shift_x, shift_y = ( size_x - scale_x )/2, ( size_y - scale_y )/2
 		uid = pen.new_image( gui, uid, pic_x + shift_x, pic_y + shift_y, pic_z + 0.01, "mods/mnee/files/pics/dot_purple_dark.png", {
 			s_x = scale_x, s_y = scale_y })
@@ -604,12 +612,12 @@ function mnee.mnin_bind( mod_id, name, dirty_mode, pressed_mode, is_vip, loose_m
 	
 	local keys_down = mnee.get_keys( key_mode )
 	local out, is_gone, is_jpad = false, true, false
+	if( not( pen.vld( keys_down ))) then return unpack( abort_tbl ) end
+
 	local binding = mnee.get_bindings()
 	if( binding ~= nil ) then binding = binding[ mod_id ] end
 	if( binding ~= nil ) then binding = binding[ name ] end
-	if( binding == nil ) then return unpack( abort_tbl ) end
 	if( not( pen.vld( binding ))) then return unpack( abort_tbl ) end
-	if( not( pen.vld( keys_down ))) then return unpack( abort_tbl ) end
 	
 	for i = 1,2 do
 		local bind = mnee.get_pbd( binding )[ i == 1 and "main" or "alt" ]
@@ -657,10 +665,9 @@ function mnee.mnin_axis( mod_id, name, dirty_mode, pressed_mode, is_vip, key_mod
 	local binding = mnee.get_bindings()
 	if( binding ~= nil ) then binding = binding[ mod_id ] end
 	if( binding ~= nil ) then binding = binding[ name ] end
-	if( binding == nil ) then return unpack( abort_tbl ) end
-	local out, is_gone, is_buttoned, is_jpad = 0, true, false, false
 	if( not( pen.vld( binding ))) then return unpack( abort_tbl ) end
 
+	local out, is_gone, is_buttoned, is_jpad = 0, true, false, false
 	for i = 1,2 do
 		local bind = mnee.get_pbd( binding )[ i == 1 and "main" or "alt" ]
 		local value, memo = mnee.get_axes()[ bind[2]] or 0, {}
@@ -670,9 +677,9 @@ function mnee.mnin_axis( mod_id, name, dirty_mode, pressed_mode, is_vip, key_mod
 		
 		is_buttoned = bind[3] ~= nil
 		if( is_buttoned ) then
-			if( mnee.mnin_key( bind[2], dirty_mode, pressed_mode, is_vip, key_mode )) then
+			if( mnee.mnin_key( bind[2], pressed_mode, is_vip, key_mode )) then
 				out = -1
-			elseif( mnee.mnin_key( bind[3], dirty_mode, pressed_mode, is_vip, key_mode )) then
+			elseif( mnee.mnin_key( bind[3], pressed_mode, is_vip, key_mode )) then
 				out = 1
 			end
 			goto continue
@@ -709,7 +716,7 @@ function mnee.mnin_stick( mod_id, name, dirty_mode, pressed_mode, is_vip, key_mo
 	local binding = mnee.get_bindings()
 	if( binding ~= nil ) then binding = binding[ mod_id ] end
 	if( binding ~= nil ) then binding = binding[ name ] end
-	if( binding == nil ) then return unpack( abort_tbl ) end
+	if( not( pen.vld( binding ))) then return unpack( abort_tbl ) end
 
 	local acc = 100
 	local val_x, gone_x, buttoned_x = mnee.mnin_axis( mod_id, binding.axes[1], dirty_mode, pressed_mode, is_vip, key_mode, true )

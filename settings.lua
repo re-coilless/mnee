@@ -18,7 +18,7 @@ function mod_setting_full_resetter( mod_id, gui, in_main_menu, im_id, setting )
 		ModSettingSetNextValue( "mnee.BINDINGS", "", false )
 		if( is_proper ) then
 			dofile_once( "mods/mnee/lib.lua" )
-			mnee.update_bindings( "nuke_em" )
+			mnee.update_bindings( "nuke_it" )
 		end
 		
 		mnee_it_is_done = true

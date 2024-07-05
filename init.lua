@@ -18,9 +18,8 @@ function OnModInit()
 			end
 		end,
 	})
-	
-	--implant penman into mnee (and test it with most disgusting malformed data possible)
-	--test performance
+
+	--kappa playtest
 	--change penman/_penman back to mnee/_penman
 	--LLS documentation of all funcs + update actual documentation
 	--make mnee the main propero mod (p2k must pull all the sounds and such from it)
@@ -63,9 +62,7 @@ function OnModInit()
 					end
 				else
 					for e,jp in ipairs( mnee.G.jpad_maps ) do
-						if( jp == ( i - 1 )) then
-							mnee.G.jpad_maps[e] = -1; break
-						end
+						if( jp == ( i - 1 )) then mnee.G.jpad_maps[e] = -1; break end
 					end
 					
 					mnee.G.jpad_states[i] = -1
@@ -92,13 +89,13 @@ function OnModInit()
 		end
 	end
 	mnee.jpad_update = function( num )
-		local out = 0
+		local out = -1
 		if( num < 0 ) then
 			mnee.G.jpad_states[ mnee.G.jpad_maps[ math.abs( num )] + 1 ] = 1
 			mnee.G.jpad_maps[ math.abs( num )] = -1
 		else
 			out = mnee.jpad_next()
-			if( out > 0 ) then mnee.G.jpad_maps[ num ] = out end
+			if( out ~= -1 ) then mnee.G.jpad_maps[ num ] = out end
 		end
 
 		if( num < 0 or out > 0 ) then mnee.jpad_callback( out, num ) end
@@ -120,7 +117,7 @@ function OnModInit()
 				return { key, pen.DIV_1 }
 			end),
 			pen.t.loop_concat( mnee.G.jpad_maps, function( i, real_num ) --gamepad
-				if( real_num < 0 ) then return end
+				if( real_num == -1 ) then return end
 				return pen.t.loop_concat( lists[3], function( k, key )
 					if( key == "[NONE]"  ) then return end
 					if( not( InputIsJoystickButtonDown( real_num, k ))) then return end
@@ -134,7 +131,7 @@ function OnModInit()
 	end
 	mnee.get_current_triggers = function()
 		return pen.DIV_1..pen.t.loop_concat( mnee.G.jpad_maps, function( i, real_num )
-			if( real_num < 0 ) then return end
+			if( real_num == -1 ) then return end
 			return pen.t.loop_concat({0,1}, function( k, v )
 				local value = pen.rounder( InputGetJoystickAnalogButton( real_num, v ), 100 )
 				return { pen.DIV_2, i, "gpd_", ( v == 0 and "l2" or "r2" ), pen.DIV_2, value, pen.DIV_2, pen.DIV_1 }
@@ -144,7 +141,7 @@ function OnModInit()
 	mnee.get_current_axes = function()
 		local gpd_axis = { "_lh", "_lv", "_rh", "_rv" }
 		return pen.DIV_1..pen.t.loop_concat( mnee.G.jpad_maps, function( i, real_num )
-			if( real_num < 0 ) then return end
+			if( real_num == -1 ) then return end
 			return pen.t.loop_concat({0,1}, function( k, e )
 				local value = { InputGetJoystickAnalogStick( real_num, e )}
 				return {
@@ -217,7 +214,7 @@ function OnWorldPreUpdate()
 	
 	for i,gslot in ipairs( mnee.stl.jslots ) do
 		if( gslot or mnee.stl.jauto ) then
-			if( mnee.G.jpad_maps[i] < 0 ) then
+			if( mnee.G.jpad_maps[i] == -1 ) then
 				local ctl = mnee.jpad_update( i )
 				if( not( mnee.stl.jauto )) then
 					if(( ctl or -1 ) == -1 ) then

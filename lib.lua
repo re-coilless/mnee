@@ -1,4 +1,4 @@
-dofile_once( "mods/penman/_penman.lua" )
+dofile_once( "mods/mnee/_penman.lua" )
 
 mnee = mnee or {}
 mnee.G = mnee.G or {}
@@ -226,7 +226,7 @@ function mnee.get_setup_memo()
 		end
 		mnee.set_setup_memo( setup_tbl )
 	end
-	return pen.t.clone( setup_tbl )
+	return setup_tbl
 end
 function mnee.get_setup_id( mod_id )
 	local setup_memo = mnee.get_setup_memo()
@@ -235,12 +235,11 @@ end
 function mnee.set_setup_id( mod_id, setup_id )
 	local setup_memo = mnee.get_setup_memo()
 	local profile = pen.setting_get( "mnee.PROFILE" )
-	if( not( pen.vld( setup_memo[ profile ]))) then setup_memo[ profile ] = setup_memo[1] end
-	
-	if( setup_memo[ profile ][ mod_id ] ~= setup_id ) then
-		setup_memo[ profile ] = pen.t.clone( setup_memo[ profile ])
-		setup_memo[ profile ][ mod_id ] = setup_id
-		mnee.set_setup_memo( setup_memo )
+	if(( setup_memo[ profile ] or setup_memo[1])[ mod_id ] ~= setup_id ) then
+		local stp_mm = pen.t.clone( setup_memo )
+		stp_mm[ profile ] = stp_mm[ profile ] or pen.t.clone( setup_memo[1])
+		stp_mm[ profile ][ mod_id ] = setup_id
+		mnee.set_setup_memo( stp_mm )
 		
 		dofile_once( "mods/mnee/bindings.lua" )
 		if( _MNEEDATA[ mod_id ] ~= nil and _MNEEDATA[ mod_id ].on_setup ~= nil ) then
@@ -254,7 +253,7 @@ function mnee.apply_jpads( jpad_tbl, no_update )
 	if( not( no_update )) then GameAddFlagRun( mnee.JPAD_UPDATE ) end
 end
 function mnee.is_jpad_real( id )
-	return (( pen.t.pack( pen.magic_storage( mnee.get_ctrl(), "mnee_jpads", "value_string" ) or "" ))[ id or 1 ] or 0 ) > 0
+	return (( pen.t.pack( pen.magic_storage( mnee.get_ctrl(), "mnee_jpads", "value_string" ) or "" ))[ id or 1 ] or -1 ) ~= -1
 end
 function mnee.jpad_check( keys )
 	for key,val in pairs( keys ) do
@@ -300,29 +299,28 @@ function mnee.get_bindings( binds_only )
 	if( mnee.binding_data == nil ) then
 		dofile_once( "mods/mnee/bindings.lua" )
 
-		local binding_data = pen.t.clone( pen.t.parse( pen.setting_get( "mnee.BINDINGS" )))
+		local binding_data = pen.t.parse( pen.setting_get( "mnee.BINDINGS" ))
 		if( not( pen.vld( binding_data ))) then
 			mnee.update_bindings( "nuke_it" )
 			binding_data = pen.t.parse( pen.setting_get( "mnee.BINDINGS" ))
 		end
-		if( binds_only ) then return binding_data end
-
+		local bnd_dt = pen.t.clone( binding_data )
+		if( binds_only ) then return bnd_dt end
+		
 		local skip_list = pen.t.unarray({ "keys", "keys_alt" })
-		for mod,mod_tbl in pairs( binding_data ) do
+		for mod,mod_tbl in pairs( bnd_dt ) do
 			for bind,bind_tbl in pairs( mod_tbl ) do
 				if( _BINDINGS[ mod ] == nil or _BINDINGS[ mod ][ bind ] == nil ) then
 					goto continue end
-				binding_data[ mod ] = pen.t.clone( binding_data[ mod ])
-				binding_data[ mod ][ bind ] = pen.t.clone( binding_data[ mod ][ bind ])
+				bnd_dt[ mod ] = pen.t.clone( bnd_dt[ mod ])
+				bnd_dt[ mod ][ bind ] = pen.t.clone( bnd_dt[ mod ][ bind ])
 				for k,v in pairs( _BINDINGS[ mod ][ bind ]) do
-					if( skip_list[ k ] == nil ) then
-						binding_data[ mod ][ bind ][ k ] = pen.t.clone( v )
-					end
+					if( skip_list[ k ] == nil ) then bnd_dt[ mod ][ bind ][ k ] = pen.t.clone( v ) end
 				end
 				::continue::
 			end
 		end
-		mnee.binding_data = binding_data
+		mnee.binding_data = bnd_dt
 	end
 
 	return mnee.binding_data
@@ -359,27 +357,28 @@ end
 function mnee.update_bindings( current_tbl )
 	dofile_once( "mods/mnee/bindings.lua" )
 	
+	local tbl = {}
 	if( type( current_tbl ) ~= "table" ) then
-		current_tbl = current_tbl == "nuke_it" and {} or mnee.get_bindings( true )
-	end
+		tbl = current_tbl == "nuke_it" and {} or mnee.get_bindings( true )
+	else tbl = pen.t.clone( current_tbl ) end
 	
 	local new_keys = {}
 	local profile = pen.setting_get( "mnee.PROFILE" )
 	for mod,mod_tbl in pairs( _BINDINGS ) do
 		local setup_id = "_dft"
-		if( current_tbl[ mod ] == nil ) then current_tbl[ mod ] = {} end
+		if( tbl[ mod ] == nil ) then tbl[ mod ] = {} end
 		if( _MNEEDATA[ mod ] ~= nil and _MNEEDATA[ mod ].setup_modes ~= nil ) then
 			setup_id = mnee.get_setup_id( mod )
 		end
 		
 		for bind,bind_tbl in pairs( mod_tbl ) do
-			current_tbl[ mod ][ bind ] = current_tbl[ mod ][ bind ] or {}
+			tbl[ mod ][ bind ] = tbl[ mod ][ bind ] or {}
 			if( bind_tbl.axes == nil ) then
-				current_tbl[ mod ][ bind ].keys = current_tbl[ mod ][ bind ].keys or {}
-			else current_tbl[ mod ][ bind ].keys = "axes"; goto continue end
+				tbl[ mod ][ bind ].keys = tbl[ mod ][ bind ].keys or {}
+			else tbl[ mod ][ bind ].keys = "axes"; goto continue end
 
 			for i,v in ipairs({ 1, profile }) do
-				current_tbl[ mod ][ bind ].keys[ v ] = current_tbl[ mod ][ bind ].keys[ v ] or {}
+				tbl[ mod ][ bind ].keys[ v ] = tbl[ mod ][ bind ].keys[ v ] or {}
 				if( _MNEEDATA[ mod ] ~= nil ) then
 					new_keys = pen.t.get( _MNEEDATA[ mod ].setup_modes, setup_id )
 					if( pen.vld( new_keys ) and new_keys.binds ~= nil ) then
@@ -389,19 +388,13 @@ function mnee.update_bindings( current_tbl )
 				
 				if( pen.vld( new_keys )) then
 					if( type( new_keys[1]) == "table" ) then
-						current_tbl[ mod ][ bind ].keys[ v ].main =
-							current_tbl[ mod ][ bind ].keys[ v ].main or new_keys[1]
-						current_tbl[ mod ][ bind ].keys[ v ].alt =
-							current_tbl[ mod ][ bind ].keys[ v ].alt or new_keys[2]
-					else current_tbl[ mod ][ bind ].keys[ v ].main =
-						current_tbl[ mod ][ bind ].keys[ v ].main or new_keys
-					end
+						tbl[ mod ][ bind ].keys[ v ].main = tbl[ mod ][ bind ].keys[ v ].main or new_keys[1]
+						tbl[ mod ][ bind ].keys[ v ].alt = tbl[ mod ][ bind ].keys[ v ].alt or new_keys[2]
+					else tbl[ mod ][ bind ].keys[ v ].main = tbl[ mod ][ bind ].keys[ v ].main or new_keys end
 				else
 					new_keys = pen.t.clone( bind_tbl )
-					current_tbl[ mod ][ bind ].keys[ v ].main =
-						current_tbl[ mod ][ bind ].keys[ v ].main or new_keys.keys
-					current_tbl[ mod ][ bind ].keys[ v ].alt =
-						current_tbl[ mod ][ bind ].keys[ v ].alt or new_keys.keys_alt
+					tbl[ mod ][ bind ].keys[ v ].main = tbl[ mod ][ bind ].keys[ v ].main or new_keys.keys
+					tbl[ mod ][ bind ].keys[ v ].alt = tbl[ mod ][ bind ].keys[ v ].alt or new_keys.keys_alt
 				end
 			end
 			
@@ -409,7 +402,7 @@ function mnee.update_bindings( current_tbl )
 		end
 	end
 	
-	mnee.set_bindings( current_tbl )
+	mnee.set_bindings( tbl )
 end
 
 --[FRONTEND]

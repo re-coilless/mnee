@@ -22,6 +22,7 @@ end
 
 --https://github.com/LuaLS/lua-language-server/wiki/Annotations
 
+-- pen.animate
 -- pen.setting_set
 -- pen.setting_get
 -- pen.get_creature_dimensions
@@ -34,6 +35,7 @@ end
 -- pen.rate_wand
 -- pen.rate_creature
 
+--add pen.animate debugging that plots/demos motion/scaling in self-aligning grid
 --coroutine-based sequencer that accepts a table of events (use varstorage to preserve the state between restarts)
 --custom scroller (static tip as background, cutout, custom graphics for all elements, sine smoothing of scrolling, mouse wheel support)
 --raytrace_entities
@@ -140,7 +142,7 @@ function pen.hash_me( str, is_huge )
 			b = ( a + b )%c
 		end
 		return tostring( b*c + a )
-	end)
+	end, { reset_frame = 36000 })
 end
 
 --add autotuning with visualizer via new_plot
@@ -162,13 +164,15 @@ function pen.pid( pid, delta, k ) --https://www.robotsforroboticists.com/pid-con
 	return k.p*delta + k.i*int + k.d*der + k.bias
 end
 
-function pen.atimer( tid, duration, reset_now )
+function pen.atimer( tid, duration, reset_now, stillborn )
 	local frame_num = GameGetFrameNum()
-	return math.min( pen.cache({ "animation_timer", tid }, function()
-		return frame_num
-	end, { reset_count = 0, reset_now = reset_now }) - frame_num, duration or 0 )
+	pen.c.animation_timer = pen.c.animation_timer or {}
+	if( pen.c.animation_timer[ tid ] == nil or reset_now ) then
+		pen.c.animation_timer[ tid ] = frame_num - (( stillborn or false ) and duration or 0 )
+	end; return math.min( frame_num - pen.c.animation_timer[ tid ], duration or 0 )
 end
 
+--add looping capabilities
 function pen.animate( delta, frame, data ) --https://www.febucci.com/2018/08/easing-functions/
 	data = data or {}
 	data.type = data.type or "lerp"
@@ -176,8 +180,8 @@ function pen.animate( delta, frame, data ) --https://www.febucci.com/2018/08/eas
 	data.frames = data.frames or 20
 	data.ease_int = data.ease_int or "lerp"
 	data.params_ease = data.params_ease or {}
-	data.ease_in = pen.get_hybrid_table( data.ease_in or "" )
-	data.ease_out = pen.get_hybrid_table( data.ease_out or "" )
+	data.ease_in = pen.get_hybrid_table( data.ease_in )
+	data.ease_out = pen.get_hybrid_table( data.ease_out )
 	
 	local easings = { --https://easings.net/
 		nul = function( t )
@@ -185,6 +189,12 @@ function pen.animate( delta, frame, data ) --https://www.febucci.com/2018/08/eas
 		end,
 		flp = function( t )
 			return 1 - t
+		end,
+		flr = function( t, a )
+			return math.min( t, ( a or 0 )/10 )
+		end,
+		cel = function( t, a )
+			return math.max( t, ( a or 0 )/10 )
 		end,
 		pow = function( t, a )
 			return t^( a or 2 )
@@ -256,19 +266,22 @@ function pen.animate( delta, frame, data ) --https://www.febucci.com/2018/08/eas
 			return delta[2] + ( delta[1] - delta[2])*t
 		end,
 		spke = function( t, delta )
-			return delta[2] + delta[1]*(( t < 0.5 ) and 2*t or -2*( t - 1 ))
+			return delta[2] + ( delta[1] - delta[2])*(( t < 0.5 ) and 2*t or -2*( t - 1 ))
+		end,
+		jump = function( t, delta, params )
+			return t > ( params[1] or 0.5 ) and delta[2] or delta[1]
 		end,
 		hill = function( t, delta, params )
-			return delta[2] + delta[1]*( math.sin( t*math.pi )^( params[1] or 1 ))
+			return delta[2] + ( delta[1] - delta[2])*( math.sin( t*math.pi )^( params[1] or 1 ))
 		end,
 		sine = function( t, delta, params )
-			return delta[2] + delta[1]*( 1 + math.sin( math.pi*( t - 0.5 ))^( 2*( params[1] or 0 ) + 1 ))/2
+			return delta[2] + ( delta[1] - delta[2])*( 1 + math.sin( math.pi*( t - 0.5 ))^( 2*( params[1] or 0 ) + 1 ))/2
 		end,
 		bzir = function( t, delta, params )
 			return delta[2]*( 1 - t )^3
 				+ ( params[1] or 1 )*3*t*( 1 - t )^2
 				+ ( params[2] or 0 )*3*( 1 - t )*t^2
-				+ delta[1]*t^3
+				+ ( delta[1] - delta[2])*t^3
 		end,
 		lgrn = function( t, delta, params ) --https://www.geeksforgeeks.org/lagranges-interpolation/
 			local out = 0
@@ -281,24 +294,25 @@ function pen.animate( delta, frame, data ) --https://www.febucci.com/2018/08/eas
 				end
 				out = out + temp
 			end
-			return delta[2] + delta[1]*out
+			return delta[2] + ( delta[1] - delta[2])*out
 		end,
 	}
 	
 	delta = pen.get_hybrid_table( delta )
 	if( delta[2] ~= nil ) then
-		local a, b = unpack( delta )
-		delta = { b - a, a }
+		local temp = delta[1]
+		delta[1] = delta[2]
+		delta[2] = temp
 	else delta[2] = 0 end
 
 	if( type( frame ) == "string" ) then
-		frame = pen.atimer( frame, data.frames, data.reset_now )
+		frame = pen.atimer( frame, data.frames, data.reset_now, data.stillborn )
 	end
 
 	local time = frame/data.frames
 	if( time == 0 ) then return delta[2] end
 	if( time == 1 ) then return delta[1] end
-
+	
 	local orig_time = time
 	for i = 1,math.max( #data.ease_in, #data.ease_out ) do
 		local eases = {}
@@ -317,7 +331,7 @@ function pen.animate( delta, frame, data ) --https://www.febucci.com/2018/08/eas
 		
 		if( eases[1] ~= nil and eases[2] ~= nil ) then
 			time = inters[ data.ease_int ]( orig_time, eases, data.params_ease )
-		else time = eases[1] or eases[2] end
+		else time = eases[1] or eases[2] or orig_time end
 	end
 	
 	if( data.type == "function" ) then
@@ -327,7 +341,6 @@ end
 
 --[TECHNICAL]
 function pen.get_hybrid_table( table, allow_unarray )
-	if( not( pen.vld( table ))) then return {} end
 	if( type( table ) == "table" and ( allow_unarray or not( pen.t.is_unarray( table )))) then
 		return table
 	else return { table } end
@@ -340,21 +353,25 @@ function pen.get_hybrid_function( func, input )
 	else return func end
 end
 
-function pen.v2s( value, is_pretty )
+function pen.v2s( value, is_pretty, full_precision )
+	full_precision = full_precision or false
 	return ( is_pretty or false ) and tostring( value ) or (({
 		["nil"] = function( v ) return "" end,
-		["number"] = function( v ) return string.format( "%a", v ) end,
+		["number"] = function( v ) return full_precision and string.format( "%a", v ) or tostring( v ) end,
 		["string"] = function( v ) return string.format( "%q", v ) end,
 		["boolean"] = function( v ) return "bool"..pen.b2n( v ) end,
+		["function"] = function( v ) return string.format( "%q", tostring( v )) end,
 	})[ type( value )]( value ) or value )
 end
 function pen.s2v( str )
 	if( not( pen.vld( str ))) then
 		return
-	elseif( string.find( str, "bool[01]" )) then
-		return pen.n2b( string.sub( str, -1, -1 ))
+	elseif( string.find( str, "^bool[01]$" )) then
+		return pen.n2b( tonumber( string.sub( str, -1, -1 )))
 	elseif( tonumber( str )) then
 		return tonumber( str )
+	elseif( string.find( str, "^\".+\"$" )) then
+		return string.sub( str, 2, -2 )
 	end
 	return str
 end
@@ -432,6 +449,8 @@ function pen.t.is_unarray( tbl )
 end
 
 function pen.t.unarray( tbl, dft )
+	if( not( pen.vld( tbl ))) then return {} end
+
 	local new_tbl, n = {}, 1
 	if( pen.t.is_unarray( tbl )) then
 		for k,v in pairs( tbl ) do
@@ -440,7 +459,7 @@ function pen.t.unarray( tbl, dft )
 	else
 		for i,v in ipairs( tbl ) do
 			if( type( v ) == "table" ) then
-				new_tbl[v[1]] = v[2] or dft or i
+				if( v[1] ~= nil ) then new_tbl[v[1]] = v[2] or dft or i end
 			else new_tbl[v] = dft or i end
 		end
 	end
@@ -455,8 +474,8 @@ function pen.t.get( tbl, id, custom_key, will_nuke )
 	local is_multi = type( id ) == "table"
 	id = pen.t.unarray( pen.get_hybrid_table( id ))
 	for i,v in ipairs( tbl ) do
-		local check = pen.get_hybrid_table( v )
-		if( id[ check[key] or check[1] or 0 ]) then
+		local check = pen.get_hybrid_table( v, true )
+		if( id[ check[key] or 0 ] or id[ check[1] or 0 ]) then
 			tbl_id = i
 			table.insert( out, ( will_nuke or false ) and tbl_id or v )
 			if( not( is_multi )) then break end
@@ -519,13 +538,14 @@ function pen.t.insert_new( tbl, new )
 end
 
 function pen.t.clone( orig, copies )
-	if( type( orig ) ~= "table" ) then return orig end
-	
 	local copy = {}
+	if( type( orig ) ~= "table" ) then
+		copy = orig; return copy end
+	
     copies = copies or {}
 	if( copies[ orig ] == nil ) then
 		copies[ orig ] = copy
-		for orig_key,orig_value in next,orig,nil do
+		for orig_key,orig_value in pairs( orig ) do
 			copy[ pen.t.clone( orig_key, copies )] = pen.t.clone( orig_value, copies )
 		end
 		setmetatable( copy, pen.t.clone( getmetatable( orig ), copies ))
@@ -535,16 +555,16 @@ end
 
 function pen.t.pack( data )
 	if( not( pen.vld( data ))) then
-		return type( data or "" ) == "string" and {} or ""
+		return type( data or "" ) == "string" and {} or pen.DIV_1
 	end
 	
 	local function ser( tbl )
 		return pen.DIV_1..pen.t.loop_concat( tbl, function( i, cell )
 			if( type( cell ) == "table" ) then
 				return { pen.DIV_2, pen.t.loop_concat( cell, function( e, v )
-					return { type( v ) == "table" and "\0" or pen.v2s( v, true ), pen.DIV_2 }
+					return { type( v ) == "table" and "\0" or pen.v2s( v ), pen.DIV_2 }
 				end), pen.DIV_1 }
-			else return { pen.v2s( cell, true ), pen.DIV_1 } end
+			else return { pen.v2s( cell ), pen.DIV_1 } end
 		end)
 	end
 	local function dser( str )
@@ -570,7 +590,7 @@ function pen.t.pack( data )
 	else return dser( data ) end
 end
 
-function pen.t.parse( data, is_pretty )
+function pen.t.parse( data, is_pretty, full_precision )
 	if( not( pen.vld( data ))) then
 		return type( data or "" ) == "string" and {} or ""
 	end
@@ -586,23 +606,17 @@ function pen.t.parse( data, is_pretty )
 			end
 			table.insert( out, "}" )
 			return table.concat( out )
-		else return pen.v2s( tbl, is_pretty ) end
+		else return pen.v2s( tbl, is_pretty, full_precision ) end
 	end
 	local function dser( str )
-		return pen.cache({ "table_parse", str }, function()
+		return pen.cache({ "table_parse", pen.hash_me( str, true )}, function()
 			if( string.find( str, "^{.+}$" ) == nil ) then return {} end
-			str = ","..string.sub( string.sub( str, 2, -1 ), 1, -2 )..","
+			str = ","..string.sub( string.sub( str, 2, -1 ), 1, -2 )..",["
 			
 			local name_pattern = "^%[\"?.-\"?%]="
-			local function s2v( s )
-				if( string.sub( s, 1, 1 ) == "\"" ) then
-					s = string.sub( s, 2, -2 )
-				else s = pen.s2v( s ) end
-				return s
-			end
 			local function s2n( s )
 				local name = string.sub( s, string.find( s, name_pattern ))
-				return s2v( string.sub( name, 2, -3 ))
+				return pen.s2v( string.sub( name, 2, -3 ))
 			end
 			
 			local out = {}
@@ -611,9 +625,17 @@ function pen.t.parse( data, is_pretty )
 				str = string.sub( str, 1, a - 1 )..string.sub( str, b + 1, -1 )
 				out[ s2n( v )] = dser( string.gsub( v, name_pattern, "" ))
 			end
-			for i,v in ipairs( pen.ctrn( str, "," )) do
-				out[ s2n( v )] = s2v( string.gsub( v, name_pattern, "" ))
+			local l_pos, r_pos = 0, 0
+			while( l_pos ~= nil ) do
+				local v = ""
+				l_pos, r_pos = string.find( str, ",%[.-,%[" )
+				if( l_pos ~= nil ) then
+					v = string.sub( str, l_pos + 1, r_pos - 2 )
+					str = string.sub( str, 1, l_pos - 1 )..string.sub( str, r_pos - 1, -1 )
+				else break end
+				out[ s2n( v )] = pen.s2v( string.gsub( v, name_pattern, "" ))
 			end
+
 			return out
 		end)
 	end
@@ -881,8 +903,8 @@ function pen.liner( text, length, height, font, data )
 	local is_pixel_font = false
 	font, is_pixel_font = pen.font_cancer( font )
 	local space_l, font_height = pen.get_char_dims( " ", nil, font )
-	length, height = ( length or 1920 ) + space_l, height or -1
-	if( height >= 0 ) then height = math.max( height, font_height ) end
+	length, height = (( length or -1 ) > 0 and length or 99999 ) + space_l, height or -1
+	if( height >= 0 ) then height = math.max( height, 1.5*font_height ) end
 
 	local function defancifier( str )
 		local markers = pen.MARKER_FANCY_TEXT
@@ -1112,9 +1134,11 @@ function pen.add_translations( path )
 end
 
 --[ECS]
-function pen.get_hooman()
-	local cam_x, cam_y = GameGetCameraPos()
-	return EntityGetClosestWithTag( cam_x, cam_y, "player_unit" )
+function pen.get_hooman( is_smart )
+	if( is_smart ) then
+		local cam_x, cam_y = GameGetCameraPos()
+		return EntityGetClosestWithTag( cam_x, cam_y, "player_unit" )
+	else return ( EntityGetWithTag( "player_unit" ) or {})[1] end
 end
 
 function pen.child_play( entity_id, action )
@@ -1167,7 +1191,7 @@ function pen.catch_comp( comp_name, field_name, index, func, args, forced )
 	v = out[1]
 	if( not( pen.vld( v ))) then
 		pen.silent_catch = true
-
+		
 		out = { pen.catch( func, args )}
 		v = out[1] ~= nil --cannot check write
 		table.insert( out, 1, v )
@@ -1456,7 +1480,6 @@ function pen.random_sign( var )
 end
 
 function pen.setting_set( id, value ) --update cache (cache is stored in globals)
-	value = value or ""
 	ModSettingSet( id, value )
 	ModSettingSetNextValue( id, value, false )
 end
@@ -2449,18 +2472,22 @@ end
 function pen.new_button( gui, uid, pic_x, pic_y, pic_z, pic, data )
 	data = data or {}
 	data.pic_func = data.pic_func or function( gui, uid, pic_x, pic_y, pic_z, pic, data )
-		return pen.new_image( gui, uid, pic_x, pic_y, pic_z, pic )
+		return pen.new_image( gui, uid, pic_x, pic_y, pic_z, pic, data )
 	end
 
 	data.pic_w, data.pic_h = pen.get_pic_dims(( pen.get_hybrid_table( pic ))[1])
 	uid, data.clicked, data.r_clicked, data.is_hovered = pen.new_interface(
-		gui, uid, pic_x, pic_y, w*( data.s_x or 1 ), h*( data.s_y or 1 ), true
+		gui, uid, pic_x, pic_y, data.pic_w*( data.s_x or 1 ), data.pic_h*( data.s_y or 1 ), true
 	)
 
-	if( data.clicked ) then uid, pic_x, pic_y, pic_z, pic, data = data.lmb_event( gui, uid, pic_x, pic_y, pic_z, pic, data ) end
-	if( data.r_clicked ) then uid, pic_x, pic_y, pic_z, pic, data = data.rmb_event( gui, uid, pic_x, pic_y, pic_z, pic, data ) end
-	if( data.is_hovered ) then uid, pic_x, pic_y, pic_z, pic, data = data.hov_event( gui, uid, pic_x, pic_y, pic_z, pic, data )
-	else uid, pic_x, pic_y, pic_z, pic, data = data.idle_event( gui, uid, pic_x, pic_y, pic_z, pic, data ) end
+	if( data.lmb_event ~= nil and data.clicked ) then
+		uid, pic_x, pic_y, pic_z, pic, data = data.lmb_event( gui, uid, pic_x, pic_y, pic_z, pic, data ) end
+	if( data.rmb_event ~= nil and data.r_clicked ) then
+		uid, pic_x, pic_y, pic_z, pic, data = data.rmb_event( gui, uid, pic_x, pic_y, pic_z, pic, data ) end
+	if( data.hov_event ~= nil and data.is_hovered ) then
+		uid, pic_x, pic_y, pic_z, pic, data = data.hov_event( gui, uid, pic_x, pic_y, pic_z, pic, data )
+	elseif( data.idle_event ~= nil ) then
+		uid, pic_x, pic_y, pic_z, pic, data = data.idle_event( gui, uid, pic_x, pic_y, pic_z, pic, data ) end
 	uid = data.pic_func( gui, uid, pic_x, pic_y, pic_z, pic, data )
 	return uid, data.clicked, data.r_clicked, data.is_hovered
 end
@@ -2535,11 +2562,12 @@ function pen.new_text( gui, uid, pic_x, pic_y, pic_z, text, data )
 		if( data.is_centered_x or data.is_right_x ) then
 			pic_x = pic_x - dims[1]/( data.is_right_x and 1 or 2 )
 		end
-
-		pen.colourer( gui, data.color )
-		GuiZSetForNextWidget( gui, pic_z )
-		GuiText( gui, pic_x, pic_y, text[1], data.scale, data.font, is_pixel_font )
-		return
+		for i,t in ipairs( text ) do
+			pen.colourer( gui, data.color )
+			GuiZSetForNextWidget( gui, pic_z )
+			GuiText( gui, pic_x, pic_y + ( i - 1 )*new_line, t, data.scale, data.font, is_pixel_font )
+		end
+		return uid, dims
 	end
 	
 	local structure = pen.cache({ "metafont",
@@ -2555,7 +2583,7 @@ function pen.new_text( gui, uid, pic_x, pic_y, pic_z, text, data )
 			local new_element = { x = 0, y = height_counter }
 			if( data.is_centered_x ) then
 				local _,off = pen.liner( line, nil, nil, data.font )
-				new_element.x = ( data.is_right_x or false ) and -off[1] or ( data.dims[1] - off[1])/2
+				new_element.x = ( data.is_right_x or false ) and -off[1] or ( math.abs( data.dims[1]) - off[1])/2
 			end
 			
 			while( pen.vld( temp )) do
@@ -2616,7 +2644,7 @@ function pen.new_text( gui, uid, pic_x, pic_y, pic_z, text, data )
 	pen.c.font_ram = pen.c.font_ram or {}
 	
 	local c_gbl, c_lcl = 1, {}
-	local off_x = ( data.is_centered_x or false ) and -data.dims[1]/2 or 0
+	local off_x = ( data.is_centered_x or false ) and -math.abs( data.dims[1])/2 or 0
 	local off_y = ( data.is_centered_y or false ) and -math.max( data.dims[2] or 0, dims[2])/2 or 0
 	pen.t.loop( structure, function( i, element )
 		if( not( pen.vld( element.text ))) then return end
@@ -2683,7 +2711,7 @@ function pen.new_tooltip( gui, uid, text, data, func )
 	data.pos = data.pos or {}
 	data.tid = data.tid or "dft"
 	data.edging = data.edging or 3
-	data.anim_frames = data.anim_frames or 15
+	data.frames = data.frames or 15
 	data.pic_z = data.pic_z or pen.Z_LAYERS.tips
 	data.allow_hover = data.allow_hover or false
 	data.do_corrections = data.do_corrections or not( pen.vld( data.pos ))
@@ -2697,19 +2725,20 @@ function pen.new_tooltip( gui, uid, text, data, func )
 		data.is_active = data.is_active or pen.c.ttips[ data.tid ].inter_state[3]
 	end
 	if( not( data.is_active )) then return uid end
-
+	
 	if( pen.c.ttips[ data.tid ].going ~= frame_num ) then
 		pen.c.ttips[ data.tid ].going = frame_num
 
-		local tip_anim = pen.c.ttips[data.tid].anim
-		if(( frame_num - tip_anim[2]) > ( data.anim_frames + 5 )) then tip_anim[1] = frame_num -1 end
-		tip_anim[2], tip_anim[3] = frame_num, math.min( frame_num - tip_anim[1], data.anim_frames )
-
+		local tip_anim = pen.c.ttips[ data.tid ].anim
+		if(( frame_num - tip_anim[2]) > ( data.frames + 5 )) then tip_anim[1] = frame_num -1 end
+		tip_anim[2], tip_anim[3] = frame_num, math.min( frame_num - tip_anim[1], data.frames )
+		
 		local w, h = GuiGetScreenDimensions( gui )
 		if( not( pen.vld( data.dims ))) then
-			_,data.dims = pen.liner( text, w*0.5, h, nil, {
-				line_offset = data.line_offset or -2,
-			})
+			_,data.dims = pen.liner( text )
+			local l = data.dims[1]
+			local line = math.max(( l > 300 and math.max( math.pow( 250/l, 1.25 ), 0.1 ) or 1 )*l, w/4 )
+			_,data.dims = pen.liner( text, w*math.min( line/w, 0.9 ), h, nil, { line_offset = data.line_offset or -2 })
 		end
 		data.dims = pen.t.clone( data.dims )
 		data.dims[1] = data.dims[1] + 2*data.edging - 1
@@ -2733,23 +2762,21 @@ function pen.new_tooltip( gui, uid, text, data, func )
 		end
 		data.pos[3] = data.pic_z
 
-		func = func or function( gui, uid, text, data )
-			local size_x, size_y = unpack( data.dims )
-			local pic_x, pic_y, pic_z = unpack( data.pos )
+		func = func or function( gui, uid, text, d )
+			local size_x, size_y = unpack( d.dims )
+			local pic_x, pic_y, pic_z = unpack( d.pos )
 
-			local inter_alpha = pen.animate( 1, data.anim_frame, {
-				ease_out = "exp", frames = data.anim_frames,
-			})
-			uid = pen.new_text( gui, uid, pic_x + data.edging, pic_y + data.edging - 2, pic_z, text, {
-				dims = { size_x - data.edging, size_y },
-				line_offset = data.line_offset or -2,
-				funcs = data.font_mods,
+			local inter_alpha = pen.animate( 1, d.t, {
+				ease_out = "exp", frames = d.frames })
+			uid = pen.new_text( gui, uid, pic_x + d.edging, pic_y + d.edging - 2, pic_z, text, {
+				dims = { size_x - d.edging, size_y },
+				line_offset = d.line_offset or -2,
+				funcs = d.font_mods,
 				color = { 255, 255, 255, inter_alpha },
 			})
 			
-			local inter_size = 15*( 1 - pen.animate( 1, data.anim_frame, {
-				ease_out = "wav1.5", frames = data.anim_frames,
-			}))
+			local inter_size = 15*( 1 - pen.animate( 1, d.t, {
+				ease_out = "wav1.5", frames = d.frames }))
 			pic_x, pic_y = pic_x + 0.5*inter_size, pic_y + 0.5*inter_size
 			size_x, size_y = size_x - inter_size, size_y - inter_size
 			
@@ -2765,7 +2792,7 @@ function pen.new_tooltip( gui, uid, text, data, func )
 			return uid, { clicked, r_clicked, is_hovered }
 		end
 		
-		data.anim_frame = pen.c.ttips[ data.tid ].anim[3]
+		data.t = pen.c.ttips[ data.tid ].anim[3]
 		uid, pen.c.ttips[ data.tid ].inter_state = func( gui, uid, text, data )
 	else pen.c.ttips[ data.tid ].inter_state = {} end
 	
@@ -2799,13 +2826,15 @@ function pen.new_input( gui, uid, iid, pic_x, pic_y, pic_z, data )
 end
 
 function pen.new_pager( gui, uid, pic_x, pic_y, pic_z, data )
-	local counter = 1
+	local counter, skip = 0, false
 	if( type( data.list ) == "table" ) then
-		local starter, ender = data.items_per_page*( data.page[1] - 1 ), data.items_per_page*data.page[1] + 1
+		local starter, ender = data.items_per_page*( data.page - 1 ), data.items_per_page*data.page + 1
 		for k,v in ( data.order_func or pen.t.order )( data.list ) do
 			counter = counter + 1
-			if( data.func ~= nil and counter > starter and counter < ender ) then
-				uid, counter = data.func( gui, uid, pic_x, pic_y, pic_z, k, v, starter - counter, counter )
+			if( data.func ~= nil ) then
+				local is_hidden = not( counter > starter and counter < ender )
+				uid, skip = data.func( gui, uid, pic_x, pic_y, pic_z, k, v, counter - starter, is_hidden )
+				if( skip ) then counter = counter - 1 end
 			end
 		end
 	else counter = data.list + 1 end
@@ -2815,9 +2844,9 @@ function pen.new_pager( gui, uid, pic_x, pic_y, pic_z, data )
 	for i = 1,2 do
 		local sign = i == 1 and -1 or 1
 		if( data.click[i] == 1 and max_page > 1 ) then
-			data.page = data.page - 1; sfx_type = 1
+			data.page = data.page + sign; sfx_type = 1
 		elseif( data.click[i] == -1 and max_page > 5 ) then
-			data.page = data.page - 5; sfx_type = -1
+			data.page = data.page + sign*5; sfx_type = -1
 		end
 		if( sfx_type ~= 0 ) then
 			if( data.page < 1 ) then data.page = math.max( data.page + max_page, 1 ) end
@@ -2892,7 +2921,7 @@ pen.FILE_T2F = "data/debug/vpn"
 
 pen.DIV_0 = "@"
 pen.DIV_1 = "|"
-pen.DIV_2 = ":"
+pen.DIV_2 = "!"
 
 pen.AI_COMPS = {
 	AIAttackComponent = 1,

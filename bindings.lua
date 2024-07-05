@@ -17,26 +17,26 @@ _MNEEDATA["mnee"] = {
 	-- on_jpad = function( data, jpad_id ) end, --[GAMEPAD SLOT CALLBACK] return true to set the slot to dummy
 	-- on_setup = function( data, setup_id ) end, --[SETUP CHANGE CALLBACK]
 	
-	setup_default = {
-		btn = "NRM",
-		name = "Normal",
-		desc = "This table changes the UI part of the default setup mode.",
-	},
-	setup_modes = {
-		{
-			id = "test1",
-			btn = "TST",
-			name = "Test",
-			desc = "Testing the setup modes.",
-			binds = {
-				menu = {["8"] = 1 },
-				off = {
-					{["9"] = 1 },
-					{["0"] = 1 },
-				},
-			},
-		},
-	}
+	-- setup_default = {
+	-- 	btn = "NRM",
+	-- 	name = "Normal",
+	-- 	desc = "This table changes the UI part of the default setup mode.",
+	-- },
+	-- setup_modes = {
+	-- 	{
+	-- 		id = "test1",
+	-- 		btn = "TST",
+	-- 		name = "Test",
+	-- 		desc = "Testing the setup modes.",
+	-- 		binds = {
+	-- 			menu = {["8"] = 1 },
+	-- 			off = {
+	-- 				{["9"] = 1 },
+	-- 				{["0"] = 1 },
+	-- 			},
+	-- 		},
+	-- 	},
+	-- }
 }
 
 _BINDINGS["mnee"] = {

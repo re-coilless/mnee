@@ -18,9 +18,7 @@ function OnModInit()
 			end
 		end,
 	})
-
-	--kappa playtest
-	--change penman/_penman back to mnee/_penman
+	
 	--LLS documentation of all funcs + update actual documentation
 	--make mnee the main propero mod (p2k must pull all the sounds and such from it)
 	

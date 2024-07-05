@@ -597,7 +597,7 @@ function mnee.mnin_key( name, pressed_mode, is_vip, key_mode )
 	end) or false
 end
 
-function mnee.mnin_bind( mod_id, name, dirty_mode, pressed_mode, is_vip, loose_mode, key_mode )
+function mnee.mnin_bind( mod_id, name, dirty_mode, pressed_mode, is_vip, strict_mode, key_mode )
 	local abort_tbl = { false, false, false }
 	if( GameHasFlagRun( mnee.SERV_MODE ) and not( mnee.ignore_service_mode )) then return unpack( abort_tbl ) end
 	if( GameHasFlagRun( mnee.TOGGLER ) and not( is_vip )) then return unpack( abort_tbl ) end
@@ -620,7 +620,7 @@ function mnee.mnin_bind( mod_id, name, dirty_mode, pressed_mode, is_vip, loose_m
 		else is_gone = false end
 
 		if( high_score < 1 ) then goto continue end
-		if( high_score > 1 and not( loose_mode ) and high_score ~= #keys_down ) then goto continue end
+		if( high_score > 1 and strict_mode and high_score ~= #keys_down ) then goto continue end
 		if( high_score == 1 and not( dirty_mode )) then
 			for i,key in ipairs( keys_down ) do
 				if( mnee.SPECIAL_KEYS[ key ] ~= nil ) then goto continue end
@@ -723,7 +723,7 @@ end
 function mnee.mnin( mode, id_data, data )
 	local map = {
 		key = { mnee.mnin_key, {1}, { "pressed", "vip", "mode" }},
-		bind = { mnee.mnin_bind, {1,2}, { "dirty", "pressed", "vip", "loose", "mode" }},
+		bind = { mnee.mnin_bind, {1,2}, { "dirty", "pressed", "vip", "strict", "mode" }},
 		axis = { mnee.mnin_axis, {1,2}, { "dirty", "pressed", "vip", "mode" }},
 		stick = { mnee.mnin_stick, {1,2}, { "dirty", "pressed", "vip", "mode" }},
 	}
@@ -818,7 +818,7 @@ function get_key_vip( name )
 end
 
 function is_binding_down( mod_id, name, dirty_mode, pressed_mode, is_vip, loose_mode, key_mode )
-	return mnee.mnin_bind( mod_id, name, dirty_mode, pressed_mode, is_vip, loose_mode, key_mode )
+	return mnee.mnin_bind( mod_id, name, dirty_mode, pressed_mode, is_vip, not( loose_mode ), key_mode )
 end
 function get_binding_pressed( mod_id, name, is_vip, dirty_mode, loose_mode )
 	return is_binding_down( mod_id, name, dirty_mode, true, is_vip, loose_mode )

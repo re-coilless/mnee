@@ -1,9 +1,9 @@
-mneedata = {}
-bindings = {}
+_MNEEDATA = {}
+_BINDINGS = {}
 
 --see mods/mnee/lists.lua for most of the internal key IDs
 
-mneedata["mnee"] = {
+_MNEEDATA["mnee"] = {
 	name = "mnee",
 	desc = "$mnee_desc",
 	is_dirty = false,
@@ -16,28 +16,30 @@ mneedata["mnee"] = {
 	-- on_reset = function( data ) end, --[SET TO DEFAULT CALLBACK] on_changed is called if nil
 	-- on_jpad = function( data, jpad_id ) end, --[GAMEPAD SLOT CALLBACK] return true to set the slot to dummy
 	-- on_setup = function( data, setup_id ) end, --[SETUP CHANGE CALLBACK]
-
-	--[[
-	setup_default = {
-		btn = "NRM",
-		name = "Normal",
-		desc = "This table changes the UI part of the default setup mode.",
-	},
-	setup_modes = {
-		{
-			id = "test1",
-			btn = "TST",
-			name = "Test",
-			desc = "Testing the setup modes.",
-			binds = {
-				menu = { ["8"] = 1, },
-				off = {{ ["9"] = 1, }, { ["0"] = 1, }},
-			},
-		},
-	}
-	]]
+	
+	-- setup_default = {
+	-- 	btn = "NRM",
+	-- 	name = "Normal",
+	-- 	desc = "This table changes the UI part of the default setup mode.",
+	-- },
+	-- setup_modes = {
+	-- 	{
+	-- 		id = "test1",
+	-- 		btn = "TST",
+	-- 		name = "Test",
+	-- 		desc = "Testing the setup modes.",
+	-- 		binds = {
+	-- 			menu = {["8"] = 1 },
+	-- 			off = {
+	-- 				{["9"] = 1 },
+	-- 				{["0"] = 1 },
+	-- 			},
+	-- 		},
+	-- 	},
+	-- }
 }
-bindings["mnee"] = {
+
+_BINDINGS["mnee"] = {
 	menu = { --[ACTUAL BINDING ID]
 		order_id = "a", --[SORTING ORDER]
 		is_dirty = false, --[CONFLICT CHECKING MODE TOGGLE]
@@ -59,14 +61,8 @@ bindings["mnee"] = {
 		jpad_type = "AIM", --[USER-ACCESSIBLE ANALOG STICK DEADZONE TYPE: BUTTON, AIM, MOTION, EXTRA]
 		deadzone = 0.5, --[INTERNAL USER-INACCESSIBLE DEADZONE THAT IS ADDED ON TOP]
 		
-		keys = { --[DEFAULT BINDING KEYS]
-			left_ctrl = 1, --number is just so the thing won't be nil
-			m = 1,
-		},
-		keys_alt = { --[SECONDARY KEYS]
-			right_ctrl = 1,
-			m = 1,
-		},
+		keys = pen.t.unarray({ "left_ctrl", "m" }), --[DEFAULT BINDING KEYS]
+		keys_alt = pen.t.unarray({ "right_ctrl", "m" }), --[SECONDARY KEYS]
 	},
 	
 	off = {
@@ -75,10 +71,7 @@ bindings["mnee"] = {
 		name = "$mnee_nope",
 		desc = "$mnee_nope_desc",
 
-		keys = {
-			right_ctrl = 1,
-			["keypad_-"] = 1,
-		},
+		keys = pen.t.unarray({ "right_ctrl", "keypad_-" }),
 	},
 	
 	profile_change = {
@@ -87,9 +80,8 @@ bindings["mnee"] = {
 		name = "$mnee_profile",
 		desc = "$mnee_profile_desc",
 
-		keys = {
-			right_ctrl = 1,
-			["keypad_+"] = 1,
-		},
+		keys = pen.t.unarray({ "right_ctrl", "keypad_+" }),
 	},
 }
+
+mneedata, bindings = _MNEEDATA, _BINDINGS

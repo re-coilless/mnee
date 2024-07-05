@@ -12,17 +12,15 @@ function mod_setting_full_resetter( mod_id, gui, in_main_menu, im_id, setting )
 	local clicked, right_clicked = GuiButton( gui, im_id, mod_setting_group_x_offset, 0, "<<"..GameTextGetTranslatedOrNot( setting.ui_name )..">>"..(( mnee_it_is_done or false ) and " - "..GameTextGetTranslatedOrNot( setting.ui_extra ) or "" ))
 	if( right_clicked ) then
 		local is_proper = GameHasFlagRun( "MNEE_IS_GOING" )
-		if( is_proper ) then dofile_once( "mods/mnee/lib.lua" ) end
 		
-		ModSettingSetNextValue( "mnee.SETUP", "&", false )
-		for i = 1,3 do
-			ModSettingSetNextValue( "mnee.BINDINGS_"..i, "&", false )
-			ModSettingSetNextValue( "mnee.BINDINGS_ALT_"..i, "&", false )
-			if( is_proper ) then
-				mnee.update_bindings( i )
-			end
+		ModSettingSetNextValue( "mnee.PROFILE", 2, false )
+		ModSettingSetNextValue( "mnee.SETUP", "", false )
+		ModSettingSetNextValue( "mnee.BINDINGS", "", false )
+		if( is_proper ) then
+			dofile_once( "mods/mnee/lib.lua" )
+			mnee.update_bindings( "nuke_it" )
 		end
-
+		
 		mnee_it_is_done = true
 		print( "IT IS GONE" )
 		if( is_proper ) then GamePrint( GameTextGetTranslatedOrNot( setting.ui_extra )) end
@@ -101,13 +99,12 @@ function text_with_no_mod( key ) --inspired by Conga's approach
 end
 
 function add_dynamic_fields( tbl, fields ) --thanks to ImmortalDamned
-    setmetatable( tbl, {
+    return setmetatable( tbl, {
         __index = function( _, k )
             local f = fields[k]
             return f and f()
         end
     })
-    return tbl
 end
 
 local mod_id = "mnee"
@@ -125,7 +122,7 @@ mod_settings =
 		value_default = false,
 		scope = MOD_SETTING_SCOPE_RUNTIME,
 	},{
-		ui_name = function() return GameTextGetTranslatedOrNot( text_with_no_mod( "$mnee_living" )) end,
+		ui_name = function() return text_with_no_mod( "$mnee_living" ) end,
 		ui_description = function() return text_with_no_mod( "$mnee_living_desc" ) end,
 	}),
 	add_dynamic_fields({
@@ -185,7 +182,7 @@ mod_settings =
 		value_display_formatting = " $0 ",
 		scope = MOD_SETTING_SCOPE_RUNTIME,
 	},{
-		ui_name = function() return GameTextGetTranslatedOrNot( text_with_no_mod( "$mnee_autoaim" )) end,
+		ui_name = function() return text_with_no_mod( "$mnee_autoaim" ) end,
 		ui_description = function() return text_with_no_mod( "$mnee_autoaim_desc" ) end,
 	}),
 	{
@@ -210,7 +207,7 @@ mod_settings =
 		ui_name = "Binding Profile",
 		ui_description = "",
 		hidden = true,
-		value_default = 1,
+		value_default = 2,
 		scope = MOD_SETTING_SCOPE_RUNTIME,
 	},
 	{
@@ -218,61 +215,16 @@ mod_settings =
 		ui_name = "Setup Choice Memo",
 		ui_description = "",
 		hidden = true,
-		value_default = "&",
+		value_default = "",
 		text_max_length = 100000,
 		scope = MOD_SETTING_SCOPE_RUNTIME,
 	},
 	{
-		id = "BINDINGS_1",
+		id = "BINDINGS",
 		ui_name = "Bindings",
 		ui_description = "",
 		hidden = true,
-		value_default = "&",
-		text_max_length = 100000,
-		scope = MOD_SETTING_SCOPE_RUNTIME,
-	},
-	{
-		id = "BINDINGS_ALT_1",
-		ui_name = "Bindings Alt",
-		ui_description = "",
-		hidden = true,
-		value_default = "&",
-		text_max_length = 100000,
-		scope = MOD_SETTING_SCOPE_RUNTIME,
-	},
-	{
-		id = "BINDINGS_2",
-		ui_name = "Bindings",
-		ui_description = "",
-		hidden = true,
-		value_default = "&",
-		text_max_length = 100000,
-		scope = MOD_SETTING_SCOPE_RUNTIME,
-	},
-	{
-		id = "BINDINGS_ALT_2",
-		ui_name = "Bindings Alt",
-		ui_description = "",
-		hidden = true,
-		value_default = "&",
-		text_max_length = 100000,
-		scope = MOD_SETTING_SCOPE_RUNTIME,
-	},
-	{
-		id = "BINDINGS_3",
-		ui_name = "Bindings",
-		ui_description = "",
-		hidden = true,
-		value_default = "&",
-		text_max_length = 100000,
-		scope = MOD_SETTING_SCOPE_RUNTIME,
-	},
-	{
-		id = "BINDINGS_ALT_3",
-		ui_name = "Bindings Alt",
-		ui_description = "",
-		hidden = true,
-		value_default = "&",
+		value_default = "",
 		text_max_length = 100000,
 		scope = MOD_SETTING_SCOPE_RUNTIME,
 	},

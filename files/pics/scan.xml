@@ -1,0 +1,29 @@
+<Sprite
+	filename="mods/mnee/files/pics/scan.png"
+	default_animation="idle"
+	>
+	
+	<RectAnimation
+		name="idle"
+		pos_x="0"
+		pos_y="0"
+		frame_width="12"
+		frame_height="12"
+		frame_count="1"
+		frames_per_row="1"
+		frame_wait="0.01"
+		loop="1"
+	></RectAnimation>
+	
+	<RectAnimation
+		name="scan"
+		pos_x="12"
+		pos_y="0"
+		frame_width="12"
+		frame_height="12"
+		frame_count="20"
+		frames_per_row="20"
+		frame_wait="0.083"
+		loop="1"
+	></RectAnimation>
+</Sprite>

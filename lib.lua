@@ -1,42 +1,84 @@
 dofile_once( "mods/mnee/_penman.lua" )
 
+---@alias deadzone_type
+---| "BUTTON"
+---| "MOTION"
+---| "AIM"
+---| "EXTRA"
+
+---@alias key_type
+---| "main"
+---| "alt"
+
+---@class MneeAutoaimData
+---@field setting setting_id [DFT: "mnee.AUTOAIM" ]<br> The ID of the setting to pull assist strength from.
+---@field pic path [DFT: "mods/mnee/files/pics/autoaim.png" ]<br> An image that is overlayed over the target to indicate the locked-on state.
+---@field do_lining boolean [DFT: false ]<br> Set to true to draw an estimated tragectory arc.
+---@field tag_tbl table [DFT: {"homing_target"} ]<br> The table of targeted tags.
+
+---@class MneePagerData : PenmanPagerData
+---@field auid string [OBLIGATORY]<br> Unique animation ID.
+---@field compact_mode boolean [DFT: false ]<br> Set to true to make the pager take less space horizontally.
+---@field profile_mode boolean [DFT: false ]<br> Page number will be displayed as a letter if set to true.
+
 mnee = mnee or {}
 mnee.G = mnee.G or {}
 
---[BACKEND]
+------------------------------------------------------		[BACKEND]		---------------------------------------------------------
+
+---Custom sorter with element.order_id support.
+---@param tbl table
+---@return string|number tbl_key, any tbl_value
 function mnee.order_sorter( tbl )
 	return pen.t.order( tbl, function( a, b )
 		return (( tbl[a].order_id or a ) < ( tbl[b].order_id or b ))
 	end)
 end
 
+---Streamlined bind_data.keys getter with integrated profile resolver; use this instead of indexing directly.
+---@param bind_data table
+---@param profile? number [DFT: 1 ]
+---@return table bind_keys
 function mnee.get_pbd( bind_data, profile )
 	if( bind_data.axes ~= nil ) then return { "is_axis", "_" } end
 	return bind_data.keys[ profile or pen.setting_get( "mnee.PROFILE" )] or bind_data.keys[1]
 end
 
+---Control entity getter (it's a child of the WorldStateEntity).
+---@return entity_id ctrl_body
 function mnee.get_ctrl()
 	return pen.get_child( GameGetWorldStateEntity(), "mnee_ctrl" )
 end
 
-function mnee.apply_deadzone( v, kind, zero_offset )
+---Clamps values below the threshold to 0 and rescales everything above it to always return values within [0;1] range.
+---@param v number The value to be zoned.
+---@param kind? deadzone_type The type of the deadzone. [DFT: "EXTRA" ]
+---@param zero_offset? number An additional inherent shift of the zone radius. [DFT: 0 ]
+---@return number
+function mnee.apply_deadzone( v, kind, zone_offset )
 	if( v == 0 ) then return 0 end
-	zero_offset = pen.setting_get( "mnee.LIVING" ) and 0 or ( zero_offset or 0 )
+	zone_offset = pen.setting_get( "mnee.LIVING" ) and 0 or ( zone_offset or 0 )
 	
 	local total = 1000
-	local deadzone = total*math.min( zero_offset + pen.setting_get( "mnee.DEADZONE_"..( kind or "EXTRA" ))/20, 0.999 )
+	local deadzone = total*math.min( zone_offset + pen.setting_get( "mnee.DEADZONE_"..( kind or "EXTRA" ))/20, 0.999 )
 	v = math.floor( total*v )
 	v = math.abs( v ) < deadzone and 0 or v
-	if( math.abs( v ) > 0 ) then
-		v = ( v - deadzone*pen.get_sign( v ))/( total - deadzone )
-	end
+	if( math.abs( v ) > 0 ) then v = ( v - deadzone*pen.get_sign( v ))/( total - deadzone ) end
 	return v
 end
 
+---An entire aim-assist framework packed into a single function.
+---@param hooman entity_id The one doing the aiming.
+---@param pos table { pos_x, pos_y }
+---@param angle number Real aiming angle.
+---@param is_active? boolean Set to true to suspend autoaiming. [DFT: false ]
+---@param is_searching? boolean Set to true to incorporate the stats of the last shot into computations. [DFT: false ]
+---@param data? MneeAutoaimData Assorted settings and parameters.
+---@return number angle, boolean is_adjusted
 function mnee.aim_assist( hooman, pos, angle, is_active, is_searching, data )
 	data = data or {}
 	data.setting = data.setting or "mnee.AUTOAIM"
-	data.tag_tbl = data.tag_tbl or {"enemy"}
+	data.tag_tbl = data.tag_tbl or {"homing_target"}
 	data.pic = data.pic or "mods/mnee/files/pics/autoaim.png"
 	data.do_lining = data.do_lining or false
 	
@@ -177,27 +219,40 @@ function mnee.aim_assist( hooman, pos, angle, is_active, is_searching, data )
 	return angle, is_done
 end
 
---[INTERNAL]
-function mnee.get_keys( mode )
-	return pen.t.pack( pen.magic_storage( mnee.get_ctrl(), ( mode or false ) and "mnee_down_"..mode or "mnee_down", "value_string" ) or "" )
+------------------------------------------------------		[INTERNAL]		---------------------------------------------------------
+
+---Active key list getter.
+---@param inmode? string The name of the desired mode from mnee.INMODES list.
+---@return table active_keys { key1, key2, key3, ...}
+function mnee.get_keys( inmode )
+	return pen.t.pack( pen.magic_storage( mnee.get_ctrl(), ( inmode or false ) and "mnee_down_"..inmode or "mnee_down", "value_string" ) or "" )
 end
+---Active gamepad trigger state getter.
+---@return table trigger_states { 1gpd_l2=v, 1gpd_r2=v, 2gpd_l2=v, ...}
 function mnee.get_triggers()
 	return pen.t.unarray( pen.t.pack( pen.magic_storage( mnee.get_ctrl(), "mnee_triggers", "value_string" ) or "" ))
 end
+---Active gamepad axis state getter.
+---@return table axis_states { 1gpd_axis_lh=v, 1gpd_axis_lv=v, 1gpd_axis_rh=v, 1gpd_axis_rv=v, 2gpd_axis_lh=v, ...}
 function mnee.get_axes()
 	return pen.t.unarray( pen.t.pack( pen.magic_storage( mnee.get_ctrl(), "mnee_axis", "value_string" ) or "" ))
 end
 
+---Pressed-but-not-yet-released key list.
+---@return table disarmed_key { key_id_1=last_down_frame, key_id_2=last_down_frame, ...}
 function mnee.get_disarmer()
 	return pen.t.unarray( pen.t.pack( pen.magic_storage( mnee.get_ctrl(), "mnee_disarmer", "value_string" ) or "" ))
 end
-function mnee.add_disarmer( value )
+---Adds yet another downed key to constantly be reported as being released until actually released.
+---@param key_id string A unique indentifier to ensure that the correct key is disarmed.
+function mnee.add_disarmer( key_id )
 	local storage = pen.magic_storage( mnee.get_ctrl(), "mnee_disarmer" )
 	if( pen.vld( storage, true )) then
-		local disarmer = table.concat({ pen.DIV_2, value, pen.DIV_2, GameGetFrameNum(), pen.DIV_2, pen.DIV_1 })
+		local disarmer = table.concat({ pen.DIV_2, key_id, pen.DIV_2, GameGetFrameNum(), pen.DIV_2, pen.DIV_1 })
 		ComponentSetValue2( storage, "value_string", ComponentGetValue2( storage, "value_string" )..disarmer )
 	end
 end
+---Disarming list cleaner (it removes entries with over a frame of a difference to the present time).
 function mnee.clean_disarmer()
 	local disarmer = mnee.get_disarmer()
 	if( pen.vld( disarmer )) then
@@ -212,9 +267,13 @@ function mnee.clean_disarmer()
 	end
 end
 
+---Updates the setup_memo table.
+---@param setup_tbl table { profile_num={ mod_id_1=setup_id, mod_id_2=setup_id, ...}, ...}
 function mnee.set_setup_memo( setup_tbl )
 	pen.setting_set( "mnee.SETUP", pen.t.parse( setup_tbl ))
 end
+---Returns the setup_memo table.
+---@return table setup_table { profile_num={ mod_id_1=setup_id, mod_id_2=setup_id, ...}, ...}
 function mnee.get_setup_memo()
 	local setup_tbl = pen.t.parse( pen.setting_get( "mnee.SETUP" ))
 	if( not( pen.vld( setup_tbl ))) then
@@ -228,10 +287,16 @@ function mnee.get_setup_memo()
 	end
 	return setup_tbl
 end
+---Returns the particular setup_id.
+---@param mod_id string
+---@return string setup_id
 function mnee.get_setup_id( mod_id )
 	local setup_memo = mnee.get_setup_memo()
 	return ( setup_memo[ pen.setting_get( "mnee.PROFILE" )] or setup_memo[1])[ mod_id ] or "_dft"
 end
+---Sets the setup_id of the particular mod.
+---@param mod_id string
+---@param setup_id string
 function mnee.set_setup_id( mod_id, setup_id )
 	local setup_memo = mnee.get_setup_memo()
 	local profile = pen.setting_get( "mnee.PROFILE" )
@@ -248,13 +313,23 @@ function mnee.set_setup_id( mod_id, setup_id )
 	end
 end
 
+---Forcefully remaps the gamepads to the table provided.
+---@param jpad_tbl table { slot_value_1, slot_value_2, slot_value_3, slot_value_4 }
+---(slot_value is [0;3] for gamepad assignment, -1 for emtpy and 5 for dummy gamepad insertion)
+---@param no_update? boolean [DO NOT USE] Internal parameter. [DFT: false ]
 function mnee.apply_jpads( jpad_tbl, no_update )
 	ComponentSetValue2( pen.magic_storage( mnee.get_ctrl(), "mnee_jpads" ), "value_string", pen.t.pack( jpad_tbl ))
 	if( not( no_update )) then GameAddFlagRun( mnee.JPAD_UPDATE ) end
 end
-function mnee.is_jpad_real( id )
-	return (( pen.t.pack( pen.magic_storage( mnee.get_ctrl(), "mnee_jpads", "value_string" ) or "" ))[ id or 1 ] or -1 ) ~= -1
+---Returns true if the provided gamepad slot is active.
+---@param slot_num? number Ranges from 1 to 4. [DFT: 1 ]
+---@return boolean is_active
+function mnee.is_jpad_real( slot_num )
+	return (( pen.t.pack( pen.magic_storage( mnee.get_ctrl(), "mnee_jpads", "value_string" ) or "" ))[ slot_num or 1 ] or -1 ) ~= -1
 end
+---Returns true if any of the keys within provided table are binded to a gamepad.
+---@param keys table
+---@return boolean is_jpad
 function mnee.jpad_check( keys )
 	for key,val in pairs( keys ) do
 		if( string.find( type( key ) == "number" and val or key, "%dgpd_" )) then
@@ -264,31 +339,43 @@ function mnee.jpad_check( keys )
 	return false
 end
 
+---Returns the axis_memo table – essentially a disarmer but for axes.
+---@return table axis_memo { axis_id_1, axis_id_2, ...}
 function mnee.get_axis_memo()
 	return pen.t.unarray( pen.t.pack( pen.magic_storage( mnee.get_ctrl(), "mnee_axis_memo", "value_string" ) or "" ))
 end
-function mnee.toggle_axis_memo( name )
+---Adds new/removes existing axis from the axis_memo list.
+---@param axis_id string
+function mnee.toggle_axis_memo( axis_id )
 	local storage = pen.magic_storage( mnee.get_ctrl(), "mnee_axis_memo" )
 	if( pen.vld( storage, true )) then
 		local memo = mnee.get_axis_memo()
-		if( memo[ name ] == nil ) then
-			memo = table.concat({ ComponentGetValue2( storage, "value_string" ), name, pen.DIV_1 })
+		if( memo[ axis_id ] == nil ) then
+			memo = table.concat({ ComponentGetValue2( storage, "value_string" ), axis_id, pen.DIV_1 })
 		else
-			memo[ name ] = nil
+			memo[ axis_id ] = nil
 			memo = pen.t.pack( pen.t.unarray( memo ))
 		end
 		ComponentSetValue2( storage, "value_string", memo )
 	end
 end
 
+---Returns true if the bindings from the provided mod are allowed to be processed.
+---@param mod_id? string
+---@return boolean is_allowed
 function mnee.is_priority_mod( mod_id )
 	local vip_mod = GlobalsGetValue( mnee.PRIO_MODE, "0" )
 	return vip_mod == "0" or mod_id ~= vip_mod
 end
+---Makes it so only bindings from the provided mod are processed.
+---@param mod_id string
 function mnee.set_priority_mod( mod_id )
 	GlobalsSetValue( mnee.PRIO_MODE, tostring( mod_id ))
 end
 
+---Global binding table getter.
+---@param binds_only? boolean Returns keys with no metadata if is true. [DFT: false ]
+---@return table binding_data { mod_id={ binding_1=binding_data, binding_2=binding_data, ...}, ...}
 function mnee.get_bindings( binds_only )
 	local updater_frame = tonumber( GlobalsGetValue( mnee.UPDATER, "0" ))
 	if(( mnee.updater_memo or 0 ) ~= updater_frame ) then
@@ -296,7 +383,7 @@ function mnee.get_bindings( binds_only )
 		mnee.binding_data = nil
 	end
 	
-	if( mnee.binding_data == nil ) then
+	if( binds_only or mnee.binding_data == nil ) then
 		dofile_once( "mods/mnee/bindings.lua" )
 
 		local binding_data = pen.t.parse( pen.setting_get( "mnee.BINDINGS" ))
@@ -325,6 +412,8 @@ function mnee.get_bindings( binds_only )
 
 	return mnee.binding_data
 end
+---[DO NOT USE] Force-sets global binding table.
+---@param binding_data table { mod_id={ binding_1=binding_data, binding_2=binding_data, ...}, ...}
 function mnee.set_bindings( binding_data )
 	if( not( pen.vld( binding_data ))) then return end
 	
@@ -354,13 +443,15 @@ function mnee.set_bindings( binding_data )
 	pen.setting_set( "mnee.BINDINGS", pen.t.parse( key_data ))
 	GlobalsSetValue( mnee.UPDATER, GameGetFrameNum())
 end
-function mnee.update_bindings( current_tbl )
+---Updates global binding table and sets to setup-aware default any nil values within the structure.
+---@param binding_data table { mod_id={ binding_1=binding_data, binding_2=binding_data, ...}, ...}
+function mnee.update_bindings( binding_data )
 	dofile_once( "mods/mnee/bindings.lua" )
 	
 	local tbl = {}
-	if( type( current_tbl ) ~= "table" ) then
-		tbl = current_tbl == "nuke_it" and {} or mnee.get_bindings( true )
-	else tbl = pen.t.clone( current_tbl ) end
+	if( type( binding_data ) ~= "table" ) then
+		tbl = binding_data == "nuke_it" and {} or mnee.get_bindings( true )
+	else tbl = pen.t.clone( binding_data ) end
 	
 	local new_keys = {}
 	local profile = pen.setting_get( "mnee.PROFILE" )
@@ -405,14 +496,21 @@ function mnee.update_bindings( current_tbl )
 	mnee.set_bindings( tbl )
 end
 
---[FRONTEND]
-function mnee.get_shifted_key( c )
-	local check = string.byte( c ) 
+------------------------------------------------------		[FRONTEND]		---------------------------------------------------------
+
+---Returns the shifted value of a key (= the value a key should return after shift is pressed).
+---@param key string
+---@return string shifted_key
+function mnee.get_shifted_key( key )
+	local check = string.byte( key ) 
 	if( check > 96 and check < 123 ) then
 		return string.char( check - 32 )
-	else return dofile_once( "mods/mnee/lists.lua" )[4][c] or c end
+	else return dofile_once( "mods/mnee/lists.lua" )[4][ key ] or key end
 end
 
+---Prettifies the passes key.
+---@param key string
+---@return string fancy_key
 function mnee.get_fancy_key( key )
 	local out, is_jpad = string.gsub( key, "%dgpd_", "" )
 	out = dofile_once( "mods/mnee/lists.lua" )[5][ out ] or out
@@ -421,8 +519,13 @@ function mnee.get_fancy_key( key )
 	else return out end
 end
 
-function mnee.get_binding_keys( mod_id, name, is_compact )
-	local binding = mnee.get_bindings()[ mod_id ][ name ]
+---Returns UI-ready binding key list.
+---@param mod_id string
+---@param bind_id string
+---@param is_compact boolean|number Minimizes the length of the output. Set to 2 to get only alt bind.
+---@return string binding_keys
+function mnee.get_binding_keys( mod_id, bind_id, is_compact )
+	local binding = mnee.get_bindings()[ mod_id ][ bind_id ]
 	if( binding.axes ~= nil ) then
 		local v = mnee.get_binding_keys( mod_id, binding.axes[1], is_compact )
 		local h = mnee.get_binding_keys( mod_id, binding.axes[2], is_compact )
@@ -460,12 +563,18 @@ function mnee.get_binding_keys( mod_id, name, is_compact )
 	return out
 end
 
-function mnee.bind2string( bind, key_type, binds )
+---[DO NOT USE] A basic variant of get_binding_keys. <br>
+---Not as compact as is_compact alternative but more subtle than the fully fledged version.
+---@param bind_data table
+---@param key_type? key_type [DFT: "main" ]
+---@param binding_data? table Pass full binding_data if bind_data.axes ~= nil.
+---@return string binding_keys
+function mnee.bind2string( bind, key_type, binding_data )
 	local out = "["
-	if( binds ~= nil and bind.axes ~= nil ) then
+	if( binding_data ~= nil and bind.axes ~= nil ) then
 		return table.concat({
-			"|", mnee.bind2string( binds[ bind.axes[1]], key_type ),
-			"|", mnee.bind2string( binds[ bind.axes[2]], key_type ), "|",
+			"|", mnee.bind2string( binding_data[ bind.axes[1]], key_type ),
+			"|", mnee.bind2string( binding_data[ bind.axes[2]], key_type ), "|",
 		})
 	end
 
@@ -481,40 +590,24 @@ function mnee.bind2string( bind, key_type, binds )
 	return out.."]"
 end
 
+---Plays event from mods/mnee/files/sfx/mnee.bank at camera pos.
+---@param event string
 function mnee.play_sound( event )
 	pen.play_sound({ "mods/mnee/files/sfx/mnee.bank", event })
 end
 
-function mnee.new_tooltip( gui, uid, text, data )
-	data = data or {}; data.frames = data.frames or 10
-	return pen.new_tooltip( gui, uid, text, data, function( gui, uid, text, d )
-		local size_x, size_y = unpack( d.dims )
-		local pic_x, pic_y, pic_z = unpack( d.pos )
-		
-		local clr = pen.PALETTE.PRSP.BLUE
-		uid = pen.new_text( gui, uid, pic_x + d.edging, pic_y + d.edging - 2, pic_z - 0.01, text, {
-			dims = { size_x - d.edging, size_y },
-			line_offset = d.line_offset or -2,
-			fast_render = true, --funcs = d.font_mods,
-			color = { clr[1], clr[2], clr[3], pen.animate( 1, d.t, { ease_in = "exp5", frames = d.frames })},
-		})
-		
-		local scale_x = pen.animate({2,size_x}, d.t, { ease_in = "exp1.1", ease_out = "bck1.5", frames = d.frames })
-		local scale_y = pen.animate({2,size_y}, d.t, { ease_out = "sin", frames = d.frames })
-		local shift_x, shift_y = ( size_x - scale_x )/2, ( size_y - scale_y )/2
-		uid = pen.new_image( gui, uid, pic_x + shift_x, pic_y + shift_y, pic_z + 0.01, "mods/mnee/files/pics/dot_purple_dark.png", {
-			s_x = scale_x, s_y = scale_y })
-		uid = pen.new_image( gui, uid, pic_x + shift_x + 1, pic_y + shift_y + 1, pic_z, "mods/mnee/files/pics/dot_white.png", {
-			s_x = scale_x - 2, s_y = scale_y - 2 })
-		return uid
-	end)
-end
-
+---Draws a button themed after Prospero Inc.
+---@param gui gui
+---@param uid uid
+---@param pic_x number
+---@param pic_y number
+---@param pic_z number
+---@param pic path
+---@param data? PenmanButtonData
+---@return number uid, boolean clicked, boolean r_clicked, boolean is_hovered
 function mnee.new_button( gui, uid, pic_x, pic_y, pic_z, pic, data )
 	data = data or {}
 	data.frames = data.frames or 20
-	data.auid = data.auid or pic..pic_z
-	data.no_anim = data.no_anim or false
 	if( data.highlight == nil ) then data.highlight = pen.PALETTE.PRSP.RED end
 	return pen.new_button( gui, uid, pic_x, pic_y, pic_z, pic, {
 		lmb_event = function( gui, uid, pic_x, pic_y, pic_z, pic, d )
@@ -528,20 +621,59 @@ function mnee.new_button( gui, uid, pic_x, pic_y, pic_z, pic, data )
 		hov_event = function( gui, uid, pic_x, pic_y, pic_z, pic, d )
 			if( pen.vld( data.tip )) then uid = mnee.new_tooltip( gui, uid, data.tip, { is_active = true }) end
 			if( data.highlight ) then uid = pen.new_image( gui, uid, pic_x - 1, pic_y - 1, pic_z + 0.001,
-				pen.FILE_PIC_NUL, { s_x = ( d.pic_w + 2 )/2, s_y = ( d.pic_h + 2 )/2, color = data.highlight }) end
+				pen.FILE_PIC_NUL, { s_x = ( d.dims[1] + 2 )/2, s_y = ( d.dims[2] + 2 )/2, color = data.highlight }) end
 			return uid, pic_x, pic_y, pic_z, pic, d
 		end,
 		pic_func = function( gui, uid, pic_x, pic_y, pic_z, pic, d )
 			local a = ( data.no_anim or false ) and 1 or math.min(
 				pen.animate( 1, data.auid.."l", { type = "sine", frames = data.frames, stillborn = true }),
 				pen.animate( 1, data.auid.."r", { ease_out = "sin3", frames = data.frames, stillborn = true }))
-			local s_anim = {( 1 - a )/d.pic_w, ( 1 - a )/d.pic_h }
-			return pen.new_image( gui, uid, pic_x + s_anim[1]*d.pic_w/2, pic_y + s_anim[2]*d.pic_h/2, pic_z, pic, {
+			local s_anim = {( 1 - a )/d.dims[1], ( 1 - a )/d.dims[2] }
+			return pen.new_image( gui, uid, pic_x + s_anim[1]*d.dims[1]/2, pic_y + s_anim[2]*d.dims[2]/2, pic_z, pic, {
 				s_x = 1 - s_anim[1], s_y = 1 - s_anim[2]})
 		end,
 	})
 end
 
+---Draws a tooltip themed after Prospero Inc.
+---@param gui gui
+---@param uid number
+---@param text? string
+---@param data? PenmanTooltipData
+---@return number uid, boolean is_active
+function mnee.new_tooltip( gui, uid, text, data )
+	data = data or {}; data.frames = data.frames or 10
+	return pen.new_tooltip( gui, uid, text, data, function( gui, uid, text, d )
+		local size_x, size_y = unpack( d.dims )
+		local pic_x, pic_y, pic_z = unpack( d.pos )
+		
+		if( pen.vld( text )) then
+			local clr = pen.PALETTE.PRSP.BLUE
+			uid = pen.new_text( gui, uid, pic_x + d.edging, pic_y + d.edging - 2, pic_z - 0.01, text, {
+				dims = { size_x - d.edging, size_y }, line_offset = d.line_offset or -2, --funcs = d.font_mods,
+				color = { clr[1], clr[2], clr[3], pen.animate( 1, d.t, { ease_in = "exp5", frames = d.frames })},
+			})
+		end
+		
+		local scale_x = pen.animate({2,size_x}, d.t, { ease_in = "exp1.1", ease_out = "bck1.5", frames = d.frames })
+		local scale_y = pen.animate({2,size_y}, d.t, { ease_out = "sin", frames = d.frames })
+		local shift_x, shift_y = ( size_x - scale_x )/2, ( size_y - scale_y )/2
+		uid = pen.new_image( gui, uid, pic_x + shift_x, pic_y + shift_y, pic_z + 0.01, "mods/mnee/files/pics/dot_purple_dark.png", {
+			s_x = scale_x, s_y = scale_y })
+		uid = pen.new_image( gui, uid, pic_x + shift_x + 1, pic_y + shift_y + 1, pic_z, "mods/mnee/files/pics/dot_white.png", {
+			s_x = scale_x - 2, s_y = scale_y - 2 })
+		return uid
+	end)
+end
+
+---Draws a pager themed after Prospero Inc.
+---@param gui gui
+---@param uid number
+---@param pic_x number
+---@param pic_y number
+---@param pic_z number
+---@param data MneePagerData
+---@return number uid, number page
 function mnee.new_pager( gui, uid, pic_x, pic_y, pic_z, data )
 	local t_x, t_y = pic_x, pic_y + 99
 	if( data.compact_mode ) then t_y = t_y + 11 end
@@ -558,7 +690,7 @@ function mnee.new_pager( gui, uid, pic_x, pic_y, pic_z, data )
 	
 	local text = data.page
 	if( data.profile_mode ) then text = text - 1; text = string.char(( text < 1 and -29 or text ) + 64 ) end
-	uid = pen.new_text( gui, uid, t_x + 2, t_y, pic_z - 0.01, text, { fast_render = true, color = pen.PALETTE.PRSP.BLUE })
+	uid = pen.new_text( gui, uid, t_x + 2, t_y, pic_z - 0.01, text, { color = pen.PALETTE.PRSP.BLUE })
 	
 	uid, data.page, sfx_type = pen.new_pager( gui, uid, pic_x, pic_y, pic_z, {
 		func = data.func, order_func = data.order_func,
@@ -807,32 +939,51 @@ mnee.INMODES = {
 }
 
 --[LEGACY]
+
+---Use mnee.mnin_key instead.
+---@deprecated
 function is_key_down( name, dirty_mode, pressed_mode, is_vip, key_mode )
 	return mnee.mnin_key( name, pressed_mode, is_vip, key_mode )
 end
+---Use mnee.mnin_key instead.
+---@deprecated
 function get_key_pressed( name, dirty_mode, is_vip )
 	return is_key_down( name, dirty_mode, true, is_vip )
 end
+---Use mnee.mnin_key instead.
+---@deprecated
 function get_key_vip( name )
 	return get_key_pressed( name, true, true )
 end
 
+---Use mnee.mnin_bind instead.
+---@deprecated
 function is_binding_down( mod_id, name, dirty_mode, pressed_mode, is_vip, loose_mode, key_mode )
 	return mnee.mnin_bind( mod_id, name, dirty_mode, pressed_mode, is_vip, not( loose_mode ), key_mode )
 end
+---Use mnee.mnin_bind instead.
+---@deprecated
 function get_binding_pressed( mod_id, name, is_vip, dirty_mode, loose_mode )
 	return is_binding_down( mod_id, name, dirty_mode, true, is_vip, loose_mode )
 end
+---Use mnee.mnin_bind instead.
+---@deprecated
 function get_binding_vip( mod_id, name )
 	return get_binding_pressed( mod_id, name, true, true, true )
 end
 
+---Use mnee.mnin_axis instead.
+---@deprecated
 function get_axis_state( mod_id, name, dirty_mode, pressed_mode, is_vip, key_mode )
 	return mnee.mnin_axis( mod_id, name, dirty_mode, pressed_mode, is_vip, key_mode )
 end
+---Use mnee.mnin_axis instead.
+---@deprecated
 function get_axis_pressed( mod_id, name, dirty_mode, is_vip )
 	return get_axis_state( mod_id, name, dirty_mode, true, is_vip )
 end
+---Use mnee.mnin_axis instead.
+---@deprecated
 function get_axis_vip( mod_id, name )
 	return get_axis_pressed( mod_id, name, true, true )
 end

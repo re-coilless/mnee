@@ -96,7 +96,7 @@ if( not( gonna_rebind )) then
                     is_static = meta.is_locked or false
                 else is_static = pen.get_hybrid_function( is_static, {{ mnee.G.current_mod, i }, mnee.G.jpad_maps }) end
                 local is_axis = v.axes ~= nil or mnee.get_pbd( KEYS[ mnee.G.current_mod ][i])[ key_type ][1] == "is_axis"
-
+                
                 local t_x, t_y = pic_x, pic_y + k*11
                 local name = pen.magic_translate( v.name )
                 uid, clicked, r_clicked = pen.catch( mnee.new_button, { gui, uid, t_x, t_y, pic_z,
@@ -486,10 +486,14 @@ else
         if( mnee.G.advanced_mode ) then
             if( pen.vld( active )) then
                 mnee.G.advanced_timer = mnee.G.advanced_timer + 1
-                uid = pen.new_text( gui, uid, pic_x + 77, pic_y + 73, pic_z, math.ceil(( 300 - mnee.G.advanced_timer )/60 ), {
-                    color = pen.PALETTE.PRSP.RED})
+                uid = pen.new_text( gui, uid, pic_x + 79.5, pic_y + 73, pic_z, math.ceil(( 300 - mnee.G.advanced_timer )/60 ), {
+                    is_centered_x = true, color = pen.PALETTE.PRSP.RED })
                 if( mnee.G.advanced_timer >= 300 ) then enter_down, mnee.G.advanced_timer = true, 0 end
             else mnee.G.advanced_timer = 0 end
+        elseif( doing_jpad and mnee.G.jpad_count == 0 ) then
+            uid = pen.new_text( gui, uid, pic_x + 79.5, pic_y + 73, pic_z,
+                table.concat({ "{>quake>{", GameTextGetTranslatedOrNot( "$mnee_no_jpads" ), "}<quake<}" }),
+                { fully_featured = true, is_centered_x = true, color = pen.PALETTE.PRSP.BLUE })
         end
         
         uid, clicked, r_clicked = pen.new_image( gui, uid, pic_x, pic_y, pic_z + 0.01,

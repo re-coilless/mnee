@@ -18,10 +18,8 @@ function OnModInit()
 			end
 		end,
 	})
-	
-	--LLS documentation of all funcs + update actual documentation
-	--make mnee the main propero mod (p2k must pull all the sounds and such from it)
-	
+
+	-- make mnee the main propero mod (p2k must pull all the sounds and such from it)
 	-- make procedural pause screen keyboard that highlights all the bind's keys on hover of one of them (only if the moddev marked the binding as show_on_pause)
 	-- add separate full-sized fancy key name getter with full length names
 

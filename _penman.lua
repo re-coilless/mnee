@@ -2427,12 +2427,29 @@ end
 function pen.new_interface( gui, uid, pic_x, pic_y, s_x, s_y, pic_z, ignore_multihover, is_debugging )
 	local frame_num = GameGetFrameNum()
 	local clicked, r_clicked = false, false
+	local lmb_state, rmb_state = InputIsMouseButtonDown( 1 ), InputIsMouseButtonDown( 2 )
+
+	local function safety_update()
+		local safety = {
+			{ pen.GLOBAL_INTERFACE_SAFETY_TL, pen.GLOBAL_INTERFACE_SAFETY_LL, lmb_state },
+			{ pen.GLOBAL_INTERFACE_SAFETY_TR, pen.GLOBAL_INTERFACE_SAFETY_LR, rmb_state },
+		}
+		for i,v in ipairs( safety ) do
+			local safety_frame = tonumber( GlobalsGetValue( v[1], "0" ))
+			if( math.abs( safety_frame ) ~= frame_num ) then
+				GlobalsSetValue( v[2], safety_frame )
+				GlobalsSetValue( v[1], ( v[3] and -1 or 1 )*frame_num )
+			end
+		end
+	end
 
 	local update_frame = tonumber( GlobalsGetValue( pen.GLOBAL_INTERFACE_FRAME_Z, "0" ))
 	local top_z = tonumber( GlobalsGetValue( pen.GLOBAL_INTERFACE_Z, "nope" ))
 	local is_figuring = top_z ~= nil
 	if( is_figuring and frame_num - update_frame > 2 ) then pen.c.interface_memo = nil end
 	pen.c.interface_memo = pen.c.interface_memo or {}
+
+	if( pic_z ~= nil and not( is_figuring )) then safety_update() end
 
 	local m_x, m_y = pen.get_mouse_pos()
 	local m_pos = pen.c.interface_memo[3] or { m_x, m_y }
@@ -2457,10 +2474,12 @@ function pen.new_interface( gui, uid, pic_x, pic_y, s_x, s_y, pic_z, ignore_mult
 		GuiImage( gui, uid, m_x - 10, m_y - 10, pen.FILE_PIC_NIL, 1, 10, 10 )
 
 		local is_new = tonumber( GlobalsGetValue( pen.GLOBAL_INTERFACE_FRAME, "0" )) ~= frame_num
-		if( not( is_figuring ) and pic_z == nil ) then
+		local no_left = tonumber( GlobalsGetValue( pen.GLOBAL_INTERFACE_SAFETY_LL, "0" )) > 0
+		local no_right = tonumber( GlobalsGetValue( pen.GLOBAL_INTERFACE_SAFETY_LR, "0" )) > 0
+		if( not( is_figuring ) and pic_z == nil ) then --safety won't work since vanilla ui is clicked on_up
 			if( is_new ) then clicked, r_clicked = GuiGetPreviousWidgetInfo( gui ) end
-		elseif( pic_z ~= nil ) then
-			clicked, r_clicked = InputIsMouseButtonDown( 1 ), InputIsMouseButtonDown( 2 )
+		elseif( pic_z ~= nil and no_left and no_right ) then
+			clicked, r_clicked = lmb_state, rmb_state
 			if( not( clicked or r_clicked )) then pen.c.interface_memo[4] = true end
 
 			local down_toggle = pen.c.interface_memo[4]
@@ -2500,7 +2519,7 @@ function pen.new_image( gui, uid, pic_x, pic_y, pic_z, pic, data )
 
 	if( data.can_click ) then
 		local w, h = pen.get_pic_dims( pic )
-		if( not( data.z_adjusted )) then pic_z = nil end
+		if( data.skip_z_check ) then pic_z = nil end
 		uid, data.clicked, data.r_clicked, data.is_hovered = pen.new_interface(
 			gui, uid, pic_x, pic_y, w*( data.s_x or 1 ), h*( data.s_y or 1 ), pic_z, data.ignore_multihover
 		)
@@ -2975,9 +2994,13 @@ pen.FLAG_USE_FANCY_FONT = "PENMAN_FANCY_FONTING"
 pen.FLAG_RESTART_CHECK = "PENMAN_GAME_HAS_STARTED"
 
 pen.GLOBAL_VIRTUAL_ID = "PENMAN_VIRTUAL_INDEX"
-pen.GLOBAL_INTERFACE_FRAME_Z = "PENMAN_INTERFACE_FRAME_Z"
-pen.GLOBAL_INTERFACE_FRAME = "PENMAN_INTERFACE_FRAME"
 pen.GLOBAL_INTERFACE_Z = "PENMAN_INTERFACE_Z"
+pen.GLOBAL_INTERFACE_FRAME = "PENMAN_INTERFACE_FRAME"
+pen.GLOBAL_INTERFACE_FRAME_Z = "PENMAN_INTERFACE_FRAME_Z"
+pen.GLOBAL_INTERFACE_SAFETY_LL = "PENMAN_INTERFACE_SAFETY_LL"
+pen.GLOBAL_INTERFACE_SAFETY_TL = "PENMAN_INTERFACE_SAFETY_TL"
+pen.GLOBAL_INTERFACE_SAFETY_LR = "PENMAN_INTERFACE_SAFETY_LR"
+pen.GLOBAL_INTERFACE_SAFETY_TR = "PENMAN_INTERFACE_SAFETY_TR"
 pen.GLOBAL_DRAGGER_SAFETY = "PENMAN_DRAGGER_FRAME"
 
 pen.MARKER_TAB = "\\_"

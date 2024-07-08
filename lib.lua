@@ -10,6 +10,12 @@ dofile_once( "mods/mnee/_penman.lua" )
 ---| "main"
 ---| "alt"
 
+---@alias mnin_modes
+---| "key" data = { pressed, vip, mode }
+---| "bind" data = { dirty, pressed, vip, strict, mode }
+---| "axis" data = { alive, pressed, vip, mode }
+---| "stick" data = { pressed, vip, mode }
+
 ---@class MneeAutoaimData
 ---@field setting setting_id [DFT: "mnee.AUTOAIM" ]<br> The ID of the setting to pull assist strength from.
 ---@field pic path [DFT: "mods/mnee/files/pics/autoaim.png" ]<br> An image that is overlayed over the target to indicate the locked-on state.
@@ -73,7 +79,7 @@ end
 ---@param angle number Real aiming angle.
 ---@param is_active? boolean Set to true to suspend autoaiming. [DFT: false ]
 ---@param is_searching? boolean Set to true to incorporate the stats of the last shot into computations. [DFT: false ]
----@param data? MneeAutoaimData Assorted settings and parameters.
+---@param data? MneeAutoaimData
 ---@return number angle, boolean is_adjusted
 function mnee.aim_assist( hooman, pos, angle, is_active, is_searching, data )
 	data = data or {}
@@ -705,21 +711,28 @@ function mnee.new_pager( gui, uid, pic_x, pic_y, pic_z, data )
 	return uid, data.page
 end
 
---[INPUT]
-function mnee.vanilla_input( name )
-	local frame, out = GameGetFrameNum(), {false,false}
+-------------------------------------------------------		[INPUT]		----------------------------------------------------------
+
+---Streamlined and player entity independent way of getting ControlsComponent inputs.
+---@param button string The meaningful part of the button name (e.g. use "Fire" instead of "mButtonDownFire").
+---@return boolean is_down, boolean is_just_down
+function mnee.vanilla_input( button )
 	local ctrl_comp = pen.magic_comp( mnee.get_ctrl(), "ControlsComponent" )
-	if( pen.vld( ctrl_comp, true )) then
-		out = { ComponentGetValue2( ctrl_comp, "mButtonDown"..name ), ComponentGetValue2( ctrl_comp, "mButtonFrame"..name ) == frame }
-	end
-	return out
+	if( not( pen.vld( ctrl_comp, true ))) then return false, false end
+	return ComponentGetValue2( ctrl_comp, "mButtonDown"..button ), ComponentGetValue2( ctrl_comp, "mButtonFrame"..button ) == GameGetFrameNum()
 end
 
-function mnee.mnin_key( name, pressed_mode, is_vip, key_mode )
+---Addresses the raw key by its internal name; is unmodifiable and does not show up on the binding menu.
+---@param key_id string See full_board table in mnee/lists.lua for all the IDs.
+---@param pressed_mode? boolean Enable to report "true" only once and then wait until the key is reset. [DFT: false ]
+---@param is_vip? boolean Enable to stop this key from being disabled by user via global toggle. [DFT: false ]
+---@param inmode? string The name of the desired mode from mnee.INMODES list.
+---@return boolean is_down
+function mnee.mnin_key( key_id, pressed_mode, is_vip, inmode )
 	if( GameHasFlagRun( mnee.SERV_MODE ) and not( mnee.ignore_service_mode )) then return false end
 	if( GameHasFlagRun( mnee.TOGGLER ) and not( is_vip )) then return false end
-	return pen.t.loop( mnee.get_keys( key_mode ), function( i, key )
-		if( key ~= name ) then return end
+	return pen.t.loop( mnee.get_keys( inmode ), function( i, key )
+		if( key ~= key_id ) then return end
 		if( pressed_mode ) then
 			local check = mnee.get_disarmer()[ "key"..key ] ~= nil
 			mnee.add_disarmer( "key"..key )
@@ -729,19 +742,28 @@ function mnee.mnin_key( name, pressed_mode, is_vip, key_mode )
 	end) or false
 end
 
-function mnee.mnin_bind( mod_id, name, dirty_mode, pressed_mode, is_vip, strict_mode, key_mode )
+---Operates via flexible and rebindable single- or multi-keyed combinations, shows up in the binding menu.
+---@param mod_id string
+---@param bind_id string
+---@param dirty_mode? boolean Controls key layer separation, enable to allow conflicts between "ctrl+m" and "m". [DFT: false ]
+---@param pressed_mode? boolean Enable to report "true" only once and then wait until the key is reset. [DFT: false ]
+---@param is_vip? boolean Enable to stop this bind from being disabled by user via global toggle. [DFT: false ]
+---@param strict_mode? boolean Controls combination purity, enable to stop conflicts between "shift+ctrl+e" and "ctrl+e". [DFT: false ]
+---@param inmode? string The name of the desired mode from mnee.INMODES list.
+---@return boolean is_down, boolean is_unbound, boolean is_jpad
+function mnee.mnin_bind( mod_id, bind_id, dirty_mode, pressed_mode, is_vip, strict_mode, inmode )
 	local abort_tbl = { false, false, false }
 	if( GameHasFlagRun( mnee.SERV_MODE ) and not( mnee.ignore_service_mode )) then return unpack( abort_tbl ) end
 	if( GameHasFlagRun( mnee.TOGGLER ) and not( is_vip )) then return unpack( abort_tbl ) end
 	if( not( mnee.is_priority_mod( mod_id ))) then return unpack( abort_tbl ) end
 	
-	local keys_down = mnee.get_keys( key_mode )
+	local keys_down = mnee.get_keys( inmode )
 	local out, is_gone, is_jpad = false, true, false
 	if( not( pen.vld( keys_down ))) then return unpack( abort_tbl ) end
 
 	local binding = mnee.get_bindings()
 	if( binding ~= nil ) then binding = binding[ mod_id ] end
-	if( binding ~= nil ) then binding = binding[ name ] end
+	if( binding ~= nil ) then binding = binding[ bind_id ] end
 	if( not( pen.vld( binding ))) then return unpack( abort_tbl ) end
 	
 	for i = 1,2 do
@@ -764,8 +786,8 @@ function mnee.mnin_bind( mod_id, name, dirty_mode, pressed_mode, is_vip, strict_
 		end
 		if( score == high_score ) then
 			if( pressed_mode ) then
-				local check = mnee.get_disarmer()[ mod_id..name ] ~= nil
-				mnee.add_disarmer( mod_id..name )
+				local check = mnee.get_disarmer()[ mod_id..bind_id ] ~= nil
+				mnee.add_disarmer( mod_id..bind_id )
 				if( check ) then return unpack( abort_tbl ) end
 			end
 			out = true
@@ -781,7 +803,15 @@ function mnee.mnin_bind( mod_id, name, dirty_mode, pressed_mode, is_vip, strict_
 	return out, is_gone, is_jpad
 end
 
-function mnee.mnin_axis( mod_id, name, dirty_mode, pressed_mode, is_vip, key_mode, skip_deadzone )
+---Same as mnee.mnin_bind but exclusively for axes.
+---@param mod_id string
+---@param bind_id string
+---@param is_alive? boolean Enable to skip deadzone calculations. [DFT: false ]
+---@param pressed_mode? boolean Enable to report "1" only once and then wait until the stick is returned to rest position. [DFT: false ]
+---@param is_vip? boolean Enable to stop this bind from being disabled by user via global toggle. [DFT: false ]
+---@param inmode? string The name of the desired mode from mnee.INMODES list.
+---@return number axis_state, boolean is_unbound, boolean is_emulated, boolean is_jpad
+function mnee.mnin_axis( mod_id, bind_id, is_alive, pressed_mode, is_vip, inmode )
 	local abort_tbl = { 0, false, false, false }
 	if( GameHasFlagRun( mnee.SERV_MODE ) and not( mnee.ignore_service_mode )) then return unpack( abort_tbl ) end
 	if( GameHasFlagRun( mnee.TOGGLER ) and not( is_vip )) then return unpack( abort_tbl ) end
@@ -789,7 +819,7 @@ function mnee.mnin_axis( mod_id, name, dirty_mode, pressed_mode, is_vip, key_mod
 	
 	local binding = mnee.get_bindings()
 	if( binding ~= nil ) then binding = binding[ mod_id ] end
-	if( binding ~= nil ) then binding = binding[ name ] end
+	if( binding ~= nil ) then binding = binding[ bind_id ] end
 	if( not( pen.vld( binding ))) then return unpack( abort_tbl ) end
 
 	local out, is_gone, is_buttoned, is_jpad = 0, true, false, false
@@ -802,15 +832,15 @@ function mnee.mnin_axis( mod_id, name, dirty_mode, pressed_mode, is_vip, key_mod
 		
 		is_buttoned = bind[3] ~= nil
 		if( is_buttoned ) then
-			if( mnee.mnin_key( bind[2], pressed_mode, is_vip, key_mode )) then
+			if( mnee.mnin_key( bind[2], pressed_mode, is_vip, inmode )) then
 				out = -1
-			elseif( mnee.mnin_key( bind[3], pressed_mode, is_vip, key_mode )) then
+			elseif( mnee.mnin_key( bind[3], pressed_mode, is_vip, inmode )) then
 				out = 1
 			end
 			goto continue
 		end
 		
-		if( not( skip_deadzone )) then
+		if( not( is_alive )) then
 			value = mnee.apply_deadzone( value, binding.jpad_type, binding.deadzone )
 		end
 
@@ -832,7 +862,14 @@ function mnee.mnin_axis( mod_id, name, dirty_mode, pressed_mode, is_vip, key_mod
 	return out, is_gone, is_buttoned, is_jpad
 end
 
-function mnee.mnin_stick( mod_id, name, dirty_mode, pressed_mode, is_vip, key_mode )
+---Unifies two mnee.mnin_axis together to form a full stick with circular deadzone.
+---@param mod_id string
+---@param bind_id string
+---@param pressed_mode? boolean Enable to report "1" only once and then wait until the stick is returned to rest position. [DFT: false ]
+---@param is_vip? boolean Enable to stop this bind from being disabled by user via global toggle. [DFT: false ]
+---@param inmode? string The name of the desired mode from mnee.INMODES list.
+---@return table axes_states, boolean is_unbound, table is_emulated, number angle
+function mnee.mnin_stick( mod_id, bind_id, pressed_mode, is_vip, inmode )
 	local abort_tbl = {{ 0, 0 }, false, { false, false }, 0 }
 	if( GameHasFlagRun( mnee.SERV_MODE ) and not( mnee.ignore_service_mode )) then return unpack( abort_tbl ) end
 	if( GameHasFlagRun( mnee.TOGGLER ) and not( is_vip )) then return unpack( abort_tbl ) end
@@ -840,32 +877,37 @@ function mnee.mnin_stick( mod_id, name, dirty_mode, pressed_mode, is_vip, key_mo
 	
 	local binding = mnee.get_bindings()
 	if( binding ~= nil ) then binding = binding[ mod_id ] end
-	if( binding ~= nil ) then binding = binding[ name ] end
+	if( binding ~= nil ) then binding = binding[ bind_id ] end
 	if( not( pen.vld( binding ))) then return unpack( abort_tbl ) end
 
 	local acc = 100
-	local val_x, gone_x, buttoned_x = mnee.mnin_axis( mod_id, binding.axes[1], dirty_mode, pressed_mode, is_vip, key_mode, true )
-	local val_y, gone_y, buttoned_y = mnee.mnin_axis( mod_id, binding.axes[2], dirty_mode, pressed_mode, is_vip, key_mode, true )
+	local val_x, gone_x, buttoned_x = mnee.mnin_axis( mod_id, binding.axes[1], true, pressed_mode, is_vip, inmode )
+	local val_y, gone_y, buttoned_y = mnee.mnin_axis( mod_id, binding.axes[2], true, pressed_mode, is_vip, inmode )
 	local magnitude = mnee.apply_deadzone( math.sqrt( val_x^2 + val_y^2 ), binding.jpad_type, binding.deadzone )
 	local direction = math.rad( math.floor( math.deg( math.atan2( val_y, val_x )) + 0.5 ))
 	val_x, val_y = pen.rounder( magnitude*math.cos( direction ), acc ), pen.rounder( magnitude*math.sin( direction ), acc )
 	return { val_x, val_y }, gone_x or gone_y, { buttoned_x, buttoned_y }, direction
 end
 
-function mnee.mnin( mode, id_data, data )
+---Unified access point for the entirety of mnee input API.
+---@param mode mnin_modes
+---@param id table ID part of the bind data, key_id for "key" mode and mod_id + bind_id for the rest.
+---@param data? table All the other parameters relevant to the chosen mode.
+---@return any
+function mnee.mnin( mode, id, data )
 	local map = {
 		key = { mnee.mnin_key, {1}, { "pressed", "vip", "mode" }},
 		bind = { mnee.mnin_bind, {1,2}, { "dirty", "pressed", "vip", "strict", "mode" }},
-		axis = { mnee.mnin_axis, {1,2}, { "dirty", "pressed", "vip", "mode" }},
-		stick = { mnee.mnin_stick, {1,2}, { "dirty", "pressed", "vip", "mode" }},
+		axis = { mnee.mnin_axis, {1,2}, { "alive", "pressed", "vip", "mode" }},
+		stick = { mnee.mnin_stick, {1,2}, { "pressed", "vip", "mode" }},
 	}
 
 	data, func = data or {}, map[ mode ]
-	id_data = pen.get_hybrid_table( id_data )
+	id = pen.get_hybrid_table( id )
 	
 	local inval = {}
 	for i,v in ipairs( func[2]) do
-		if( id_data[v] ~= nil ) then table.insert( inval, id_data[v]) end
+		if( id[v] ~= nil ) then table.insert( inval, id[v]) end
 	end
 	for i,v in ipairs( func[3]) do
 		table.insert( inval, data[v] or false )
@@ -873,6 +915,9 @@ function mnee.mnin( mode, id_data, data )
 	return func[1]( unpack( inval ))
 end
 
+---Simplistic static full keyboard input with shifting support and special keys.
+---@param no_shifting boolean
+---@return string|number|nil
 function mnee.get_keyboard_input( no_shifting )
 	local lists = dofile_once( "mods/mnee/lists.lua" )
 	local is_shifted = ( InputIsKeyDown( 225 ) or InputIsKeyDown( 229 )) and not( no_shifting )
@@ -975,7 +1020,7 @@ end
 ---Use mnee.mnin_axis instead.
 ---@deprecated
 function get_axis_state( mod_id, name, dirty_mode, pressed_mode, is_vip, key_mode )
-	return mnee.mnin_axis( mod_id, name, dirty_mode, pressed_mode, is_vip, key_mode )
+	return mnee.mnin_axis( mod_id, name, false, pressed_mode, is_vip, key_mode )
 end
 ---Use mnee.mnin_axis instead.
 ---@deprecated

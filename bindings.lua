@@ -1,7 +1,7 @@
 _MNEEDATA = {}
 _BINDINGS = {}
 
---see mnee/lists.lua for most of the internal key IDs + gamepad binding exmaples
+--see mnee/lists.lua for most of the internal key IDs + gamepad binding examples
 
 _MNEEDATA[ "mnee" ] = {
 	name = "mnee",

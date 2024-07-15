@@ -27,6 +27,14 @@ dofile_once( "mods/mnee/_penman.lua" )
 ---@field compact_mode boolean [DFT: false ]<br> Set to true to make the pager take less space horizontally.
 ---@field profile_mode boolean [DFT: false ]<br> Page number will be displayed as a letter if set to true.
 
+---@class MneeMninData
+---@field pressed boolean [DFT: false ] Enable to report "true" only once and then wait until the key is reset.
+---@field vip boolean [DFT: false ] Enable to stop this bind from being disabled by user via global toggle.
+---@field mode string The name of the desired mode from mnee.INMODES list.
+---@field dirty boolean [DFT: false ] Controls key layer separation, enable to allow conflicts between "ctrl+m" and "m". BIND only.
+---@field strict boolean [DFT: false ] Controls combination purity, enable to stop conflicts between "shift+ctrl+e" and "ctrl+e". BIND only.
+---@field alive boolean [DFT: false ] Enable to skip deadzone calculations. AXIS only.
+
 mnee = mnee or {}
 mnee.G = mnee.G or {}
 
@@ -477,7 +485,7 @@ function mnee.update_bindings( binding_data )
 			for i,v in ipairs({ 1, profile }) do
 				tbl[ mod ][ bind ].keys[ v ] = tbl[ mod ][ bind ].keys[ v ] or {}
 				if( _MNEEDATA[ mod ] ~= nil ) then
-					new_keys = pen.t.get( _MNEEDATA[ mod ].setup_modes, setup_id )
+					new_keys = pen.t.get( _MNEEDATA[ mod ].setup_modes, setup_id, nil, nil, {})
 					if( pen.vld( new_keys ) and new_keys.binds ~= nil ) then
 						new_keys = pen.t.clone( new_keys.binds[ bind ])
 					else new_keys = nil end
@@ -654,10 +662,9 @@ function mnee.new_tooltip( gui, uid, text, data )
 		local pic_x, pic_y, pic_z = unpack( d.pos )
 		
 		if( pen.vld( text )) then
-			local clr = pen.PALETTE.PRSP.BLUE
 			uid = pen.new_text( gui, uid, pic_x + d.edging, pic_y + d.edging - 2, pic_z - 0.01, text, {
 				dims = { size_x - d.edging, size_y }, line_offset = d.line_offset or -2, --funcs = d.font_mods,
-				color = { clr[1], clr[2], clr[3], pen.animate( 1, d.t, { ease_in = "exp5", frames = d.frames })},
+				color = pen.PALETTE.PRSP.BLUE, alpha = pen.animate( 1, d.t, { ease_in = "exp5", frames = d.frames }),
 			})
 		end
 		
@@ -715,9 +722,10 @@ end
 
 ---Streamlined and player entity independent way of getting ControlsComponent inputs.
 ---@param button string The meaningful part of the button name (e.g. use "Fire" instead of "mButtonDownFire").
+---@param entity_id? entity_id Will default to mnee.get_ctrl() if left empty. 
 ---@return boolean is_down, boolean is_just_down
-function mnee.vanilla_input( button )
-	local ctrl_comp = pen.magic_comp( mnee.get_ctrl(), "ControlsComponent" )
+function mnee.vanilla_input( button, entity_id )
+	local ctrl_comp = pen.magic_comp( entity_id or mnee.get_ctrl(), "ControlsComponent" )
 	if( not( pen.vld( ctrl_comp, true ))) then return false, false end
 	return ComponentGetValue2( ctrl_comp, "mButtonDown"..button ), ComponentGetValue2( ctrl_comp, "mButtonFrame"..button ) == GameGetFrameNum()
 end
@@ -892,7 +900,7 @@ end
 ---Unified access point for the entirety of mnee input API.
 ---@param mode mnin_modes
 ---@param id table ID part of the bind data, key_id for "key" mode and mod_id + bind_id for the rest.
----@param data? table All the other parameters relevant to the chosen mode.
+---@param data? MneeMninData
 ---@return any
 function mnee.mnin( mode, id, data )
 	local map = {

@@ -22,6 +22,8 @@ end
 
 --https://github.com/LuaLS/lua-language-server/wiki/Annotations
 
+--custom font creator pen.register_font (with ability to modify existing ones)
+
 -- pen.animate
 -- pen.setting_set
 -- pen.setting_get
@@ -54,6 +56,7 @@ end
 --transition mrshll to penman
 
 --[TODO]
+--tinker with GamePlaySound and GameEntityPlaySound (thanks to lamia)
 --tinker with copi's spriteemitter image concept
 --add sfxes (separate banks for prospero, hermes, trigger) + pics
 --make heres ferrei be compatible with controller and upload it to steam
@@ -173,7 +176,7 @@ function pen.atimer( tid, duration, reset_now, stillborn )
 	end; return math.min( frame_num - pen.c.animation_timer[ tid ], duration or 0 )
 end
 
---add looping capabilities
+--add looping capabilities + discrete fourier (https://www.youtube.com/watch?v=xV4aQvPLYEY)
 function pen.animate( delta, frame, data ) --https://www.febucci.com/2018/08/easing-functions/
 	data = data or {}
 	data.type = data.type or "lerp"
@@ -467,8 +470,9 @@ function pen.t.unarray( tbl, dft )
 	return new_tbl
 end
 
-function pen.t.get( tbl, id, custom_key, will_nuke )
-	if( not( pen.vld( tbl ))) then return end
+function pen.t.get( tbl, id, custom_key, will_nuke, default )
+	local default = default or ( type(( tbl or {})[1]) == "table" and {} or 0 )
+	if( not( pen.vld( tbl ))) then return default end
 
 	local out, tbl_id = {}, nil
 	local key = custom_key or "id"
@@ -484,7 +488,6 @@ function pen.t.get( tbl, id, custom_key, will_nuke )
 	end
 
 	if( not( will_nuke )) then
-		local default = type( tbl[1]) == "table" and {} or 0
 		return is_multi and out or ( out[1] or default ), tbl_id
 	end
 	for i,v in ipairs( out ) do table.remove( tbl, v ) end
@@ -748,6 +751,63 @@ function pen.ctrn( str, marker, is_unarrayed )
 	return t
 end
 
+function pen.capitalizer( str )
+	return string.gsub( tostring( str ), "^%s-%l", string.upper )
+end
+function pen.despacer( str )
+	return string.gsub( tostring( str ), "%s+$", "" )
+end
+
+function pen.get_tiny_num( num, no_subzero )
+	if( num < 0 and not( no_subzero )) then
+		return "∞"
+	else num = math.max( num, 0 ) end
+	
+	if( num < 100000 ) then
+		local ender = { 3, "K" }
+		local sstr = string.format( "%.0f", num )
+		if( num < 1000 ) then ender = { 0, "" } end
+		return string.sub( sstr, 1, #sstr - ender[1])..ender[2]
+	else return "∞" end
+end
+function pen.get_short_num( num, no_subzero, force_sign )
+	if( num < 0 and not( no_subzero )) then
+		return "∞"
+	elseif( no_subzero ~= 1 ) then
+		num = math.max( num, 0 )
+	end
+
+	local real_num = num
+	num = math.abs( num )
+	if( num < 999e12 ) then
+		if( num >= 10 ) then
+			local ender = { 12, "T" }
+			if( num < 10^4 ) then
+				ender = { 0, "" }
+			elseif( num < 10^6 ) then
+				ender = { 3, "K" }
+			elseif( num < 10^9 ) then
+				ender = { 6, "M" }
+			elseif( num < 10^12 ) then
+				ender = { 9, "B" }
+			end
+
+			local sstr = string.format( "%.0f", real_num )
+			num = string.sub( sstr, 1, #sstr - ender[1])..ender[2]
+		else num = string.gsub( string.format( "%.3f", real_num ), "%.*0+$", "" ) end
+	elseif( num < 9e99 ) then
+		num = tostring( string.format("%e", real_num ))
+		local _,pos = string.find( num, "+", 1, true )
+		num = table.concat({
+			string.sub( num, string.find( num, "^%-*%d" )),
+			"e",
+			string.sub( 100 + tonumber( string.sub( num, pos + 1, #num )), 2 )
+		})
+	else return "∞" end
+
+	return (( force_sign and real_num > 0 ) and "+" or "" )..num
+end
+
 function pen.w2c( word, on_char, do_pre, on_iter )
 	local num, letter_id = 0, 0
 	for c in string.gmatch( word, "." ) do
@@ -863,12 +923,17 @@ function pen.magic_byte( char ) --https://github.com/meepen/Lua-5.1-UTF-8/blob/m
 	end, { reset_count = 0 })
 end
 
-function pen.font_cancer( font, is_shadow, is_huge )
+function pen.font_cancer( font, is_huge )
 	if( not( pen.vld( font ))) then
-		local default = ( is_huge or false ) and "data/fonts/font_pixel_huge.xml"
-			or ( GameHasFlagRun( pen.FLAG_USE_FANCY_FONT ) and "data/fonts/generated/notosans_ko_24.bin"
-				or "data/fonts/font_pixel"..(( is_shadow or false ) and "" or "_noshadow" )..".xml" )
-		font = ( pen.FONT_MAP[ GameTextGetTranslatedOrNot( "$current_language" )] or {})[ pen.b2n( is_huge ) + 1 ] or default
+		local default = "data/fonts/font_pixel_noshadow.xml"
+		if( GameHasFlagRun( pen.FLAG_USE_FANCY_FONT )) then
+			default = "data/fonts/generated/notosans_ko_24.bin" end 
+		if( is_huge == true ) then
+			default, is_huge = "data/fonts/font_pixel_huge.xml", 3
+		elseif( is_huge == false ) then
+			default, is_huge = "data/fonts/font_small_numbers.xml", 2
+		else is_huge = 1 end
+		font = ( pen.FONT_MAP[ GameTextGetTranslatedOrNot( "$current_language" )] or {})[ is_huge ] or default
 	end
 	return font, string.find( font, "%.bin$", 1 ) == nil, pen.FONT_SPACING[ font ] or 0
 end
@@ -879,15 +944,8 @@ function pen.get_char_dims( c, id, font )
 	local is_pixel_font, line_offset = false, 0
 	font, is_pixel_font, line_offset = pen.font_cancer( font )
 	return pen.cache({ "char_dims", id, font }, function()
-		local gui = GuiCreate()
-		GuiStartFrame( gui )
-
-		local reference = GuiGetTextDimensions( gui, "_", 1, 0, font, is_pixel_font )
-		local out = { pen.catch( GuiGetTextDimensions, { gui, "_"..( c or pen.magic_byte( id )).."_", 1, 0, font, is_pixel_font }, {0,0})}
-		out[1], out[2] = out[1] - 2*reference, out[2] - line_offset
-
-		GuiDestroy( gui )
-		return unpack( out )
+		local w, h = pen.get_text_dims( c or pen.magic_byte( id ), font, is_pixel_font )
+		return w, h - line_offset
 	end, { reset_count = 0 })
 end
 
@@ -927,6 +985,23 @@ function pen.text_defancifier( str )
 		drift = drift + marker[3]
 	end
 	return new_str, fancy_list
+end
+
+function pen.get_text_dims( text, font, is_pixel_font )
+	if( font == true ) then
+		local _,dims = pen.liner( text, nil, nil, is_pixel_font )
+		return unpack( dims )
+	end
+
+	local gui = GuiCreate()
+	GuiStartFrame( gui )
+
+	local symbol = "_"
+	local reference = GuiGetTextDimensions( gui, symbol, 1, 0, font, is_pixel_font )
+	local w, h = pen.catch( GuiGetTextDimensions, { gui, table.concat({ symbol, text, symbol }), 1, 0, font, is_pixel_font }, {0,0})
+
+	GuiDestroy( gui )
+	return w - 2*reference, h
 end
 
 function pen.liner( text, length, height, font, data )
@@ -1746,7 +1821,7 @@ end
 
 function pen.get_matter( matters, id )
 	local mttrs, total = id == nil and {} or { 0, 0 }, 0
-	if( not( pen.vld( matters ))) then return mttrs, total end
+	if( not( pen.vld( matters ))) then return total, mttrs end
 
 	for i,matter in ipairs( matters ) do
 		if( id ~= nil and id == i - 1 ) then
@@ -1765,7 +1840,7 @@ function pen.get_matter( matters, id )
 		end)
 	end
 	
-	return mttrs, total
+	return total, mttrs
 end
 
 function pen.get_mass( entity_id )
@@ -2274,7 +2349,7 @@ function pen.magic_rgb( c, to_rbg, mode )
 			255*lin2gam( -0.0041960863*l - 0.7034186147*m + 1.7076147010*s )
 	end
 	
-	c = pen.get_hybrid_table( c )
+	c = pen.get_hybrid_table( c, true )
 	c[1] = c[1] or 255; c[2] = c[2] or c[1]; c[3] = c[3] or c[1]
 	return pen.t.clone( pen.cache({
 		"color_conversion", table.concat( c, "|" ), mode, pen.b2n( to_rgb ),
@@ -2289,15 +2364,15 @@ function pen.magic_rgb( c, to_rbg, mode )
 	end))
 end
 
-function pen.colourer( gui, c )
-	if( not( pen.vld( c ))) then return end
-	c = pen.get_hybrid_table( c )
+function pen.colourer( gui, c, alpha )
+	if( not( pen.vld( c ) or pen.vld( alpha ))) then return end
+	c = pen.get_hybrid_table( c, true )
 
 	local color = {
-		r = c[1] or 0,
-		g = c[2] or c[1] or 0,
-		b = c[3] or c[1] or 0,
-		a = c[4] or 1
+		r = c[1] or 255,
+		g = c[2] or c[1] or 255,
+		b = c[3] or c[1] or 255,
+		a = c[4] or alpha or 1,
 	}
 	GuiColorSetForNextWidget( gui, color.r/255, color.g/255, color.b/255, color.a )
 end
@@ -2424,6 +2499,7 @@ function pen.world2gui( x, y, is_raw, no_shake ) --thanks to ImmortalDamned for 
 	return massive_balls_x*x, massive_balls_y*y, { massive_balls_x, massive_balls_y }
 end
 
+--make non z-level adjusted stuff work with z-level adjusted, the latter must always be prioritized
 function pen.new_interface( gui, uid, pic_x, pic_y, s_x, s_y, pic_z, ignore_multihover, is_debugging )
 	local frame_num = GameGetFrameNum()
 	local clicked, r_clicked = false, false
@@ -2517,8 +2593,16 @@ function pen.new_image( gui, uid, pic_x, pic_y, pic_z, pic, data )
 		data.alpha or 1, data.s_x or 1, data.s_y or 1, data.angle or 0, data.anim_type or 2, data.anim or ""
 	)
 
+	local w, h = pen.get_pic_dims( pic )
+	if( data.has_shadow ) then
+		GuiOptionsAddForNextWidget( gui, 2 ) --NonInteractive
+		pen.colourer( gui, pen.PALETTE.SHADOW )
+		GuiZSetForNextWidget( gui, pic_z + 0.0001 )
+		local s_x, s_y = 1/(( data.s_x or 1 )*w ) + 1, 1/(( data.s_y or 1 )*h ) + 1
+		GuiImage( gui, uid, pic_x - 0.5, pic_y - 0.5,
+			pic, 0.6*( data.alpha or 1 ), s_x, s_y, data.angle or 0, data.anim_type or 2, data.anim or "" )
+	end
 	if( data.can_click ) then
-		local w, h = pen.get_pic_dims( pic )
 		if( data.skip_z_check ) then pic_z = nil end
 		uid, data.clicked, data.r_clicked, data.is_hovered = pen.new_interface(
 			gui, uid, pic_x, pic_y, w*( data.s_x or 1 ), h*( data.s_y or 1 ), pic_z, data.ignore_multihover
@@ -2615,9 +2699,10 @@ end
 
 function pen.new_text( gui, uid, pic_x, pic_y, pic_z, text, data )
 	data = data or {}
+	data.alpha = data.alpha or 1
 	data.scale, data.funcs = 1, data.funcs or {}
 	local dims, is_pixel_font, new_line = {}, false, 9
-	data.font, is_pixel_font = pen.font_cancer( data.font, data.is_shadow, data.is_huge )
+	data.font, is_pixel_font = pen.font_cancer( data.font, data.is_huge )
 	
 	if( pen.vld( data.dims )) then
 		data.dims = pen.get_hybrid_table( data.dims )
@@ -2633,14 +2718,23 @@ function pen.new_text( gui, uid, pic_x, pic_y, pic_z, text, data )
 		data.dims = dims
 	end
 	
+	local function shadowed_text( gui, pic_x, pic_y, pic_z, txt, scale, font, is_pixel, color, alpha, has_shadow )
+		GuiZSetForNextWidget( gui, pic_z )
+		pen.colourer( gui, color, alpha )
+		GuiText( gui, pic_x, pic_y, txt, scale, font, is_pixel )
+		if( not( has_shadow )) then return end
+		GuiZSetForNextWidget( gui, pic_z + 0.0001 )
+		pen.colourer( gui, pen.PALETTE.SHADOW, 0.6*alpha )
+		GuiText( gui, pic_x + scale/2, pic_y + scale/2, txt, scale, font, is_pixel )
+	end
+
 	local off_x = 0 --( data.is_centered_x or false ) and -math.abs( data.dims[1])/2 or 0
 	local off_y = ( data.is_centered_y or false ) and -math.max( data.dims[2] or 0, dims[2])/2 or 0
 	if( not( data.fully_featured )) then
 		if( data.is_centered_x or data.is_right_x ) then pic_x = pic_x - dims[1]/( data.is_right_x and 1 or 2 ) end
 		for i,t in ipairs( text ) do
-			pen.colourer( gui, data.color )
-			GuiZSetForNextWidget( gui, pic_z )
-			GuiText( gui, pic_x + off_x, pic_y + ( i - 1 )*new_line + off_y, t, data.scale, data.font, is_pixel_font )
+			shadowed_text( gui, pic_x + off_x, pic_y + ( i - 1 )*new_line + off_y, pic_z,
+				t, data.scale, data.font, is_pixel_font, data.color, data.alpha, data.has_shadow )
 		end
 		return uid, dims
 	end
@@ -2675,9 +2769,8 @@ function pen.new_text( gui, uid, pic_x, pic_y, pic_z, text, data )
 				table.insert( out, pen.t.clone( new_element ))
 				
 				if( gotcha ~= 0 ) then
-					local tt = table.concat({ "_", string.gsub( new_element.text, pen.MARKER_FANCY_TEXT[3], "" ), "_" })
-					local _,off = pen.liner( tt, nil, nil, data.font )
-					new_element.x = new_element.x + off[1] - 2*GuiGetTextDimensions( gui, "_", 1, 0, data.font, is_pixel_font )
+					new_element.x = new_element.x + pen.get_text_dims(
+						string.gsub( new_element.text, pen.MARKER_FANCY_TEXT[3], "" ), data.font, is_pixel_font )
 					
 					if( gotcha > 0 ) then
 						table.insert( func_list, string.sub( temp, l_pos[1] + 2, r_pos[1] - 2 ))
@@ -2726,9 +2819,8 @@ function pen.new_text( gui, uid, pic_x, pic_y, pic_z, text, data )
 		local pos_y = pic_y + data.scale*( off_y + element.y )
 		if( not( pen.vld( element.f ))) then
 			c_lcl = {}
-			pen.colourer( gui, data.color )
-			GuiZSetForNextWidget( gui, pic_z )
-			GuiText( gui, pos_x, pos_y, element.text, data.scale, data.font, is_pixel_font )
+			shadowed_text( gui, pos_x, pos_y, pic_z,
+				element.text, data.scale, data.font, is_pixel_font, data.color, data.alpha, data.has_shadow )
 			return
 		end
 		
@@ -2745,12 +2837,13 @@ function pen.new_text( gui, uid, pic_x, pic_y, pic_z, text, data )
 				if( v[1] == letter_id ) then extra_list[n] = v[2] end
 			end)
 
-			local clr, char, font = data.color, pen.magic_byte( char_id ), {data.font,is_pixel_font}
+			local clr, char, font = data.color or {}, pen.magic_byte( char_id ), {data.font,is_pixel_font}
 			local off = { pen.get_char_dims( char, char_id, font[1])}
 			for e,func in ipairs( element.f ) do
 				local new_clr, new_font, new_char = {}, {}, nil
 				local font_mod = data.funcs[ func ] or pen.FONT_MODS[ func ]
 				if( font_mod ~= nil ) then
+					clr[4] = clr[4] or data.alpha
 					c_lcl[ func ] = ( c_lcl[ func ] or 0 ) + 1
 					uid, pos_x, pos_y, new_clr, new_font, new_char = font_mod(
 						gui, uid, { pos_x, orig_x }, { pos_y, orig_y }, pic_z,
@@ -2764,9 +2857,7 @@ function pen.new_text( gui, uid, pic_x, pic_y, pic_z, text, data )
 			end
 			
 			if( pen.vld( char )) then
-				pen.colourer( gui, clr )
-				GuiZSetForNextWidget( gui, pic_z )
-				GuiText( gui, pos_x, pos_y, char, data.scale, font[1], font[2])
+				shadowed_text( gui, pos_x, pos_y, pic_z, char, data.scale, font[1], font[2], clr, data.alpha, data.has_shadow )
 			end
 
 			orig_x = orig_x + off[1]
@@ -2815,9 +2906,13 @@ function pen.new_tooltip( gui, uid, text, data, func )
 		local w, h = GuiGetScreenDimensions( gui )
 		if( not( pen.vld( data.dims ))) then
 			_,data.dims = pen.liner( text )
+			--extract this into a separate func
 			local l = data.dims[1]
-			local line = math.max(( l > 300 and math.max( math.pow( 250/l, 1.25 ), 0.1 ) or 1 )*l, w/4 )
-			_,data.dims = pen.liner( text, w*math.min( line/w, 0.9 ), h, nil, { line_offset = data.line_offset or -2 })
+			data.min_width, data.max_width = data.min_width or 121, data.max_width or 0.9*w
+			if( string.find( text, "[\n@]" ) ~= nil ) then l = 2*l end
+			
+			local line = math.max(( l > 300 and math.max( math.pow( 250/l, 1.25 ), 0.1 ) or 1 )*l, data.min_width )
+			_,data.dims = pen.liner( text, math.min( line, data.max_width ), h, nil, { line_offset = data.line_offset or -2 })
 		end
 		data.dims = pen.t.clone( data.dims )
 		data.dims[1] = data.dims[1] + 2*data.edging - 1
@@ -2849,7 +2944,7 @@ function pen.new_tooltip( gui, uid, text, data, func )
 			if( pen.vld( text )) then
 				uid = pen.new_text( gui, uid, pic_x + d.edging, pic_y + d.edging - 2, pic_z, text, {
 					dims = { size_x - d.edging, size_y }, line_offset = d.line_offset or -2,
-					fully_featured = true, funcs = d.font_mods, color = { 255, 255, 255, inter_alpha },
+					fully_featured = true, funcs = d.font_mods, alpha = inter_alpha,
 				})
 			end
 			
@@ -3029,14 +3124,30 @@ pen.AI_COMPS = {
 }
 
 pen.FONT_MAP = {
-	["简体中文"] = { "data/fonts/generated/notosans_zhcn_24.bin", "data/fonts/generated/notosans_zhcn_36.bin" },
-	["日本語"] = { "data/fonts/generated/notosans_jp_24.bin", "data/fonts/generated/notosans_jp_36.bin" },
-	["한국어"] = { "data/fonts/generated/notosans_ko_24.bin", "data/fonts/generated/notosans_ko_36.bin" },
+	["简体中文"] = {
+		"data/fonts/generated/notosans_zhcn_24.bin",
+		"data/fonts/generated/notosans_zhcn_20.bin",
+		"data/fonts/generated/notosans_zhcn_36.bin",
+	},
+	["日本語"] = {
+		"data/fonts/generated/notosans_jp_24.bin",
+		"data/fonts/generated/notosans_jp_20.bin",
+		"data/fonts/generated/notosans_jp_36.bin",
+	},
+	["한국어"] = {
+		"data/fonts/generated/notosans_ko_24.bin",
+		"data/fonts/generated/notosans_ko_20.bin",
+		"data/fonts/generated/notosans_ko_36.bin",
+	},
 }
 pen.FONT_SPACING = {
+	["data/fonts/font_small_numbers.xml"] = -4,
 	["data/fonts/generated/notosans_zhcn_24.bin"] = 1.5,
 	["data/fonts/generated/notosans_jp_24.bin"] = 1.5,
 	["data/fonts/generated/notosans_ko_24.bin"] = 1.5,
+	["data/fonts/generated/notosans_zhcn_20.bin"] = 1.5,
+	["data/fonts/generated/notosans_jp_20.bin"] = 1.5,
+	["data/fonts/generated/notosans_ko_20.bin"] = 1.5,
 	["data/fonts/generated/notosans_zhcn_36.bin"] = 2.5,
 	["data/fonts/generated/notosans_jp_36.bin"] = 2.5,
 	["data/fonts/generated/notosans_ko_36.bin"] = 2.5,
@@ -3063,12 +3174,14 @@ pen.FONT_MODS = {
 	underscore = function( gui, uid, pic_x, pic_y, pic_z, char_data, color, index ) --make this be font height related
 		pen.colourer( gui, color )
 		local off_x, off_y = unpack( char_data.dims )
-		uid = pen.new_image( gui, uid, pic_x[2], pic_y[2] + off_y*0.8, pic_z + 0.001, pen.FILE_PIC_NUL, {
-			s_x = off_x*0.5, s_y = 0.5 })
+		uid = pen.new_image( gui, uid, pic_x[2], pic_y[2] + off_y*0.8, pic_z + 0.001, pen.FILE_PIC_NUL, { s_x = off_x*0.5, s_y = 0.5 })
 		return uid, pic_x[1], pic_y[1]
 	end,
 	shadow = function( gui, uid, pic_x, pic_y, pic_z, char_data, color, index )
-		return uid, pic_x[1], pic_y[1], nil, { "data/fonts/font_pixel.xml", true }
+		GuiZSetForNextWidget( gui, pic_z + 0.0001 )
+		pen.colourer( gui, pen.PALETTE.B, 0.8*(( color or {})[4] or 1 ))
+		GuiText( gui, pic_x[1] + 0.6, pic_y[1] + 0.6, char_data.char, 1, char_data.font[1], char_data.font[2])
+		return uid, pic_x[1], pic_y[1]
 	end,
 	runic = function( gui, uid, pic_x, pic_y, pic_z, char_data, color, index )
 		local new_one = char_data.char
@@ -3170,9 +3283,10 @@ pen.FONT_MODS = {
 pen.PALETTE = {
 	B = {0,0,0},
 	W = {255,255,255},
+	SHADOW = {46,34,47},
 	VNL = {
 		YELLOW = {255,255,178},
-		GREY = {150,150,150},
+		GREY = {170,170,170},
 		RED = {208,70,70},
 		WARNING = {252,67,85},
 		DARK_SLOT = {185,220,223},
@@ -5086,6 +5200,8 @@ pen.FILE_XML_MATTER = [[
 ---@field is_active boolean [DFT: is_hovered ]<br> Set to true to force the tooltip open. If is nil, then will check the state of the last gui element.
 ---@field allow_hover boolean [DFT: false ]<br> Set to true to keep tooltip opened as long as the mouse is hovering over it.
 ---@field dims table [DFT: { text_width, text_height } ]<br> The size of the tooltip. If is nil, will fit itself to the text provided.
+---@field min_width number [DFT: 121 ] The minimal width a tooltip can be if the dims field is left empty.
+---@field max_width number [DFT: 0.9*screen_width ] The maximum width a tooltip can be if the dims field is left empty.
 ---@field pos table [DFT: mouse_pos ]<br> The position of the tooltip on the screen.
 ---@field pic_z number [DFT: pen.Z_LAYERS.tips ]<br> The depth to draw the tooltip at.
 ---@field is_left boolean [DFT: false ]<br> Will draw the tooltip to the left if set to true.

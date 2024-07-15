@@ -58,7 +58,7 @@
    - TOGGLER is the global user-accessible mnee-base input toggle. It can be manually initiated via GameAddFlagRun( mnee.TOGGLER ) but keep in mind that the player always has the means of getting rid of this limitation. Bindings in VIP mode will ignore this toggle altogether.
    - SERV_MODE is the same kind of toggle yet this time it is reserved for internal use. One may call it the same way as they did TOGGLER and it will be cleared on game reload to prevent softlocks. Bindings, within whose context a global called mnee.ignore_service_mode was set to true, will ignore this flag altogether.
    - PRIO_MODE is the way to limit all input to a single mod alone. It can be enabled through mnee.set_priority_mode( mod_id ), leave "mod_id" empty to turn it off. It will be cleared on game reload to prevent softlocks. This toggle has no failsafe, so truly everything aside from the prioritized mod will be disabled no matter the case.
-- Besides the constants, there exists several auxiliary functions, that cover niche use cases:
+- Furthermore, there exists several auxiliary functions:
    - mnee.get_triggers()/mnee.get_axes(): return raw analog input data in the following format – { 1gpd_l2=v, 1gpd_r2=v, 2gpd_l2=v, ...}/{ 1gpd_axis_lh=v, 1gpd_axis_lv=v, 1gpd_axis_rh=v, 1gpd_axis_rv=v, 2gpd_axis_lh=v, ...}.
    - mnee.get_bindings( binds_only ): returns all the binding data there is, basically the globalmost complete mnee table; "binds_only" removes miscellaneous fluff that is relevant only for visualization purposes. The structure is as follows – { mod_id={ binding_1=binding_data, binding_2=binding_data, ...}, ...} where binding_data={ keys={ profile_num_1={ main=keys_main, alt=keys_alt }, profile_num_2=...}}. Pass obtained binding_data to mnee.get_pbd to get the relevant profile table automatically.
    - mnee.get_binding_keys( mod_id, bind_id, is_compact ): returns the keys of the bindings in a UI-friendly way; "mod_id" and "bind_id" are for determining the binding ID and "is_compact" set to true will make the return value take less space. The last arguement has an additional functionality of only returning primary or secondary binding – set it to 1 or 2 respectively.
@@ -66,6 +66,7 @@
    - mnee.is_jpad_real( slot_num ): a basic utility for checking the connection state of a gamepad; "slot_num" argument indicates the number of the controller and is equal to 1 by default.
    - mnee.apply_jpads( jpad_tbl ): enables one to manually map gamepads to slots; "jpad_tbl" is a mapping table ("-1" to unbound, 0-3 to assign, 5 to insert a dummy).
    - mnee.get_setup_id( mod_id ): returns the id of currently active setup mode; "mod_id" is the id of the mod in questions.
+   - mnee.vanilla_input( button, entity_id ): returns player entity independent ControlsComponent values; "button" is the last part of "mButtonDownFire" = simply "Fire", "entity_id" is the optional id of the entity you wish to capture ControlsComp of.
 
 [INPUT]
 - mnee.get_keyboard_input( no_shifting ) - a streamlined way of getting full keyboard input

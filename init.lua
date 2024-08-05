@@ -151,9 +151,9 @@ end
 
 function OnWorldPreUpdate()
 	dofile_once( "mods/mnee/lib.lua" )
-	if( not( GameHasFlagRun( mnee.INITER ))) then return end
+	if( not( GameHasFlagRun( mnee.INITER ))) then return pen.gui_builder( false ) end
 	local ctrl_body = mnee.get_ctrl()
-	if( not( pen.vld( ctrl_body, true ))) then return end
+	if( not( pen.vld( ctrl_body, true ))) then return pen.gui_builder( false ) end
 	
 	mnee.clean_disarmer()
 	mnee.jpad_next( true )
@@ -203,11 +203,7 @@ function OnWorldPreUpdate()
 		jauto = pen.setting_get( "mnee.CTRL_AUTOMAPPING" ),
 	}
 	if( mnee.G.gui_active and not( pen.is_inv_active())) then
-		mnee.G.UI = mnee.G.UI or GuiCreate()
-		GuiStartFrame( mnee.G.UI )
-		dofile( "mods/mnee/files/gui.lua" )
-	else mnee.G.UI = pen.gui_killer( mnee.G.UI ) end
-	
+		dofile( "mods/mnee/files/gui.lua" ) end; pen.gui_builder( true )
 	for i,gslot in ipairs( mnee.stl.jslots ) do
 		if( gslot or mnee.stl.jauto ) then
 			if( mnee.G.jpad_maps[i] == -1 ) then

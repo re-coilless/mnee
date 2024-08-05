@@ -11,7 +11,7 @@ _MNEEDATA[ "mnee" ] = {
 	is_locked = function( mod_id, jpads ) return false end,
 	is_hidden = function( mod_id, jpads ) return false end,
 	
-	-- func = function( gui, uid, pic_x, pic_y, pic_z, data ) return uid end, --[MAIN MENU BINDING LIST COMPLETE OVERRIDE]
+	-- func = function( pic_x, pic_y, pic_z, data ) end, --[MAIN MENU BINDING LIST COMPLETE OVERRIDE]
 	-- on_changed = function( data ) end, --[REBINDING CALLBACK]
 	-- on_reset = function( data ) end, --[SET TO DEFAULT CALLBACK] on_changed is called if nil
 	-- on_jpad = function( data, jpad_id ) end, --[GAMEPAD SLOT CALLBACK] return true to set the slot to dummy

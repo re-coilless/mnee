@@ -611,58 +611,54 @@ function mnee.play_sound( event )
 end
 
 ---Draws a button themed after Prospero Inc.
----@param gui gui
----@param uid uid
 ---@param pic_x number
 ---@param pic_y number
 ---@param pic_z number
 ---@param pic path
 ---@param data? PenmanButtonData
----@return number uid, boolean clicked, boolean r_clicked, boolean is_hovered
-function mnee.new_button( gui, uid, pic_x, pic_y, pic_z, pic, data )
+---@return boolean clicked, boolean r_clicked, boolean is_hovered
+function mnee.new_button( pic_x, pic_y, pic_z, pic, data )
 	data = data or {}
 	data.frames = data.frames or 20
 	if( data.highlight == nil ) then data.highlight = pen.PALETTE.PRSP.RED end
-	return pen.new_button( gui, uid, pic_x, pic_y, pic_z, pic, {
-		lmb_event = function( gui, uid, pic_x, pic_y, pic_z, pic, d )
+	return pen.new_button( pic_x, pic_y, pic_z, pic, {
+		lmb_event = function( pic_x, pic_y, pic_z, pic, d )
 			if( not( data.no_anim )) then pen.atimer( data.auid.."l", nil, true ) end
-			return uid, pic_x, pic_y, pic_z, pic, d
+			return pic_x, pic_y, pic_z, pic, d
 		end,
-		rmb_event = function( gui, uid, pic_x, pic_y, pic_z, pic, d )
+		rmb_event = function( pic_x, pic_y, pic_z, pic, d )
 			if( not( data.no_anim )) then pen.atimer( data.auid.."r", nil, true ) end
-			return uid, pic_x, pic_y, pic_z, pic, d
+			return pic_x, pic_y, pic_z, pic, d
 		end,
-		hov_event = function( gui, uid, pic_x, pic_y, pic_z, pic, d )
-			if( pen.vld( data.tip )) then uid = mnee.new_tooltip( gui, uid, data.tip, { is_active = true }) end
-			if( data.highlight ) then uid = pen.new_image( gui, uid, pic_x - 1, pic_y - 1, pic_z + 0.001,
-				pen.FILE_PIC_NUL, { s_x = ( d.dims[1] + 2 )/2, s_y = ( d.dims[2] + 2 )/2, color = data.highlight }) end
-			return uid, pic_x, pic_y, pic_z, pic, d
+		hov_event = function( pic_x, pic_y, pic_z, pic, d )
+			if( pen.vld( data.tip )) then mnee.new_tooltip( data.tip, { is_active = true }) end
+			if( data.highlight ) then pen.new_pixel( pic_x - 1, pic_y - 1,
+				pic_z + 0.001, data.highlight, d.dims[1] + 2, d.dims[2] + 2 ) end
+			return pic_x, pic_y, pic_z, pic, d
 		end,
-		pic_func = function( gui, uid, pic_x, pic_y, pic_z, pic, d )
+		pic_func = function( pic_x, pic_y, pic_z, pic, d )
 			local a = ( data.no_anim or false ) and 1 or math.min(
 				pen.animate( 1, data.auid.."l", { type = "sine", frames = data.frames, stillborn = true }),
 				pen.animate( 1, data.auid.."r", { ease_out = "sin3", frames = data.frames, stillborn = true }))
 			local s_anim = {( 1 - a )/d.dims[1], ( 1 - a )/d.dims[2] }
-			return pen.new_image( gui, uid, pic_x + s_anim[1]*d.dims[1]/2, pic_y + s_anim[2]*d.dims[2]/2, pic_z, pic, {
-				s_x = 1 - s_anim[1], s_y = 1 - s_anim[2]})
+			return pen.new_image( pic_x + s_anim[1]*d.dims[1]/2, pic_y + s_anim[2]*d.dims[2]/2,
+				pic_z, pic, { s_x = 1 - s_anim[1], s_y = 1 - s_anim[2]})
 		end,
 	})
 end
 
 ---Draws a tooltip themed after Prospero Inc.
----@param gui gui
----@param uid number
 ---@param text? string
 ---@param data? PenmanTooltipData
----@return number uid, boolean is_active
-function mnee.new_tooltip( gui, uid, text, data )
+---@return boolean is_active
+function mnee.new_tooltip( text, data )
 	data = data or {}; data.frames = data.frames or 10
-	return pen.new_tooltip( gui, uid, text, data, function( gui, uid, text, d )
+	return pen.new_tooltip( text, data, function( text, d )
 		local size_x, size_y = unpack( d.dims )
 		local pic_x, pic_y, pic_z = unpack( d.pos )
 		
 		if( pen.vld( text )) then
-			uid = pen.new_text( gui, uid, pic_x + d.edging, pic_y + d.edging - 2, pic_z - 0.01, text, {
+			pen.new_text( pic_x + d.edging, pic_y + d.edging - 2, pic_z - 0.01, text, {
 				dims = { size_x - d.edging, size_y }, line_offset = d.line_offset or -2, --funcs = d.font_mods,
 				color = pen.PALETTE.PRSP.BLUE, alpha = pen.animate( 1, d.t, { ease_in = "exp5", frames = d.frames }),
 			})
@@ -671,41 +667,38 @@ function mnee.new_tooltip( gui, uid, text, data )
 		local scale_x = pen.animate({2,size_x}, d.t, { ease_in = "exp1.1", ease_out = "bck1.5", frames = d.frames })
 		local scale_y = pen.animate({2,size_y}, d.t, { ease_out = "sin", frames = d.frames })
 		local shift_x, shift_y = ( size_x - scale_x )/2, ( size_y - scale_y )/2
-		uid = pen.new_image( gui, uid, pic_x + shift_x, pic_y + shift_y, pic_z + 0.01, "mods/mnee/files/pics/dot_purple_dark.png", {
+		pen.new_image( pic_x + shift_x, pic_y + shift_y, pic_z + 0.01, "mods/mnee/files/pics/dot_purple_dark.png", {
 			s_x = scale_x, s_y = scale_y })
-		uid = pen.new_image( gui, uid, pic_x + shift_x + 1, pic_y + shift_y + 1, pic_z, "mods/mnee/files/pics/dot_white.png", {
+		pen.new_image( pic_x + shift_x + 1, pic_y + shift_y + 1, pic_z, "mods/mnee/files/pics/dot_white.png", {
 			s_x = scale_x - 2, s_y = scale_y - 2 })
-		return uid
 	end)
 end
 
 ---Draws a pager themed after Prospero Inc.
----@param gui gui
----@param uid number
 ---@param pic_x number
 ---@param pic_y number
 ---@param pic_z number
 ---@param data MneePagerData
----@return number uid, number page
-function mnee.new_pager( gui, uid, pic_x, pic_y, pic_z, data )
+---@return number page
+function mnee.new_pager( pic_x, pic_y, pic_z, data )
 	local t_x, t_y = pic_x, pic_y + 99
 	if( data.compact_mode ) then t_y = t_y + 11 end
 	local clicked, r_clicked, sfx_type = {false,false}, {false,false}, 0
-	uid, clicked[1], r_clicked[1] = mnee.new_button( gui, uid, t_x, t_y, pic_z, "mods/mnee/files/pics/key_left.png", {
+	clicked[1], r_clicked[1] = mnee.new_button( t_x, t_y, pic_z, "mods/mnee/files/pics/key_left.png", {
 		auid = table.concat({ "page_", data.auid, "_l" })})
 	if( not( data.compact_mode )) then t_x = t_x + 22 end
-	uid, clicked[2], r_clicked[2] = mnee.new_button( gui, uid, t_x + 11, t_y, pic_z, "mods/mnee/files/pics/key_right.png", {
+	clicked[2], r_clicked[2] = mnee.new_button( t_x + 11, t_y, pic_z, "mods/mnee/files/pics/key_right.png", {
 		auid = table.concat({ "page_", data.auid, "_r" })})
 	
 	if( data.compact_mode ) then t_y = t_y - 11 else t_x = pic_x + 11 end
-	uid = pen.new_image( gui, uid, t_x, t_y, pic_z, "mods/mnee/files/pics/button_21_B.png", { can_click = true })
-	if( data.compact_mode ) then uid = mnee.new_tooltip( gui, uid, GameTextGetTranslatedOrNot( "$mnee_this_profile" ).."." ) end
+	pen.new_image( t_x, t_y, pic_z, "mods/mnee/files/pics/button_21_B.png", { can_click = true })
+	if( data.compact_mode ) then mnee.new_tooltip( GameTextGetTranslatedOrNot( "$mnee_this_profile" ).."." ) end
 	
 	local text = data.page
 	if( data.profile_mode ) then text = text - 1; text = string.char(( text < 1 and -29 or text ) + 64 ) end
-	uid = pen.new_text( gui, uid, t_x + 2, t_y, pic_z - 0.01, text, { color = pen.PALETTE.PRSP.BLUE })
+	pen.new_text( t_x + 2, t_y, pic_z - 0.01, text, { color = pen.PALETTE.PRSP.BLUE })
 	
-	uid, data.page, sfx_type = pen.new_pager( gui, uid, pic_x, pic_y, pic_z, {
+	data.page, sfx_type = pen.new_pager( pic_x, pic_y, pic_z, {
 		func = data.func, order_func = data.order_func,
 		list = data.list, page = data.page, items_per_page = data.items_per_page,
 		click = { clicked[1] and 1 or ( r_clicked[1] and -1 or 0 ), clicked[2] and 1 or ( r_clicked[2] and -1 or 0 )}
@@ -715,7 +708,7 @@ function mnee.new_pager( gui, uid, pic_x, pic_y, pic_z, data )
 	elseif( sfx_type == -1 ) then
 		mnee.play_sound( "switch_page" )
 	end
-	return uid, data.page
+	return data.page
 end
 
 -------------------------------------------------------		[INPUT]		----------------------------------------------------------
@@ -725,7 +718,7 @@ end
 ---@param entity_id? entity_id Will default to mnee.get_ctrl() if left empty. 
 ---@return boolean is_down, boolean is_just_down
 function mnee.vanilla_input( button, entity_id )
-	local ctrl_comp = pen.magic_comp( entity_id or mnee.get_ctrl(), "ControlsComponent" )
+	local ctrl_comp = EntityGetFirstComponent( entity_id or mnee.get_ctrl(), "ControlsComponent" )
 	if( not( pen.vld( ctrl_comp, true ))) then return false, false end
 	return ComponentGetValue2( ctrl_comp, "mButtonDown"..button ), ComponentGetValue2( ctrl_comp, "mButtonFrame"..button ) == GameGetFrameNum()
 end
@@ -780,10 +773,10 @@ function mnee.mnin_bind( mod_id, bind_id, dirty_mode, pressed_mode, is_vip, stri
 		if( bind["_"] ~= nil ) then
 			goto continue
 		else is_gone = false end
-
+		
 		if( high_score < 1 ) then goto continue end
 		if( high_score > 1 and strict_mode and high_score ~= #keys_down ) then goto continue end
-		if( high_score == 1 and not( dirty_mode )) then
+		if( high_score == 1 and is_dirty == false ) then
 			for i,key in ipairs( keys_down ) do
 				if( mnee.SPECIAL_KEYS[ key ] ~= nil ) then goto continue end
 			end

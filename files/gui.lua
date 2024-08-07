@@ -415,7 +415,7 @@ else
         local allow_special = this_bind.allow_special
         tip_text = table.concat({ tip_text, pen.t.loop_concat( active, function( i, key )
             if( not( allow_special ) and mnee.SPECIAL_KEYS[ key ] ~= nil ) then return end
-            if( key == "mouse_left_gui" or key == "mouse_right_gui" ) then return end
+            if( string.find( key, "mouse_left_gui" ) ~= nil or string.find( key, "mouse_right_gui" ) ~= nil ) then return end
             enter_down = true
             return key
         end), "]" })

@@ -971,15 +971,25 @@ mnee.BANNED_KEYS = pen.t.unarray({
 
 mnee.INMODES = {
 	guied = function( ctrl_body, active )
-		if( pen.vld( active )) then
-			local ctrl_comp = EntityGetFirstComponentIncludingDisabled( ctrl_body, "ControlsComponent" )
-			if( not( ComponentGetValue2( ctrl_comp, "mButtonDownLeftClick" ))) then
-				active = string.gsub( active, "mouse_left", "mouse_left_gui" )
-			end
-			if( not( ComponentGetValue2( ctrl_comp, "mButtonDownRightClick" ))) then
-				active = string.gsub( active, "mouse_right", "mouse_right_gui" )
-			end
+		mnee.G.mb_memo = mnee.G.mb_memo or {}
+		local gotta_go = mnee.G.mb_memo[1] or mnee.G.mb_memo[2]
+		if( not( gotta_go or pen.vld( active ))) then mnee.G.mb_memo = nil; return active end
+		local ctrl_comp = EntityGetFirstComponentIncludingDisabled( ctrl_body, "ControlsComponent" )
+		
+		local vals = {
+			{ "mButtonDownLeftClick", "mouse_left", "mouse_left_gui" },
+			{ "mButtonDownRightClick", "mouse_right", "mouse_right_gui" },
+		}
+		
+		for i = 1,2 do
+			local state = InputIsMouseButtonDown( i )
+			if( mnee.G.mb_memo[i] and not( ComponentGetValue2( ctrl_comp, vals[i][1]))) then
+				active = string.gsub( active, vals[i][2], vals[i][3])
+			elseif( state and not( mnee.G.mb_memo[i])) then
+				active = string.gsub( active, vals[i][2], vals[i][3].."_" ) end
+			mnee.G.mb_memo[i] = state
 		end
+
 		return active
 	end,
 }

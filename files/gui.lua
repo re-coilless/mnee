@@ -10,7 +10,7 @@ local gui = pen.gui_builder()
 local pic_w, pic_h = GuiGetImageDimensions( gui, "mods/mnee/files/pics/window.png", 1 )
 if( mnee.G.pos == nil ) then
     local screen_w, screen_h = GuiGetScreenDimensions( gui )
-    mnee.G.pos = { math.floor(( screen_w - pic_w )/2 ), math.floor( screen_h - ( pic_h + 10 ))}
+    mnee.G.pos = { math.floor(( screen_w - pic_w )/2 ), math.floor( screen_h - ( pic_h + 11 ))}
 end
 
 local pic_z = pen.LAYERS.BACKGROUND + 5

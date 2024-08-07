@@ -104,8 +104,6 @@ end
 
 --https://github.com/LuaLS/lua-language-server/wiki/Annotations
 
---scrolling buttons don't work on the small scrollers
---port register_pic so interfacing supports xml offsets
 --probably move [COMPLEX] to libman and append FFT to ANIM_INTERS separately
 --transition mrshll to penman
 
@@ -2476,11 +2474,32 @@ function pen.get_text_dims( text, font, is_pixel_font )
 	return w - 2*reference, h
 end
 
-function pen.get_pic_dims( path )
-	return pen.cache({ "pic_dimensions", path }, function()
+function pen.get_pic_dims( path, update_xml )
+	path = pen.get_hybrid_table( path )
+	local is_xml = string.find( path[1], "%.xml$" ) ~= nil
+	local got_nxml = pen.vld( pen.lib ) and pen.vld( pen.lib.nxml )
+	local id_tbl = { "pic_metadata", path[1], path[2] or "dft" }
+	local real_dims = pen.cache( id_tbl, function()
+		if( not( is_xml and got_nxml )) then return end
+		local dims = { 0, 0, { 0, 0 }}
+		local xml = pen.lib.nxml.parse( pen.magic_read( path[1]))
+		local anim_name = path[2] or xml.attr.default_animation
+		pen.t.loop( xml:all_of( "RectAnimation" ), function( i, a )
+			if( a.attr.name ~= ( anim_name or a.attr.name )) then return end
+			local k = a.attr.shrink_by_one_pixel and 1 or 0
+			if( a.attr.has_offset ) then
+				dims[3] = {( a.attr.offset_x or 0 ), ( a.attr.offset_y or 0 )}
+			else dims[3] = {( xml.attr.offset_x or 0 ), ( xml.attr.offset_y or 0 )} end
+			dims[1], dims[2] = ( a.attr.frame_width or 0 ) + k, ( a.attr.frame_height or 0 ) + k
+			return true
+		end)
+		return dims
+	end, { reset_count = 0, reset_now = update_xml })
+	if( pen.vld( real_dims )) then return unpack( real_dims ) end
+	return pen.cache({ "pic_dimensions", path[1]}, function()
 		local gui = GuiCreate()
 		GuiStartFrame( gui )
-		local w, h = GuiGetImageDimensions( gui, path, 1 )
+		local w, h = GuiGetImageDimensions( gui, path[1], 1 )
 		GuiDestroy( gui )
 		return w, h
 	end, { reset_count = 0 })
@@ -2499,18 +2518,19 @@ end
 
 ---Returns both GUI grid size and window size.
 ---@return number w, number h, number real_w, number real_h
-function pen.get_screen_data()
+function pen.get_screen_data() --thanks Horscht
 	local gui = GuiCreate()
 	GuiStartFrame( gui )
 
 	local w, h = GuiGetScreenDimensions( gui )
 	local m_x, m_y = InputGetMousePosOnScreen()
-	pen.c.screen_data = pen.c.screen_data or { 1280, 720 } -- thanks Horscht
-	if( m_x > pen.c.screen_data[1]) then pen.c.screen_data[1] = m_x end
-	if( m_y > pen.c.screen_data[2]) then pen.c.screen_data[2] = m_y end
+	local max_x = tonumber( GlobalsGetValue( pen.GLOBAL_SCREEN_X, "1280" ))
+	local max_y = tonumber( GlobalsGetValue( pen.GLOBAL_SCREEN_Y, "720" ))
+	if( m_x > max_x ) then GlobalsSetValue( pen.GLOBAL_SCREEN_X, m_x ) end
+	if( m_y > max_y ) then GlobalsSetValue( pen.GLOBAL_SCREEN_Y, m_y ) end
 
 	GuiDestroy( gui )
-	return w, h, pen.c.screen_data[1], pen.c.screen_data[2]
+	return w, h, max_x, max_y
 end
 
 ---Returns delta in GUI units between in-world and on-screen pointer position.
@@ -2743,17 +2763,21 @@ function pen.new_pixel( pic_x, pic_y, pic_z, color, s_x, s_y, angle, alpha )
 end
 
 function pen.new_image( pic_x, pic_y, pic_z, pic, data )
+	if( not( pen.vld( pic ))) then return end
 	data = data or {}
+	
+	local off_x, off_y, angle = 0, 0, data.angle or 0
+	local w, h, xml_offs = pen.get_pic_dims({ pic, data.anim }, data.update_xml )
+	if( xml_offs ) then off_x, off_y = pen.rotate_offset( xml_offs[1], xml_offs[2], angle ) end
 
 	local gui, uid = pen.gui_builder()
 	pen.colourer( data.color )
 	GuiZSetForNextWidget( gui, pic_z )
 	GuiOptionsAddForNextWidget( gui, 2 ) --NonInteractive
-	GuiImage( gui, uid, pic_x, pic_y, pic,
-		data.alpha or 1, data.s_x or 1, data.s_y or 1, data.angle or 0, data.anim_type or 2, data.anim or ""
+	GuiImage( gui, uid, pic_x + off_x, pic_y + off_y, pic,
+		data.alpha or 1, data.s_x or 1, data.s_y or 1, angle, data.anim_type or 2, data.anim or ""
 	)
 
-	local w, h = pen.get_pic_dims( pic )
 	if( data.has_shadow ) then
 		GuiOptionsAddForNextWidget( gui, 2 ) --NonInteractive
 		pen.colourer( pen.PALETTE.SHADOW )
@@ -2784,7 +2808,7 @@ function pen.new_button( pic_x, pic_y, pic_z, pic, data )
 	
 	local pic_iz = pic_z
 	if( data.skip_z_check ) then pic_iz = nil end
-	data.dims = { pen.get_pic_dims( pen.get_hybrid_table( pic )[1])}
+	data.dims = { pen.get_pic_dims( pen.get_hybrid_table( pic )[1], data.update_xml )}
 	data.clicked, data.r_clicked, data.is_hovered = pen.new_interface(
 		pic_x, pic_y, data.dims[1]*( data.s_x or 1 ), data.dims[2]*( data.s_y or 1 ), pic_iz, data )
 
@@ -2939,17 +2963,17 @@ function pen.new_scroller( sid, pic_x, pic_y, pic_z, size_x, size_y, func, data 
 
 	local progress = pen.c.scroll_memo[ sid ].p or 0
 	local old_height = pen.c.scroll_memo[ sid ].h or 1
-	local scroll_pos = ( size_y - old_height )*( pen.c.scroll_memo[ sid ].p or 0 )
+	local scroll_pos = ( size_y - old_height )*progress
 	local new_height = pen.new_cutout( pic_x, pic_y, size_x, size_y, func[1], scroll_pos )
 	if( new_height > size_y ) then
 		if( data.can_scroll ) then pen.unscroller() end
 	else return end
 
-	local bar_size = math.max(( size_y - 6 )*math.min( size_y/new_height, 1 ), 1 )
+	local bar_size = pen.rounder( math.max(( size_y - 6 )*math.min( size_y/new_height, 1 ), 1 ), -2 )
 	
 	local bar_y = ( size_y - ( 6 + bar_size ))
 	local bar_pos = pic_y + bar_y*progress + 3
-	local step = ( size_y - 6 )*( data.scroll_step or 11 )/new_height
+	local step = bar_y*( data.scroll_step or 11 )/( new_height - size_y )
 	local out = func[2]( pic_x + size_x, pic_y, pic_z - 0.01, bar_size, bar_pos, data )
 	local new_y = out[1][1]
 
@@ -2962,7 +2986,7 @@ function pen.new_scroller( sid, pic_x, pic_y, pic_z, size_x, size_y, func, data 
 
 	local k = pen.c.scroll_memo[ sid ].m or 1
 	pen.c.scroll_memo[ sid ].m = ( out[2][1] or out[3][1]) and 2*k or 1
-
+	
 	for i = 2,3 do
 		if( out[i][1]) then
 			if( i == 2 ) then
@@ -3269,6 +3293,7 @@ function pen.new_tooltip( text, data, func )
 		data.dims[1] = data.dims[1] + 2*data.edging - 1
 		data.dims[2] = data.dims[2] + 2*data.edging - 1
 
+		local z_resolver = 0
 		local mouse_drift = 5
 		if( not( pen.vld( data.pos ))) then
 			data.pos = { pen.get_mouse_pos()}
@@ -3276,6 +3301,18 @@ function pen.new_tooltip( text, data, func )
 			data.pos[1] = data.pos[1] + ( data.is_left and -1 or 1 )*mouse_drift
 			if( data.is_over == nil ) then data.is_over = h < data.pos[2] + data.dims[2] + 1 end
 			data.pos[2] = data.pos[2] + ( data.is_over and -1 or 1 )*mouse_drift
+
+			if( not( data.static_z )) then
+				local z_frame = tonumber( GlobalsGetValue( pen.GLOBAL_TIPZ_RESOLVER_FRAME, "0" ))
+				if( z_frame ~= frame_num ) then
+					GlobalsSetValue( pen.GLOBAL_TIPZ_RESOLVER, 0 )
+					GlobalsSetValue( pen.GLOBAL_TIPZ_RESOLVER_FRAME, frame_num )
+				else
+					z_resolver = tonumber( GlobalsGetValue( pen.GLOBAL_TIPZ_RESOLVER, "0" )) - 0.015
+					GlobalsSetValue( pen.GLOBAL_TIPZ_RESOLVER, z_resolver )
+				end
+				z_resolver = z_resolver - 1
+			end
 		end
 		if( data.is_left ) then data.pos[1] = data.pos[1] - ( data.dims[1] + 1 ) end
 		if( data.is_over ) then data.pos[2] = data.pos[2] - ( data.dims[2] + 1 ) end
@@ -3285,8 +3322,8 @@ function pen.new_tooltip( text, data, func )
 			if( h < data.pos[2] + data.dims[2] + 1 ) then data.pos[2] = h - ( data.dims[2] + 1 ) end
 			data.pos[2] = math.max( data.pos[2], 1 )
 		end
-		data.pos[3] = data.pic_z
-
+		data.pos[3] = data.pic_z + z_resolver
+		
 		func = func or function( text, d )
 			local size_x, size_y = unpack( d.dims )
 			local pic_x, pic_y, pic_z = unpack( d.pos )
@@ -3427,17 +3464,21 @@ pen.FLAG_FANCY_FONT = "PENMAN_FANCY_FONTING"
 pen.FLAG_RESTART_CHECK = "PENMAN_GAME_HAS_STARTED"
 pen.FLAG_INTERFACE_TOGGLE = "PENMAN_INTERFACE_DOWN"
 
+pen.GLOBAL_SCREEN_X = "PENMAN_SCREEN_X"
+pen.GLOBAL_SCREEN_Y = "PENMAN_SCREEN_Y"
 pen.GLOBAL_VIRTUAL_ID = "PENMAN_VIRTUAL_INDEX"
 pen.GLOBAL_INTERFACE_Z = "PENMAN_INTERFACE_Z"
+pen.GLOBAL_TIPZ_RESOLVER = "PENMAN_TIPZ_RESOLVER"
+pen.GLOBAL_DRAGGER_SAFETY = "PENMAN_DRAGGER_FRAME"
 pen.GLOBAL_INTERFACE_MEMO = "PENMAN_INTERFACE_MEMO"
+pen.GLOBAL_TIPZ_RESOLVER_FRAME = "PENMAN_TIPZ_FRAME"
 pen.GLOBAL_INTERFACE_FRAME = "PENMAN_INTERFACE_FRAME"
+pen.GLOBAL_UNSCROLLER_SAFETY = "PENMAN_UNSCROLLER_FRAME"
 pen.GLOBAL_INTERFACE_FRAME_Z = "PENMAN_INTERFACE_FRAME_Z"
 pen.GLOBAL_INTERFACE_SAFETY_LL = "PENMAN_INTERFACE_SAFETY_LL"
 pen.GLOBAL_INTERFACE_SAFETY_TL = "PENMAN_INTERFACE_SAFETY_TL"
 pen.GLOBAL_INTERFACE_SAFETY_LR = "PENMAN_INTERFACE_SAFETY_LR"
 pen.GLOBAL_INTERFACE_SAFETY_TR = "PENMAN_INTERFACE_SAFETY_TR"
-pen.GLOBAL_DRAGGER_SAFETY = "PENMAN_DRAGGER_FRAME"
-pen.GLOBAL_UNSCROLLER_SAFETY = "PENMAN_UNSCROLLER_FRAME"
 
 pen.MARKER_TAB = "\\_"
 pen.MARKER_FANCY_TEXT = { "{>%S->{", "}<%S-<}", "{%-}%S-{%-}" }

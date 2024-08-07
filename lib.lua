@@ -658,7 +658,7 @@ function mnee.new_tooltip( text, data )
 		local pic_x, pic_y, pic_z = unpack( d.pos )
 		
 		if( pen.vld( text )) then
-			pen.new_text( pic_x + d.edging, pic_y + d.edging - 2, pic_z - 0.01, text, {
+			pen.new_text( pic_x + d.edging, pic_y + d.edging - 2, pic_z, text, {
 				dims = { size_x - d.edging, size_y }, line_offset = d.line_offset or -2, --funcs = d.font_mods,
 				color = pen.PALETTE.PRSP.BLUE, alpha = pen.animate( 1, d.t, { ease_in = "exp5", frames = d.frames }),
 			})
@@ -669,7 +669,7 @@ function mnee.new_tooltip( text, data )
 		local shift_x, shift_y = ( size_x - scale_x )/2, ( size_y - scale_y )/2
 		pen.new_image( pic_x + shift_x, pic_y + shift_y, pic_z + 0.01, "mods/mnee/files/pics/dot_purple_dark.png", {
 			s_x = scale_x, s_y = scale_y })
-		pen.new_image( pic_x + shift_x + 1, pic_y + shift_y + 1, pic_z, "mods/mnee/files/pics/dot_white.png", {
+		pen.new_image( pic_x + shift_x + 1, pic_y + shift_y + 1, pic_z + 0.005, "mods/mnee/files/pics/dot_white.png", {
 			s_x = scale_x - 2, s_y = scale_y - 2 })
 	end)
 end

@@ -171,9 +171,6 @@ function OnWorldPreUpdate()
 		if( math.abs( v[2]) < button_deadzone ) then return end
 		return { string.gsub( v[1], "gpd_axis", "gpd_btn" ), "_", ( v[2] > 0 and "+" or "-" ), pen.DIV_1 }
 	end)
-	for mode,func in pairs( mnee.INMODES ) do
-		pen.magic_storage( ctrl_body, "mnee_down_"..mode, "value_string", func( ctrl_body, active_core ))
-	end
 	pen.magic_storage( ctrl_body, "mnee_down", "value_string", active_core )
 	
 	if( mnee.mnin( "bind", { "mnee", "menu" }, { pressed = true, vip = true })) then
@@ -237,6 +234,9 @@ function OnPlayerSpawned( hooman )
 	EntityAddChild( world_id, entity_id )
 	
 	pen.magic_storage( entity_id, "mnee_down", "value_string", "" )
+	for mode,func in pairs( mnee.INMODES ) do
+		pen.magic_storage( entity_id, "mnee_down_"..mode, "value_string", "" )
+	end
 	pen.magic_storage( entity_id, "mnee_disarmer", "value_string", pen.DIV_1 )
 	pen.magic_storage( entity_id, "mnee_triggers", "value_string", "" )
 	pen.magic_storage( entity_id, "mnee_axis", "value_string", "" )

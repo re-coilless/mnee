@@ -107,6 +107,9 @@ end
 --probably move [COMPLEX] to libman and append FFT to ANIM_INTERS separately
 --transition mrshll to penman
 
+--Store 4 closest widgets for the left, right, up, down to the current focused one + store the widget closest to 0 to pick as focusable when the time comes, allow one to force focus
+--Allow emulating focusing inputs (0 is nothing, 1 is right, 2 is up, 3 is lmb, 4 is select, -1 is left, -2 is down, -3 is rmb, -4 is unselect)
+
 -- pen.estimate
 -- pen.animate
 -- pen.setting_set
@@ -233,7 +236,7 @@ function pen.hash_me( str, is_huge )
 			b = ( a + b )%c
 		end
 		return tostring( b*c + a )
-	end, { reset_frame = 36000 })
+	end, { reset_frame = pen.CACHE_RESET_DELAY })
 end
 
 --add autotuning with visualizer via new_plot
@@ -573,7 +576,7 @@ function pen.t.pack( data )
 				table.insert( out, file )
 			end
 			return out
-		end)
+		end, { reset_frame = pen.CACHE_RESET_DELAY })
 	end
 
 	if( type( data ) == "table" ) then
@@ -628,7 +631,7 @@ function pen.t.parse( data, is_pretty, full_precision )
 				out[ s2n( v )] = pen.s2v( string.gsub( v, name_pattern, "" ))
 			end
 			return out
-		end)
+		end, { reset_frame = pen.CACHE_RESET_DELAY })
 	end
 	
 	if( type( data ) == "table" ) then
@@ -671,26 +674,35 @@ end
 
 function pen.cache( structure, update_func, data )
 	data = data or {}
-	data.reset_count = data.reset_count or 999
+	data.reset_count = data.reset_count or 9999
+	data.reset_delay = data.reset_delay or 60
 	data.reset_frame = data.reset_frame or 0
 
 	local name = structure[1]
-	pen.c = pen.c or {}
 	pen.c[ name ] = pen.c[ name ] or {}
 	pen.c[ name ].cache_reset_count = pen.c[ name ].cache_reset_count or 0
 	pen.c[ name ].cache_reset_frame = pen.c[ name ].cache_reset_frame or 0
 
 	local frame_num = GameGetFrameNum()
+	pen.c.cache_access = pen.c.cache_access or {}
+	pen.c.cache_access[ name ] = pen.c.cache_access[ name ] or {}
+	pen.c.cache_access[ name ][ structure[2]] = frame_num
+
 	local is_too_many = data.reset_count > 0 and pen.c[ name ].cache_reset_count > data.reset_count
 	local is_too_long = data.reset_frame > 0 and pen.c[ name ].cache_reset_frame < frame_num
 	if( data.reset_now or ( update_func ~= nil and ( is_too_many or is_too_long ))) then
-		pen.c[ name ] = {}
-		pen.c[ name ].cache_reset_count = 0
-		if( data.reset_frame > 0 ) then pen.c[ name ].cache_reset_frame = frame_num + data.reset_frame end
+		local amount = 0
+		for n,v in pairs( pen.c[ name ]) do
+			local delta = frame_num - ( pen.c.cache_access[ name ][ n ] or frame_num )
+			if( delta > data.reset_delay ) then pen.c[ name ][ n ] = nil; amount = amount + 1 end
+		end
+		
+		if( is_too_long ) then pen.c.cache_access[ name ] = nil end
+		pen.c[ name ].cache_reset_count = pen.c[ name ].cache_reset_count - amount
+		if( is_too_long ) then pen.c[ name ].cache_reset_frame = frame_num + data.reset_frame end
 	end
 
 	local the_one = pen.c[ name ]
-	structure = pen.get_hybrid_table( structure )
 	for i = 2,( #structure - 1 ) do
 		the_one[ structure[i]] = the_one[ structure[i]] or {}
 		the_one = the_one[ structure[i]]
@@ -701,8 +713,9 @@ function pen.cache( structure, update_func, data )
 		local new_val = { update_func( the_one[ val ])}
 		if( pen.vld( new_val )) then the_one[ val ] = new_val end
 	elseif( the_one[ val ] == nil and update_func ~= nil ) then
-		the_one[ val ] = { update_func()}
-		pen.c[ name ].cache_reset_count = pen.c[ name ].cache_reset_count + 1
+		local new_val = { update_func()}
+		if( not( pen.vld( new_val ))) then return end
+		the_one[ val ], pen.c[ name ].cache_reset_count = new_val, pen.c[ name ].cache_reset_count + 1
 	end
 	return unpack( the_one[ val ] or {})
 end
@@ -1102,7 +1115,7 @@ function pen.liner( text, length, height, font, data )
 		
 		h = h - ( is_pixel_font and 2 or 0 )
 		return formatted, { max_l - space_l, h }, font_height + data.line_offset
-	end, { reset_frame = 36000 })
+	end, { reset_frame = pen.CACHE_RESET_DELAY })
 end
 
 function pen.magic_translate( text ) 
@@ -1353,7 +1366,8 @@ function pen.magic_comp( id, data, func )
 end
 
 function pen.magic_storage( entity_id, name, field, value )
-	local out = pen.t.loop( EntityGetComponentIncludingDisabled( entity_id, "VariableStorageComponent" ), function( i, comp )
+	local storages = EntityGetComponentIncludingDisabled( entity_id, "VariableStorageComponent" )
+	local out = pen.t.loop( storages, function( i, comp )
 		if( ComponentGetValue2( comp, "name" ) == name ) then return comp end
 	end)
 	if( field ~= nil ) then
@@ -2007,31 +2021,31 @@ function pen.delayed_kill( entity_id, delay, comp_id )
 	return entity_id
 end
 
-function pen.check_bounds( dot, box, pos, distance_func )
+function pen.check_bounds( dot, box, off, distance_func )
 	if( not( pen.vld( box, true ))) then return false end
 	
-	pos = pos or { 0, 0 }
+	off = off or { 0, 0 }
 	if( type( box ) ~= "table" ) then
 		local bx1 = ComponentGetValue2( box, "aabb_min_x" )
 		local bx2 = ComponentGetValue2( box, "aabb_max_x" )
 		local by1 = ComponentGetValue2( box, "aabb_min_y" )
 		local by2 = ComponentGetValue2( box, "aabb_max_y" )
 		local off_x, off_y = ComponentGetValue2( box, "offset" )
-		pos = { pos[1] + off_x + bx1, pos[2] + off_y + by1 }
+		off = { off[1] + off_x + bx1, off[2] + off_y + by1 }
 		box = { bx2 - bx1, by2 - by1 }
 	elseif( distance_func == nil ) then
 		box = pen.get_hybrid_table( box )
 		if( #box == 4 ) then
-			pos = { pos[1] + box[1], pos[2] + box[3]}
+			off = { off[1] + box[1], off[2] + box[3]}
 			box = { box[2] - box[1], box[4] - box[3]}
 		end
 	end
 	
 	local is_fancy = #box ~= 2
-	local d = pen.V.new( pos[1] - dot[1], pos[2] - dot[2])
+	local d = pen.V.new( off[1] - dot[1], off[2] - dot[2])
 	local p = is_fancy and box or pen.V.new( box[1], box[2])/2
-	if( not( is_fancy )) then d = d + pen.V.new( pen.rotate_offset( p.x, p.y, pos[3] or 0 )) end
-	return ( distance_func or pen.SDF.BOX )( pen.V.rot( d, pos[3] or 0 ), p ) <= 0
+	if( not( is_fancy )) then d = d + pen.V.new( pen.rotate_offset( p.x, p.y, off[3] or 0 )) end
+	return ( distance_func or pen.SDF.BOX )( pen.V.rot( d, off[3] or 0 ), p ) <= 0
 end
 
 function pen.scale_emitter( entity_id, emit_comp )
@@ -2414,10 +2428,10 @@ function pen.magic_rgb( c, to_rbg, mode )
 		})[ mode ][ 1 + pen.b2n( to_rbg )]( unpack( c ))}
 		out[4] = c[4]
 		return out
-	end))}
+	end, { reset_frame = pen.CACHE_RESET_DELAY }))}
 end
 
-function pen.colourer( c, alpha )
+function pen.colourer( gui, c, alpha )
 	if( not( pen.vld( c ) or pen.vld( alpha ))) then return end
 	c = pen.get_hybrid_table( c, true )
 
@@ -2427,7 +2441,8 @@ function pen.colourer( c, alpha )
 		b = c[3] or c[1] or 255,
 		a = c[4] or alpha or 1,
 	}
-	local gui = pen.gui_builder(); pen.c.gui_data.i = pen.c.gui_data.i - 1
+	if( not( gui )) then
+		gui = pen.gui_builder(); pen.c.gui_data.i = pen.c.gui_data.i - 1 end
 	GuiColorSetForNextWidget( gui, color.r/255, color.g/255, color.b/255, color.a )
 end
 
@@ -2479,23 +2494,29 @@ function pen.get_pic_dims( path, update_xml )
 	local is_xml = string.find( path[1], "%.xml$" ) ~= nil
 	local got_nxml = pen.vld( pen.lib ) and pen.vld( pen.lib.nxml )
 	local id_tbl = { "pic_metadata", path[1], path[2] or "dft" }
+
 	local real_dims = pen.cache( id_tbl, function()
 		if( not( is_xml and got_nxml )) then return end
-		local dims = { 0, 0, { 0, 0 }}
+
+		local dims = { 0, 0, { 0, 0 }, false }
 		local xml = pen.lib.nxml.parse( pen.magic_read( path[1]))
 		local anim_name = path[2] or xml.attr.default_animation
 		pen.t.loop( xml:all_of( "RectAnimation" ), function( i, a )
 			if( a.attr.name ~= ( anim_name or a.attr.name )) then return end
+			if( tonumber( a.attr.frame_count ) > 1 ) then dims[4] = true end
 			local k = a.attr.shrink_by_one_pixel and 1 or 0
+
 			if( a.attr.has_offset ) then
 				dims[3] = {( a.attr.offset_x or 0 ), ( a.attr.offset_y or 0 )}
 			else dims[3] = {( xml.attr.offset_x or 0 ), ( xml.attr.offset_y or 0 )} end
 			dims[1], dims[2] = ( a.attr.frame_width or 0 ) + k, ( a.attr.frame_height or 0 ) + k
 			return true
 		end)
+
 		return dims
 	end, { reset_count = 0, reset_now = update_xml })
 	if( pen.vld( real_dims )) then return unpack( real_dims ) end
+
 	return pen.cache({ "pic_dimensions", path[1]}, function()
 		local gui = GuiCreate()
 		GuiStartFrame( gui )
@@ -2706,7 +2727,7 @@ function pen.new_interface( pic_x, pic_y, s_x, s_y, pic_z, data )
 	
 	if( is_hovered ) then
 		if( data.is_debugging ) then
-			pen.new_pixel( local_x, local_y, 10*pen.LAYERS.TIPS, {255,100,100,0.75}, s_x, s_y, data.angle )
+			pen.new_pixel( local_x, local_y, 10*pen.LAYERS.TIPS, {255,100,100,0.75}, s_x, s_y, nil, data.angle )
 		end
 		
 		local size = 500
@@ -2753,7 +2774,7 @@ function pen.new_interface( pic_x, pic_y, s_x, s_y, pic_z, data )
 	return clicked, r_clicked, is_hovered
 end
 
-function pen.new_pixel( pic_x, pic_y, pic_z, color, s_x, s_y, angle, alpha )
+function pen.new_pixel( pic_x, pic_y, pic_z, color, s_x, s_y, alpha, angle )
 	local gui = pen.gui_builder()
 	GuiZSetForNextWidget( gui, pic_z )
 	GuiOptionsAddForNextWidget( gui, 2 ) --NonInteractive
@@ -2764,31 +2785,55 @@ end
 
 function pen.new_image( pic_x, pic_y, pic_z, pic, data )
 	if( not( pen.vld( pic ))) then return end
-	data = data or {}
 	
+	data = data or {}
+	pen.c.anim_guis = pen.c.anim_guis or {}
 	local off_x, off_y, angle = 0, 0, data.angle or 0
-	local w, h, xml_offs = pen.get_pic_dims({ pic, data.anim }, data.update_xml )
+	local w, h, xml_offs, is_anim = pen.get_pic_dims({ pic, data.anim }, data.update_xml )
 	if( xml_offs ) then off_x, off_y = pen.rotate_offset( xml_offs[1], xml_offs[2], angle ) end
+	local s_x, s_y = data.s_x or 1, data.s_y or 1; w, h = s_x*w, s_y*h
 
-	local gui, uid = pen.gui_builder()
-	pen.colourer( data.color )
+	local is_inside = pen.vld( pen.c.cutter_dims )
+	if( is_inside ) then
+		local r_w, r_h = pen.rotate_offset( w, h, angle )
+		local real_x = pen.c.cutter_dims.xy[1] + pic_x
+		if( r_w*pic_x < 0 ) then real_x = real_x + r_w end
+		local real_y = pen.c.cutter_dims.xy[2] + pic_y
+		if( r_h*pic_y < 0 ) then real_y = real_y + r_h end
+		if( not( pen.check_bounds({ real_x, real_y }, pen.c.cutter_dims.wh, pen.c.cutter_dims.xy ))) then return end
+	end
+	
+	local uid = data.auid
+	local gui = pen.c.anim_guis[ uid ]
+	local will_anim = is_anim and uid
+	if( not( will_anim ) and gui ) then
+		GuiDestroy( gui ); pen.c.anim_guis[ uid ] = nil
+	end
+
+	if( will_anim ) then
+		gui = gui or GuiCreate()
+		pen.c.anim_guis[ uid ] = gui
+		GuiStartFrame( gui )
+		uid = 1
+	else gui, uid = pen.gui_builder() end
+	
+	pen.colourer( gui, data.color )
 	GuiZSetForNextWidget( gui, pic_z )
 	GuiOptionsAddForNextWidget( gui, 2 ) --NonInteractive
-	GuiImage( gui, uid, pic_x + off_x, pic_y + off_y, pic,
-		data.alpha or 1, data.s_x or 1, data.s_y or 1, angle, data.anim_type or 2, data.anim or ""
-	)
-
+	GuiImage( gui, uid, pic_x + s_x*off_x, pic_y + s_y*off_y, pic,
+		data.alpha or 1, s_x, s_y, angle, data.anim_type or 2, data.anim or "" )
 	if( data.has_shadow ) then
-		GuiOptionsAddForNextWidget( gui, 2 ) --NonInteractive
-		pen.colourer( pen.PALETTE.SHADOW )
+		local ss_x, ss_y = 1/w + 1, 1/h + 1
+		pen.colourer( gui, pen.PALETTE.SHADOW )
 		GuiZSetForNextWidget( gui, pic_z + 0.0001 )
-		local s_x, s_y = 1/(( data.s_x or 1 )*w ) + 1, 1/(( data.s_y or 1 )*h ) + 1
+		GuiOptionsAddForNextWidget( gui, 2 ) --NonInteractive
 		GuiImage( gui, uid, pic_x - 0.5, pic_y - 0.5,
-			pic, 0.1*( data.alpha or 1 ), s_x, s_y, data.angle or 0, data.anim_type or 2, data.anim or "" )
+			pic, 0.1*( data.alpha or 1 ), ss_x, ss_y, data.angle or 0, data.anim_type or 2, data.anim or "" )
 	end
+
 	if( data.can_click ) then
 		if( data.skip_z_check ) then pic_z = nil end
-		return pen.new_interface( pic_x, pic_y, w*( data.s_x or 1 ), h*( data.s_y or 1 ), pic_z, data )
+		return pen.new_interface( pic_x, pic_y, w, h, pic_z, data )
 	end
 end
 
@@ -3043,11 +3088,11 @@ function pen.new_text( pic_x, pic_y, pic_z, text, data )
 	local function shadowed_text( pic_x, pic_y, pic_z, txt, scale, font, is_pixel, color, alpha, has_shadow )
 		local gui = pen.c.gui_data.g
 		GuiZSetForNextWidget( gui, pic_z )
-		pen.colourer( color, alpha )
+		pen.colourer( gui, color, alpha )
 		GuiText( gui, pic_x, pic_y, txt, scale, font, is_pixel )
 		if( not( has_shadow )) then return end
 		GuiZSetForNextWidget( gui, pic_z + 0.0001 )
-		pen.colourer( pen.PALETTE.SHADOW, 0.1*alpha )
+		pen.colourer( gui, pen.PALETTE.SHADOW, 0.1*alpha )
 		GuiText( gui, pic_x + scale/2, pic_y + scale/2, txt, scale, font, is_pixel )
 	end
 	
@@ -3446,7 +3491,7 @@ function pen.new_plot( pic_x, pic_y, pic_z, data )
 			local x_shift, y_shift = pen.rotate_offset( 0, -width/4, rotation )
 			local pos_x, pos_y = pic_x + x_shift, pic_y - data.scale[2]*last_dot[2] + y_shift
 			local length = math.sqrt(( data.scale[1]*delta_x )^2 + ( data.scale[2]*delta_y )^2 )
-			pen.new_pixel( pos_x, pos_y, pic_z, data.color, length, width, rotation )
+			pen.new_pixel( pos_x, pos_y, pic_z, data.color, length, width, nil, rotation )
 			pic_x = pic_x + data.scale[1]*data.step
 		end
 		last_dot = { x, y }
@@ -3500,6 +3545,8 @@ pen.DIV_0 = "@"
 pen.DIV_1 = "|"
 pen.DIV_2 = "!"
 
+pen.CACHE_RESET_DELAY = 20000
+
 pen.AI_COMPS = {
 	AIAttackComponent = 1,
 	AdvancedFishAIComponent = 1,
@@ -3543,7 +3590,7 @@ pen.FONT_SPACING = {
 }
 pen.FONT_MODS = {
 	_bold = function( pic_x, pic_y, pic_z, char_data, color, index )
-		pen.colourer( color )
+		pen.colourer( nil, color )
 		GuiZSetForNextWidget( pen.c.gui_data.g, pic_z )
 		local off_x, off_y = unpack( char_data.dims )
 		GuiText( pen.c.gui_data.g, pic_x.l - 0.25*off_x, pic_y.l - 0.25*off_y, char_data.char, 1.25, char_data.font[1], char_data.font[2])
@@ -3562,7 +3609,7 @@ pen.FONT_MODS = {
 	end,
 	shadow = function( pic_x, pic_y, pic_z, char_data, color, index )
 		GuiZSetForNextWidget( pen.c.gui_data.g, pic_z + 0.0001 )
-		pen.colourer( pen.PALETTE.B, 0.8*(( color or {})[4] or 1 ))
+		pen.colourer( nil, pen.PALETTE.B, 0.8*(( color or {})[4] or 1 ))
 		GuiText( pen.c.gui_data.g, pic_x.l + 0.6, pic_y.l + 0.6, char_data.char, 1, char_data.font[1], char_data.font[2])
 	end,
 	runic = function( pic_x, pic_y, pic_z, char_data, color, index )
@@ -3605,8 +3652,9 @@ pen.FONT_MODS = {
 	
 	button = function( pic_x, pic_y, pic_z, char_data, color, index, bid )
 		local frame_num = GameGetFrameNum()
-		local clicked, r_clicked, is_hovered = pen.cache({ "hyperlink_state", bid or "dft_btn" }, function( old_val )
-			local out = old_val or {0,0,0}
+		local id_tbl = { "hyperlink_state", bid or "dft_btn" }
+		local clicked, r_clicked, is_hovered = pen.cache( id_tbl, function( old_val )
+			local out = old_val or { 0, 0, 0 }
 			local off_x, off_y = unpack( char_data.dims )
 			local clicked, r_clicked, is_hovered = pen.new_interface( pic_x.l - off_x*0.75, pic_y.l, off_x*1.5, off_y, pic_z )
 			
@@ -3852,6 +3900,8 @@ pen.PALETTE = {
 		MANA = {66,168,226}, _="ff42a8e2",
 		CAST = {252,138,67}, _="fffc8a43",
 		BROWN = {121,71,56}, _="ff794738",
+		DAMAGE = {166,70,56}, _="ffa64638",
+		HP_LOW = {106,44,35}, _="ff6a2c23",
 		GREY = {170,170,170}, _="ffaaaaaa",
 		FLIGHT = {255,170,64}, _="ffffaa40",
 		RUNIC = {121,201,153}, _="ff79c999",

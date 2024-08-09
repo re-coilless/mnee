@@ -239,7 +239,18 @@ end
 ---@param inmode? string The name of the desired mode from mnee.INMODES list.
 ---@return table active_keys { key1, key2, key3, ...}
 function mnee.get_keys( inmode )
-	return pen.t.pack( pen.magic_storage( mnee.get_ctrl(), ( inmode or false ) and "mnee_down_"..inmode or "mnee_down", "value_string" ) or "" )
+	local ctrl_body = mnee.get_ctrl()
+	local inmode_func = mnee.INMODES[ inmode or "_" ]
+	local keys = pen.magic_storage( ctrl_body, "mnee_down", "value_string" )
+	if( not( pen.vld( inmode_func ))) then return pen.t.pack( keys ) end
+
+	local frame_num = GameGetFrameNum()
+	local storage = pen.magic_storage( ctrl_body, "mnee_down_"..inmode )
+	if( ComponentGetValue2( storage, "value_int" ) ~= frame_num ) then
+		ComponentSetValue2( storage, "value_int", frame_num )
+		ComponentSetValue2( storage, "value_string", inmode_func( ctrl_body, keys or "" ))
+	end
+	return pen.t.pack( ComponentGetValue2( storage, "value_string" ))
 end
 ---Active gamepad trigger state getter.
 ---@return table trigger_states { 1gpd_l2=v, 1gpd_r2=v, 2gpd_l2=v, ...}
@@ -988,6 +999,22 @@ mnee.INMODES = {
 			elseif( state and not( mnee.G.mb_memo[i])) then
 				active = string.gsub( active, vals[i][2], vals[i][3].."_" ) end
 			mnee.G.mb_memo[i] = state
+		end
+
+		return active
+	end,
+
+	guied_instant = function( ctrl_body, active )
+		local ctrl_comp = EntityGetFirstComponentIncludingDisabled( ctrl_body, "ControlsComponent" )
+		
+		local vals = {
+			{ "mButtonDownLeftClick", "mouse_left", "mouse_left_gui" },
+			{ "mButtonDownRightClick", "mouse_right", "mouse_right_gui" },
+		}
+		
+		for i = 1,2 do
+			local is_going = ComponentGetValue2( ctrl_comp, vals[i][1])
+			if( not( is_going )) then active = string.gsub( active, vals[i][2], vals[i][3]) end
 		end
 
 		return active

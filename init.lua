@@ -155,13 +155,14 @@ function OnWorldPreUpdate()
 	local ctrl_body = mnee.get_ctrl()
 	if( not( pen.vld( ctrl_body, true ))) then return pen.gui_builder( false ) end
 	
+	mnee.clean_exe()
 	mnee.clean_disarmer()
 	mnee.jpad_next( true )
-	pen.magic_storage( ctrl_body, "mnee_axis", "value_string", mnee.get_current_axes())
-	pen.magic_storage( ctrl_body, "mnee_triggers", "value_string", mnee.get_current_triggers())
+	GlobalsSetValue( mnee.G_AXES, mnee.get_current_axes())
+	GlobalsSetValue( mnee.G_TRIGGERS, mnee.get_current_triggers())
 	if( GameHasFlagRun( mnee.JPAD_UPDATE )) then
 		GameRemoveFlagRun( mnee.JPAD_UPDATE )
-		pen.t.loop( pen.t.pack( pen.magic_storage( ctrl_body, "mnee_jpads", "value_string" )), function( i, v )
+		pen.t.loop( pen.t.pack( GlobalsGetValue( mnee.G_JPADS, "" )), function( i, v )
 			if( mnee.G.jpad_maps[i] ~= v ) then mnee.G.jpad_maps[i] = v; mnee.jpad_callback( v, i ) end
 		end)
 	else mnee.apply_jpads( mnee.G.jpad_maps, true ) end
@@ -171,7 +172,7 @@ function OnWorldPreUpdate()
 		if( math.abs( v[2]) < button_deadzone ) then return end
 		return { string.gsub( v[1], "gpd_axis", "gpd_btn" ), "_", ( v[2] > 0 and "+" or "-" ), pen.DIV_1 }
 	end)
-	pen.magic_storage( ctrl_body, "mnee_down", "value_string", active_core )
+	GlobalsSetValue( mnee.G_DOWN, active_core )
 	
 	if( mnee.mnin( "bind", { "mnee", "menu" }, { pressed = true, vip = true })) then
 		mnee.play_sound( mnee.G.gui_active and "close_window" or "open_window" )
@@ -221,11 +222,20 @@ end
 
 function OnPlayerSpawned( hooman )
 	dofile_once( "mods/mnee/lib.lua" )
-
+	
 	GameAddFlagRun( mnee.INITER )
 	GameRemoveFlagRun( mnee.SERV_MODE )
 	GlobalsSetValue( mnee.PRIO_MODE, "0" )
 	GlobalsSetValue( "PROSPERO_IS_REAL", "1" )
+
+	GlobalsSetValue( mnee.G_DOWN, "" )
+	GlobalsSetValue( mnee.G_AXES, "" )
+	GlobalsSetValue( mnee.G_TRIGGERS, "" )
+
+	GlobalsSetValue( mnee.G_JPADS, "" )
+	GlobalsSetValue( mnee.G_EXE, pen.DIV_1 )
+	GlobalsSetValue( mnee.G_DISARMER, pen.DIV_1 )
+	GlobalsSetValue( mnee.G_AXES_MEMO, pen.DIV_1 )
 	
 	local world_id = GameGetWorldStateEntity()
 	local entity_id = pen.get_child( world_id, "mnee_ctrl" )
@@ -233,15 +243,9 @@ function OnPlayerSpawned( hooman )
 	entity_id = EntityLoad( "mods/mnee/files/ctrl_body.xml" )
 	EntityAddChild( world_id, entity_id )
 	
-	pen.magic_storage( entity_id, "mnee_down", "value_string", "" )
 	for mode,func in pairs( mnee.INMODES ) do
 		pen.magic_storage( entity_id, "mnee_down_"..mode, "value_string", "" )
 	end
-	pen.magic_storage( entity_id, "mnee_disarmer", "value_string", pen.DIV_1 )
-	pen.magic_storage( entity_id, "mnee_triggers", "value_string", "" )
-	pen.magic_storage( entity_id, "mnee_axis", "value_string", "" )
-	pen.magic_storage( entity_id, "mnee_axis_memo", "value_string", pen.DIV_1 )
-	pen.magic_storage( entity_id, "mnee_jpads", "value_string", "" )
-	
+
 	mnee.update_bindings()
 end

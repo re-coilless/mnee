@@ -1,44 +1,9 @@
 dofile_once( "mods/mnee/_penman.lua" )
 
----@alias deadzone_type
----| "BUTTON"
----| "MOTION"
----| "AIM"
----| "EXTRA"
-
----@alias key_type
----| "main"
----| "alt"
-
----@alias mnin_modes
----| "key" data = { pressed, vip, mode }
----| "bind" data = { dirty, pressed, vip, strict, mode }
----| "axis" data = { alive, pressed, vip, mode }
----| "stick" data = { pressed, vip, mode }
-
----@class MneeAutoaimData
----@field setting setting_id [DFT: "mnee.AUTOAIM" ]<br> The ID of the setting to pull assist strength from.
----@field pic path [DFT: "mods/mnee/files/pics/autoaim.png" ]<br> An image that is overlayed over the target to indicate the locked-on state.
----@field do_lining boolean [DFT: false ]<br> Set to true to draw an estimated tragectory arc.
----@field tag_tbl table [DFT: {"homing_target"} ]<br> The table of targeted tags.
-
----@class MneePagerData : PenmanPagerData
----@field auid string [OBLIGATORY]<br> Unique animation ID.
----@field compact_mode boolean [DFT: false ]<br> Set to true to make the pager take less space horizontally.
----@field profile_mode boolean [DFT: false ]<br> Page number will be displayed as a letter if set to true.
-
----@class MneeMninData
----@field pressed boolean [DFT: false ] Enable to report "true" only once and then wait until the key is reset.
----@field vip boolean [DFT: false ] Enable to stop this bind from being disabled by user via global toggle.
----@field mode string The name of the desired mode from mnee.INMODES list.
----@field dirty boolean [DFT: false ] Controls key layer separation, enable to allow conflicts between "ctrl+m" and "m". BIND only.
----@field strict boolean [DFT: false ] Controls combination purity, enable to stop conflicts between "shift+ctrl+e" and "ctrl+e". BIND only.
----@field alive boolean [DFT: false ] Enable to skip deadzone calculations. AXIS only.
-
 mnee = mnee or {}
 mnee.G = mnee.G or {}
 
-------------------------------------------------------		[BACKEND]		---------------------------------------------------------
+------------------------------------------------------		[BACKEND]		------------------------------------------------------
 
 ---Custom sorter with element.order_id support.
 ---@param tbl table
@@ -233,7 +198,7 @@ function mnee.aim_assist( hooman, pos, angle, is_active, is_searching, data )
 	return angle, is_done
 end
 
-------------------------------------------------------		[INTERNAL]		---------------------------------------------------------
+------------------------------------------------------		[INTERNAL]		------------------------------------------------------
 
 ---Active key list getter.
 ---@param inmode? string The name of the desired mode from mnee.INMODES list.
@@ -241,55 +206,71 @@ end
 function mnee.get_keys( inmode )
 	local ctrl_body = mnee.get_ctrl()
 	local inmode_func = mnee.INMODES[ inmode or "_" ]
-	local keys = pen.magic_storage( ctrl_body, "mnee_down", "value_string" )
+	local keys = GlobalsGetValue( mnee.G_DOWN, "" )
 	if( not( pen.vld( inmode_func ))) then return pen.t.pack( keys ) end
 
 	local frame_num = GameGetFrameNum()
 	local storage = pen.magic_storage( ctrl_body, "mnee_down_"..inmode )
 	if( ComponentGetValue2( storage, "value_int" ) ~= frame_num ) then
 		ComponentSetValue2( storage, "value_int", frame_num )
-		ComponentSetValue2( storage, "value_string", inmode_func( ctrl_body, keys or "" ))
+		ComponentSetValue2( storage, "value_string", inmode_func( ctrl_body, keys ))
 	end
 	return pen.t.pack( ComponentGetValue2( storage, "value_string" ))
 end
 ---Active gamepad trigger state getter.
 ---@return table trigger_states { 1gpd_l2=v, 1gpd_r2=v, 2gpd_l2=v, ...}
 function mnee.get_triggers()
-	return pen.t.unarray( pen.t.pack( pen.magic_storage( mnee.get_ctrl(), "mnee_triggers", "value_string" ) or "" ))
+	return pen.t.unarray( pen.t.pack( GlobalsGetValue( mnee.G_TRIGGERS, "" )))
 end
 ---Active gamepad axis state getter.
 ---@return table axis_states { 1gpd_axis_lh=v, 1gpd_axis_lv=v, 1gpd_axis_rh=v, 1gpd_axis_rv=v, 2gpd_axis_lh=v, ...}
 function mnee.get_axes()
-	return pen.t.unarray( pen.t.pack( pen.magic_storage( mnee.get_ctrl(), "mnee_axis", "value_string" ) or "" ))
+	return pen.t.unarray( pen.t.pack( GlobalsGetValue( mnee.G_AXES, "" )))
 end
 
 ---Pressed-but-not-yet-released key list.
 ---@return table disarmed_key { key_id_1=last_down_frame, key_id_2=last_down_frame, ...}
 function mnee.get_disarmer()
-	return pen.t.unarray( pen.t.pack( pen.magic_storage( mnee.get_ctrl(), "mnee_disarmer", "value_string" ) or "" ))
+	return pen.t.unarray( pen.t.pack( GlobalsGetValue( mnee.G_DISARMER, pen.DIV_1 )))
 end
 ---Adds yet another downed key to constantly be reported as being released until actually released.
 ---@param key_id string A unique indentifier to ensure that the correct key is disarmed.
 function mnee.add_disarmer( key_id )
-	local storage = pen.magic_storage( mnee.get_ctrl(), "mnee_disarmer" )
-	if( pen.vld( storage, true )) then
-		local disarmer = table.concat({ pen.DIV_2, key_id, pen.DIV_2, GameGetFrameNum(), pen.DIV_2, pen.DIV_1 })
-		ComponentSetValue2( storage, "value_string", ComponentGetValue2( storage, "value_string" )..disarmer )
-	end
+	local disarmer = table.concat({ pen.DIV_2, key_id, pen.DIV_2, GameGetFrameNum(), pen.DIV_2, pen.DIV_1 })
+	GlobalsSetValue( mnee.G_DISARMER, GlobalsGetValue( mnee.G_DISARMER, pen.DIV_1 )..disarmer )
 end
----Disarming list cleaner (it removes entries with over a frame of a difference to the present time).
+---Disarming list cleaner (removes entries with over a frame of a difference to the present time).
 function mnee.clean_disarmer()
 	local disarmer = mnee.get_disarmer()
-	if( pen.vld( disarmer )) then
-		local new_disarmer = {}
-		local current_frame = GameGetFrameNum()
-		for key,frame in pairs( disarmer ) do
-			if( current_frame - frame < 2 ) then
-				new_disarmer[ key ] = frame
-			end
+	if( not( pen.vld( disarmer ))) then return end
+
+	local new_disarmer = {}
+	local current_frame = GameGetFrameNum()
+	for key,frame in pairs( disarmer ) do
+		if( current_frame - frame < 2 ) then
+			new_disarmer[ key ] = frame
 		end
-		pen.magic_storage( mnee.get_ctrl(), "mnee_disarmer", "value_string", pen.t.pack( pen.t.unarray( new_disarmer )))
 	end
+	GlobalsSetValue( mnee.G_DISARMER, pen.t.pack( pen.t.unarray( new_disarmer )))
+end
+
+---Binds-to-execute list.
+function mnee.get_exe()
+	return pen.t.unarray( pen.t.pack( GlobalsGetValue( mnee.G_EXE, pen.DIV_1 )))
+end
+---Executable list cleaner (removes entries with over a frame of a difference to the present time).
+function mnee.clean_exe()
+	local exe = mnee.get_exe()
+	if( not( pen.vld( exe ))) then return end
+
+	local new_exe = {}
+	local current_frame = GameGetFrameNum()
+	for id,frame in pairs( exe ) do
+		if( current_frame - frame < 1 ) then
+			new_exe[ id ] = frame
+		end
+	end
+	GlobalsSetValue( mnee.G_EXE, pen.t.pack( pen.t.unarray( new_exe )))
 end
 
 ---Updates the setup_memo table.
@@ -301,15 +282,14 @@ end
 ---@return table setup_table { profile_num={ mod_id_1=setup_id, mod_id_2=setup_id, ...}, ...}
 function mnee.get_setup_memo()
 	local setup_tbl = pen.t.parse( pen.setting_get( "mnee.SETUP" ))
-	if( not( pen.vld( setup_tbl ))) then
-		dofile_once( "mods/mnee/bindings.lua" )
+	if( pen.vld( setup_tbl )) then return setup_tbl end
 
-		setup_tbl = {{}}
-		for mod_id,_ in pairs( _BINDINGS ) do
-			setup_tbl[1][ mod_id ] = "_dft"
-		end
-		mnee.set_setup_memo( setup_tbl )
+	dofile_once( "mods/mnee/bindings.lua" )
+	setup_tbl = {{}}
+	for mod_id,_ in pairs( _BINDINGS ) do
+		setup_tbl[1][ mod_id ] = "_dft"
 	end
+	mnee.set_setup_memo( setup_tbl )
 	return setup_tbl
 end
 ---Returns the particular setup_id.
@@ -343,14 +323,14 @@ end
 ---(slot_value is [0;3] for gamepad assignment, -1 for emtpy and 5 for dummy gamepad insertion)
 ---@param no_update? boolean [DO NOT USE] Internal parameter. [DFT: false ]
 function mnee.apply_jpads( jpad_tbl, no_update )
-	ComponentSetValue2( pen.magic_storage( mnee.get_ctrl(), "mnee_jpads" ), "value_string", pen.t.pack( jpad_tbl ))
+	GlobalsSetValue( mnee.G_JPADS, pen.t.pack( jpad_tbl ))
 	if( not( no_update )) then GameAddFlagRun( mnee.JPAD_UPDATE ) end
 end
 ---Returns true if the provided gamepad slot is active.
 ---@param slot_num? number Ranges from 1 to 4. [DFT: 1 ]
 ---@return boolean is_active
 function mnee.is_jpad_real( slot_num )
-	return (( pen.t.pack( pen.magic_storage( mnee.get_ctrl(), "mnee_jpads", "value_string" ) or "" ))[ slot_num or 1 ] or -1 ) ~= -1
+	return (( pen.t.pack( GlobalsGetValue( mnee.G_JPADS, "" )))[ slot_num or 1 ] or -1 ) ~= -1
 end
 ---Returns true if any of the keys within provided table are binded to a gamepad.
 ---@param keys table
@@ -367,22 +347,16 @@ end
 ---Returns the axis_memo table – essentially a disarmer but for axes.
 ---@return table axis_memo { axis_id_1, axis_id_2, ...}
 function mnee.get_axis_memo()
-	return pen.t.unarray( pen.t.pack( pen.magic_storage( mnee.get_ctrl(), "mnee_axis_memo", "value_string" ) or "" ))
+	return pen.t.unarray( pen.t.pack( GlobalsGetValue( mnee.G_AXES_MEMO, pen.DIV_1 )))
 end
 ---Adds new/removes existing axis from the axis_memo list.
 ---@param axis_id string
 function mnee.toggle_axis_memo( axis_id )
-	local storage = pen.magic_storage( mnee.get_ctrl(), "mnee_axis_memo" )
-	if( pen.vld( storage, true )) then
-		local memo = mnee.get_axis_memo()
-		if( memo[ axis_id ] == nil ) then
-			memo = table.concat({ ComponentGetValue2( storage, "value_string" ), axis_id, pen.DIV_1 })
-		else
-			memo[ axis_id ] = nil
-			memo = pen.t.pack( pen.t.unarray( memo ))
-		end
-		ComponentSetValue2( storage, "value_string", memo )
-	end
+	local memo = mnee.get_axis_memo()
+	if( memo[ axis_id ] == nil ) then
+		memo = table.concat({ GlobalsGetValue( mnee.G_AXES_MEMO, pen.DIV_1 ), axis_id, pen.DIV_1 })
+	else memo[ axis_id ] = nil; memo = pen.t.pack( pen.t.unarray( memo )) end
+	GlobalsGetValue( mnee.G_AXES_MEMO, memo )
 end
 
 ---Returns true if the bindings from the provided mod are allowed to be processed.
@@ -521,7 +495,7 @@ function mnee.update_bindings( binding_data )
 	mnee.set_bindings( tbl )
 end
 
-------------------------------------------------------		[FRONTEND]		---------------------------------------------------------
+------------------------------------------------------		[FRONTEND]		------------------------------------------------------
 
 ---Returns the shifted value of a key (= the value a key should return after shift is pressed).
 ---@param key string
@@ -722,7 +696,15 @@ function mnee.new_pager( pic_x, pic_y, pic_z, data )
 	return data.page
 end
 
--------------------------------------------------------		[INPUT]		----------------------------------------------------------
+-------------------------------------------------------		[INPUT]		-------------------------------------------------------
+
+---Adds yet another bind event to be executed.
+---@param mod_id string
+---@param bind_id string
+function mnee.exe( mod_id, bind_id )
+	local exe = table.concat({ pen.DIV_2, mod_id..bind_id, pen.DIV_2, GameGetFrameNum() + 1, pen.DIV_2, pen.DIV_1 })
+	GlobalsSetValue( mnee.G_EXE, GlobalsGetValue( mnee.G_EXE, pen.DIV_1 )..exe )
+end
 
 ---Streamlined and player entity independent way of getting ControlsComponent inputs.
 ---@param button string The meaningful part of the button name (e.g. use "Fire" instead of "mButtonDownFire").
@@ -734,7 +716,7 @@ function mnee.vanilla_input( button, entity_id )
 	return ComponentGetValue2( ctrl_comp, "mButtonDown"..button ), ComponentGetValue2( ctrl_comp, "mButtonFrame"..button ) == GameGetFrameNum()
 end
 
----Addresses the raw key by its internal name; is unmodifiable and does not show up on the binding menu.
+---Addresses the raw key by its internal name; is unmodifiable and does not show up in the binding menu.
 ---@param key_id string See full_board table in mnee/lists.lua for all the IDs.
 ---@param pressed_mode? boolean Enable to report "true" only once and then wait until the key is reset. [DFT: false ]
 ---@param is_vip? boolean Enable to stop this key from being disabled by user via global toggle. [DFT: false ]
@@ -764,6 +746,9 @@ end
 ---@param inmode? string The name of the desired mode from mnee.INMODES list.
 ---@return boolean is_down, boolean is_unbound, boolean is_jpad
 function mnee.mnin_bind( mod_id, bind_id, dirty_mode, pressed_mode, is_vip, strict_mode, inmode )
+	local id = mod_id..bind_id
+	if( mnee.get_exe()[ id ]) then return true, false, false end
+
 	local abort_tbl = { false, false, false }
 	if( GameHasFlagRun( mnee.SERV_MODE ) and not( mnee.ignore_service_mode )) then return unpack( abort_tbl ) end
 	if( GameHasFlagRun( mnee.TOGGLER ) and not( is_vip )) then return unpack( abort_tbl ) end
@@ -798,8 +783,8 @@ function mnee.mnin_bind( mod_id, bind_id, dirty_mode, pressed_mode, is_vip, stri
 		end
 		if( score == high_score ) then
 			if( pressed_mode ) then
-				local check = mnee.get_disarmer()[ mod_id..bind_id ] ~= nil
-				mnee.add_disarmer( mod_id..bind_id )
+				local check = mnee.get_disarmer()[ id ] ~= nil
+				mnee.add_disarmer( id )
 				if( check ) then return unpack( abort_tbl ) end
 			end
 			out = true
@@ -891,11 +876,11 @@ function mnee.mnin_stick( mod_id, bind_id, pressed_mode, is_vip, inmode )
 	if( binding ~= nil ) then binding = binding[ mod_id ] end
 	if( binding ~= nil ) then binding = binding[ bind_id ] end
 	if( not( pen.vld( binding ))) then return unpack( abort_tbl ) end
-
+	
 	local acc = 100
 	local val_x, gone_x, buttoned_x = mnee.mnin_axis( mod_id, binding.axes[1], true, pressed_mode, is_vip, inmode )
 	local val_y, gone_y, buttoned_y = mnee.mnin_axis( mod_id, binding.axes[2], true, pressed_mode, is_vip, inmode )
-	local magnitude = mnee.apply_deadzone( math.sqrt( val_x^2 + val_y^2 ), binding.jpad_type, binding.deadzone )
+	local magnitude = mnee.apply_deadzone( math.min( math.sqrt( val_x^2 + val_y^2 ), 2 ), binding.jpad_type, binding.deadzone )
 	local direction = math.rad( math.floor( math.deg( math.atan2( val_y, val_x )) + 0.5 ))
 	val_x, val_y = pen.rounder( magnitude*math.cos( direction ), acc ), pen.rounder( magnitude*math.sin( direction ), acc )
 	return { val_x, val_y }, gone_x or gone_y, { buttoned_x, buttoned_y }, direction
@@ -961,7 +946,8 @@ function mnee.get_keyboard_input( no_shifting )
 	end
 end
 
---[GLOBALS]
+-----------------------------------------------------		[GLOBALS]		-----------------------------------------------------
+
 mnee.AMAP_MEMO = "mnee_mapping_memo"
 mnee.INITER = "MNEE_IS_GOING"
 mnee.TOGGLER = "MNEE_DISABLED"
@@ -970,6 +956,14 @@ mnee.UPDATER = "MNEE_RELOAD"
 mnee.JPAD_UPDATE = "MNEE_JPAD_UPDATE"
 mnee.SERV_MODE = "MNEE_HOLD_UP"
 mnee.PRIO_MODE = "MNEE_PRIORITY_MODE"
+
+mnee.G_DOWN = "MNEE_DOWN"
+mnee.G_AXES = "MNEE_AXES"
+mnee.G_TRIGGERS = "MNEE_TRIGGERS"
+mnee.G_EXE = "MNEE_EXE"
+mnee.G_JPADS = "MNEE_JPADS"
+mnee.G_DISARMER = "MNEE_DISARMER"
+mnee.G_AXES_MEMO = "MNEE_AXES_MEMO"
 
 mnee.SPECIAL_KEYS = pen.t.unarray({
 	"left_shift", "right_shift",
@@ -1021,7 +1015,7 @@ mnee.INMODES = {
 	end,
 }
 
---[LEGACY]
+-----------------------------------------------------		[LEGACY]		-----------------------------------------------------
 
 ---Use mnee.mnin_key instead.
 ---@deprecated
@@ -1070,3 +1064,40 @@ end
 function get_axis_vip( mod_id, name )
 	return get_axis_pressed( mod_id, name, true, true )
 end
+
+-------------------------------------------------------		[LUALS]		-------------------------------------------------------
+
+---@alias deadzone_type
+---| "BUTTON"
+---| "MOTION"
+---| "AIM"
+---| "EXTRA"
+
+---@alias key_type
+---| "main"
+---| "alt"
+
+---@alias mnin_modes
+---| "key" data = { pressed, vip, mode }
+---| "bind" data = { dirty, pressed, vip, strict, mode }
+---| "axis" data = { alive, pressed, vip, mode }
+---| "stick" data = { pressed, vip, mode }
+
+---@class MneeAutoaimData
+---@field setting setting_id [DFT: "mnee.AUTOAIM" ]<br> The ID of the setting to pull assist strength from.
+---@field pic path [DFT: "mods/mnee/files/pics/autoaim.png" ]<br> An image that is overlayed over the target to indicate the locked-on state.
+---@field do_lining boolean [DFT: false ]<br> Set to true to draw an estimated tragectory arc.
+---@field tag_tbl table [DFT: {"homing_target"} ]<br> The table of targeted tags.
+
+---@class MneePagerData : PenmanPagerData
+---@field auid string [OBLIGATORY]<br> Unique animation ID.
+---@field compact_mode boolean [DFT: false ]<br> Set to true to make the pager take less space horizontally.
+---@field profile_mode boolean [DFT: false ]<br> Page number will be displayed as a letter if set to true.
+
+---@class MneeMninData
+---@field pressed boolean [DFT: false ] Enable to report "true" only once and then wait until the key is reset.
+---@field vip boolean [DFT: false ] Enable to stop this bind from being disabled by user via global toggle.
+---@field mode string The name of the desired mode from mnee.INMODES list.
+---@field dirty boolean [DFT: false ] Controls key layer separation, enable to allow conflicts between "ctrl+m" and "m". BIND only.
+---@field strict boolean [DFT: false ] Controls combination purity, enable to stop conflicts between "shift+ctrl+e" and "ctrl+e". BIND only.
+---@field alive boolean [DFT: false ] Enable to skip deadzone calculations. AXIS only.

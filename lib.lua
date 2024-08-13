@@ -880,10 +880,10 @@ function mnee.mnin_stick( mod_id, bind_id, pressed_mode, is_vip, inmode )
 	local acc = 100
 	local val_x, gone_x, buttoned_x = mnee.mnin_axis( mod_id, binding.axes[1], true, pressed_mode, is_vip, inmode )
 	local val_y, gone_y, buttoned_y = mnee.mnin_axis( mod_id, binding.axes[2], true, pressed_mode, is_vip, inmode )
-	local magnitude = mnee.apply_deadzone( math.min( math.sqrt( val_x^2 + val_y^2 ), 2 ), binding.jpad_type, binding.deadzone )
+	local magnitude = mnee.apply_deadzone( math.min( math.sqrt( val_x^2 + val_y^2 ), 1 ), binding.jpad_type, binding.deadzone )
 	local direction = math.rad( math.floor( math.deg( math.atan2( val_y, val_x )) + 0.5 ))
 	val_x, val_y = pen.rounder( magnitude*math.cos( direction ), acc ), pen.rounder( magnitude*math.sin( direction ), acc )
-	return { val_x, val_y }, gone_x or gone_y, { buttoned_x, buttoned_y }, direction
+	return { math.min( val_x, 1 ), math.min( val_y, 1 )}, gone_x or gone_y, { buttoned_x, buttoned_y }, direction
 end
 
 ---Unified access point for the entirety of mnee input API.

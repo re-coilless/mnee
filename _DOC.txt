@@ -42,6 +42,7 @@
    - allow_special: despite the algorithm's better judgement, will force-allow special keys to be bound in the simple rebinding mode.
    - is_locked: is used to prevent the setting from being changed by the user. Can be either a boolean or a function.
    - is_hidden: is used to hide the existence of the binding from the user. Can be either a boolean or a function.
+   - is_raw: is used to skip normalization step in full stick input vector calculation. With this set to true, both axes can return 1 at the same time.
    - name: the displayed name of the binding.
    - desc: the tooltip text that appears while hovering over the binding.
    - on_changed: callback that is run on binding getting altered; "data" is the table of the current bind.

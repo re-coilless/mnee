@@ -40,7 +40,7 @@
 [*]gpd_axis_rh
 [*]gpd_axis_rv
 
-bindings["japd_example"] = {
+bindings["jpad_example"] = {
 	stuff_1 = {
 		name = "Check This Out",
 		desc = "You can have either proper analog input or a pair of buttons. This one is generic.",
@@ -54,6 +54,7 @@ bindings["japd_example"] = {
 	stuff_real = {
 		name = "Stick Moment",
 		desc = "Enables one to have a properly deadzoned and overall convenient stick binding.",
+		is_raw = false, --[DISABLES JOYSTICK NORMALIZATION]
 		axes = {"stuff_1","stuff_2"},
 	}
 }

@@ -70,6 +70,8 @@ function OnModInit()
 		return -1
 	end
 	mnee.jpad_callback = function( jpad_id, slot_id )
+		dofile_once( "mods/mnee/bindings.lua" )
+
 		local make_it_stop = false
 		for mod_id,data in pairs( _MNEEDATA ) do
 			if( data.on_jpad ~= nil ) then
@@ -203,19 +205,17 @@ function OnWorldPreUpdate()
 	if( mnee.G.gui_active and not( pen.is_inv_active())) then
 		dofile( "mods/mnee/files/gui.lua" ) end; pen.gui_builder( true )
 	for i,gslot in ipairs( mnee.stl.jslots ) do
-		if( gslot or mnee.stl.jauto ) then
-			if( mnee.G.jpad_maps[i] == -1 ) then
-				local ctl = mnee.jpad_update( i )
-				if( not( mnee.stl.jauto )) then
-					if(( ctl or -1 ) == -1 ) then
-						GamePrint( GameTextGetTranslatedOrNot( "$mnee_error" ))
-						mnee.play_sound( "error" )
-					else mnee.play_sound( "confirm" ) end
-				end
-			elseif( not( mnee.stl.jauto )) then
-				GamePrint( GameTextGetTranslatedOrNot( "$mnee_no_slot" ))
-				mnee.play_sound( "error" )
+		if(( gslot or mnee.stl.jauto ) and mnee.G.jpad_maps[i] == -1 ) then
+			local ctl = mnee.jpad_update( i )
+			if( not( mnee.stl.jauto )) then
+				if(( ctl or -1 ) == -1 ) then
+					GamePrint( GameTextGetTranslatedOrNot( "$mnee_error" ))
+					mnee.play_sound( "error" )
+				else mnee.play_sound( "confirm" ) end
 			end
+		elseif( not( mnee.stl.jauto )) then
+			GamePrint( GameTextGetTranslatedOrNot( "$mnee_no_slot" ))
+			mnee.play_sound( "error" )
 		end
 	end
 end

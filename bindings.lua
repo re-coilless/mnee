@@ -60,7 +60,7 @@ _BINDINGS[ "mnee" ] = {
 
 		jpad_type = "AIM", --[USER-ACCESSIBLE ANALOG STICK DEADZONE TYPE: BUTTON, AIM, MOTION, EXTRA]
 		deadzone = 0.5, --[INTERNAL USER-INACCESSIBLE DEADZONE THAT IS ADDED ON TOP]
-		
+
 		keys = pen.t.unarray({ "left_ctrl", "m" }), --[DEFAULT BINDING KEYS]
 		keys_alt = pen.t.unarray({ "right_ctrl", "m" }), --[SECONDARY KEYS]
 	},

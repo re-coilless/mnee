@@ -55,7 +55,7 @@ bindings["jpad_example"] = {
 		name = "Stick Moment",
 		desc = "Enables one to have a properly deadzoned and overall convenient stick binding.",
 		is_raw = false, --[DISABLES JOYSTICK NORMALIZATION]
-		axes = {"stuff_1","stuff_2"},
+		axes = { "stuff_1", "stuff_2", },
 	}
 }
 

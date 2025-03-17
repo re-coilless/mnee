@@ -381,15 +381,17 @@ else
         if( is_dirty == nil and _MNEEDATA[ mnee.G.current_mod ] ~= nil ) then
             is_dirty = _MNEEDATA[ mnee.G.current_mod ].is_dirty or false
         end
-
+        
         tip_text = table.concat({ tip_text, pen.t.loop_concat( active, function( i, key )
             if( key == "return" ) then enter_down = true; return end
             return {( i == 1 and "" or "; " ), key }
-        end), "]", pen.t.loop_concat( pen.t.unarray( KEYS ), function( mod, mod_tbl )
-            return pen.t.loop_concat( pen.t.unarray( mod_tbl ), function( bind, bind_tbl )
+        end), "]", pen.t.loop_concat( pen.t.unarray( KEYS ), function( _,mt )
+            local mod, mod_tbl = unpack( mt )
+            return pen.t.loop_concat( pen.t.unarray( mod_tbl ), function( _,bt )
+                local bind, bind_tbl = unpack( bt )
                 local this_one = 0
                 for i = 1,2 do
-                    local b = mnee.get_pbd( bind_tbl )[ i == 1 and "main" or "alt" ]
+                    local b = mnee.get_pbd( bind_tbl )[ i == 1 and "main" or "alt" ] or { ["_"] = 1 }
                     this_one = is_dirty and -1 or pen.t.count( b )
                     for e,key in ipairs( active ) do
                         if( mnee.SPECIAL_KEYS[ key ] == nil ) then

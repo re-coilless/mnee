@@ -18,11 +18,9 @@ function OnModInit()
 			end
 		end,
 	})
-	
-	-- add aim assist tweaking to the controller panel (vertical slider)
-	-- make mnee the main propero mod (p2k must pull all the sounds and such from it)
+
 	-- make procedural pause screen keyboard that highlights all the bind's keys on hover of one of them (only if the moddev marked the binding as show_on_pause)
-	-- add separate full-sized fancy key name getter with full length names
+	-- make mnee the main propero mod (p2k must pull all the sounds and such from it, window context is run from within mnee's init)
 
 	mnee.G.mod_page = mnee.G.mod_page or 1
 	mnee.G.current_mod = mnee.G.current_mod or "mnee"
@@ -214,7 +212,7 @@ function OnWorldPreUpdate()
 					mnee.play_sound( "error" )
 				else mnee.play_sound( "confirm" ) end
 			end
-		elseif( not( mnee.stl.jauto )) then
+		elseif( gslot ) then
 			GamePrint( GameTextGetTranslatedOrNot( "$mnee_no_slot" ))
 			mnee.play_sound( "error" )
 		end

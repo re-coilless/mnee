@@ -19,7 +19,7 @@ end
 ---@param profile? number [DFT: 1 ]
 ---@return table bind_keys
 function mnee.get_pbd( bind_data, profile )
-	if( bind_data.axes ~= nil ) then return { "is_axis", "_" } end
+	if( bind_data.axes ~= nil or bind_data.keys == "axes" ) then return { "is_axis", "_" } end
 	return bind_data.keys[ profile or pen.setting_get( "mnee.PROFILE" )] or bind_data.keys[1]
 end
 
@@ -201,11 +201,7 @@ function mnee.get_keys( inmode )
 	if( not( pen.vld( inmode_func ))) then return pen.t.pack( keys ) end
 
 	local frame_num = GameGetFrameNum()
-	local storage = pen.magic_storage( ctrl_body, "mnee_down_"..inmode )
-	if( not( pen.vld( storage, true ))) then
-		storage = pen.magic_storage( ctrl_body, "mnee_down_"..inmode, "value_int", frame_num )
-	end
-	
+	local storage = pen.magic_storage( ctrl_body, "mnee_down_"..inmode, nil, nil, true )	
 	if( ComponentGetValue2( storage, "value_int" ) ~= frame_num ) then
 		ComponentSetValue2( storage, "value_int", frame_num )
 		ComponentSetValue2( storage, "value_string", inmode_func( ctrl_body, keys ))
@@ -504,10 +500,13 @@ end
 
 ---Prettifies the passes key.
 ---@param key string
+---@param extra_fancy boolean
 ---@return string fancy_key
-function mnee.get_fancy_key( key )
-	local out, is_jpad = string.gsub( key, "%dgpd_", "" )
-	out = dofile_once( "mods/mnee/lists.lua" )[5][ out ] or out
+function mnee.get_fancy_key( key, extra_fancy )
+	extra_fancy = extra_fancy or false
+	local k, is_jpad = string.gsub( key, "%dgpd_", "" )
+	local name = pen.get_hybrid_table( dofile_once( "mods/mnee/lists.lua" )[5][k])
+	local out = name[ extra_fancy and 2 or 1 ] or name[1] or k
 	if( is_jpad > 0 ) then
 		return table.concat({ "GP", string.sub( key, 1, 1 ), "(", out, ")" })
 	else return out end
@@ -599,32 +598,27 @@ end
 ---@return boolean clicked, boolean r_clicked, boolean is_hovered
 function mnee.new_button( pic_x, pic_y, pic_z, pic, data )
 	data = data or {}
+	data.ignore_multihover = false
 	data.frames = data.frames or 20
-	if( data.highlight == nil ) then data.highlight = pen.PALETTE.PRSP.RED end
-	return pen.new_button( pic_x, pic_y, pic_z, pic, {
-		lmb_event = function( pic_x, pic_y, pic_z, pic, d )
-			if( not( data.no_anim )) then pen.atimer( data.auid.."l", nil, true ) end
-			return pic_x, pic_y, pic_z, pic, d
-		end,
-		rmb_event = function( pic_x, pic_y, pic_z, pic, d )
-			if( not( data.no_anim )) then pen.atimer( data.auid.."r", nil, true ) end
-			return pic_x, pic_y, pic_z, pic, d
-		end,
-		hov_event = function( pic_x, pic_y, pic_z, pic, d )
-			if( pen.vld( data.tip )) then mnee.new_tooltip( data.tip, { is_active = true }) end
-			if( data.highlight ) then pen.new_pixel( pic_x - 1, pic_y - 1,
-				pic_z + 0.001, data.highlight, d.dims[1] + 2, d.dims[2] + 2 ) end
-			return pic_x, pic_y, pic_z, pic, d
-		end,
-		pic_func = function( pic_x, pic_y, pic_z, pic, d )
-			local a = ( data.no_anim or false ) and 1 or math.min(
-				pen.animate( 1, data.auid.."l", { type = "sine", frames = data.frames, stillborn = true }),
-				pen.animate( 1, data.auid.."r", { ease_out = "sin3", frames = data.frames, stillborn = true }))
-			local s_anim = {( 1 - a )/d.dims[1], ( 1 - a )/d.dims[2] }
-			return pen.new_image( pic_x + s_anim[1]*d.dims[1]/2, pic_y + s_anim[2]*d.dims[2]/2,
-				pic_z, pic, { s_x = 1 - s_anim[1], s_y = 1 - s_anim[2]})
-		end,
-	})
+	data.highlight = data.highlight or pen.PALETTE.PRSP.RED
+	
+	data.lmb_event = data.lmb_event or function( pic_x, pic_y, pic_z, pic, d )
+		if( not( d.no_anim )) then pen.atimer( d.auid.."l", nil, true ) end
+		return pic_x, pic_y, pic_z, pic, d
+	end
+	data.rmb_event = data.rmb_event or function( pic_x, pic_y, pic_z, pic, d )
+		if( not( d.no_anim )) then pen.atimer( d.auid.."r", nil, true ) end
+		return pic_x, pic_y, pic_z, pic, d
+	end
+	data.hov_event = data.hov_event or function( pic_x, pic_y, pic_z, pic, d )
+		if( pen.vld( d.tip )) then mnee.new_tooltip( d.tip, { is_active = true }) end
+		if( d.highlight ) then pen.new_pixel(
+			pic_x - 1, pic_y - 1, pic_z + 0.001, d.highlight,
+			( d.s_x or 1 )*d.dims[1] + 2, ( d.s_y or 1 )*d.dims[2] + 2 ) end
+		return pic_x, pic_y, pic_z, pic, d
+	end
+
+	return pen.new_button( pic_x, pic_y, pic_z, pic, data )
 end
 
 ---Draws a tooltip themed after Prospero Inc.
@@ -639,7 +633,8 @@ function mnee.new_tooltip( text, data )
 		
 		if( pen.vld( text )) then
 			pen.new_text( pic_x + d.edging, pic_y + d.edging - 2, pic_z, text, {
-				dims = { size_x - d.edging, size_y }, line_offset = d.line_offset or -2, --funcs = d.font_mods,
+				fully_featured = d.fully_featured, --funcs = d.font_mods,
+				dims = { size_x - d.edging, size_y }, line_offset = d.line_offset or -2,
 				color = pen.PALETTE.PRSP.BLUE, alpha = pen.animate( 1, d.t, { ease_in = "exp5", frames = d.frames }),
 			})
 		end
@@ -758,6 +753,21 @@ function mnee.mnin_bind( mod_id, bind_id, dirty_mode, pressed_mode, is_vip, stri
 	if( binding ~= nil ) then binding = binding[ bind_id ] end
 	if( not( pen.vld( binding ))) then return unpack( abort_tbl ) end
 	
+	local function twin_me( key )
+		if( not( binding.split_modifiers )) then
+			return ({
+				["left_ctrl"] = "right_ctrl",
+				["left_shift"] = "right_shift",
+				["left_alt"] = "right_alt",
+				["left_windows"] = "right_windows",
+				["right_ctrl"] = "left_ctrl",
+				["right_shift"] = "left_shift",
+				["right_alt"] = "left_alt",
+				["right_windows"] = "left_windows",
+			})[ key ]
+		end
+	end
+
 	for i = 1,2 do
 		local bind = mnee.get_pbd( binding )[ i == 1 and "main" or "alt" ]
 		local high_score, score = pen.t.count( bind ), 0
@@ -774,7 +784,7 @@ function mnee.mnin_bind( mod_id, bind_id, dirty_mode, pressed_mode, is_vip, stri
 		end
 		
 		for i,key in ipairs( keys_down ) do
-			if( bind[ key ] ~= nil ) then score = score + 1 end
+			if( bind[ key ] ~= nil or bind[ twin_me( key ) or "" ] ~= nil ) then score = score + 1 end
 		end
 		if( score == high_score ) then
 			if( pressed_mode ) then

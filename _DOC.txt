@@ -40,6 +40,7 @@
    - is_advanced: will force the rebinding to be permanently in advanced mode (see [GENERAL] chapter).
    - never_advanced: will prevent this bind from ever be changed in advanced mode.
    - allow_special: despite the algorithm's better judgement, will force-allow special keys to be bound in the simple rebinding mode.
+   - split_modifiers: separates left and right special keys (CTRL, SHIFT, ALT and WINDOWS) which are combined by default.
    - is_locked: is used to prevent the setting from being changed by the user. Can be either a boolean or a function.
    - is_hidden: is used to hide the existence of the binding from the user. Can be either a boolean or a function.
    - is_raw: is used to skip normalization step in full stick input vector calculation. With this set to true, both axes can return 1 at the same time.

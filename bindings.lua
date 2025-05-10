@@ -46,6 +46,7 @@ _BINDINGS[ "mnee" ] = {
 		is_advanced = true, --[ALLOW MULTIPLE KEYS DURING BINDING]
 		never_advanced = false, --[FORBID TO EVER BE REBINDED IN ADVANCED MODE]
 		allow_special = false, --[ALLOW BINDING SPECIAL KEYS WHEN IS IN SIMPLE BINDING MODE]
+		split_modifiers = true, --[HANDLE LEFT AND RIGHT SPECIAL MODIFIER KEYS LIKE CTRL SEPARATELY]
 		is_locked = function( id_tbl, jpads ) return true end, --[PREVENT REBINDING]
 		is_hidden = function( id_tbl, jpads ) return false end, --[HIDE FROM MENU]
 		
@@ -60,7 +61,7 @@ _BINDINGS[ "mnee" ] = {
 
 		jpad_type = "AIM", --[USER-ACCESSIBLE ANALOG STICK DEADZONE TYPE: BUTTON, AIM, MOTION, EXTRA]
 		deadzone = 0.5, --[INTERNAL USER-INACCESSIBLE DEADZONE THAT IS ADDED ON TOP]
-
+		
 		keys = pen.t.unarray({ "left_ctrl", "m" }), --[DEFAULT BINDING KEYS]
 		keys_alt = pen.t.unarray({ "right_ctrl", "m" }), --[SECONDARY KEYS]
 	},

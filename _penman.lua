@@ -171,7 +171,8 @@ function pen.hash_me( str, is_huge )
 end
 
 function pen.key_me( str )
-	return string.gsub( string.gsub( string.gsub( str, "%c", pen.HOLE ), pen.DIV_2, pen.HOLE ), pen.DIV_1, pen.HOLE )
+	str = string.gsub( string.gsub( str, pen.KEY, pen.HOLE ), "%c", pen.HOLE )
+	return string.gsub( string.gsub( str, pen.DIV_1, pen.HOLE ), pen.DIV_2, pen.HOLE )
 end
 
 --add autotuning with visualizer via new_plot
@@ -1795,6 +1796,220 @@ function pen.get_tinker_state( hooman, x, y )
 	end) or false
 end
 
+function pen.get_spell_data( spell_id )
+	local function clean_my_gun()
+		ACTION_MANA_DRAIN_DEFAULT, ACTION_DRAW_RELOAD_TIME_INCREASE = 10, 0
+		ACTION_UNIDENTIFIED_SPRITE_DEFAULT = "data/ui_gfx/gun_actions/unidentified.png"
+	
+		mana, state_cards_drawn = 0, 0
+		c, shot_effects, gun = {}, {}, {}
+		deck, hand, discarded = {}, {}, {}
+		reflecting, current_action, state_from_game = false, nil, nil
+		current_reload_time, current_projectile, active_extra_modifiers = 0, nil, {}
+		reloading, first_shot, start_reload, got_projectiles = false, true, false, false
+		state_shuffled, state_discarded_action, state_destroyed_action, playing_permanent_card = false, false, false, false
+	
+		use_game_log = false
+		ConfigGun_Init( gun )
+		current_reload_time = 0
+		shot_structure, recursion_limit = {}, 2
+		force_stop_draws, dont_draw_actions, root_shot = false, false, nil
+	end
+
+	dofile_once( "data/scripts/gun/gun.lua" )
+	dofile_once( "data/scripts/gun/gun_enums.lua" )
+	dofile_once( "data/scripts/gun/gun_actions.lua" )
+	return pen.cache({ "spell_data", spell_id }, function()
+		clean_my_gun()
+
+		local spell_data = pen.t.clone( pen.t.get( actions, spell_id, nil, nil, {}), nil )
+		if( spell_data.action == nil ) then return spell_data end
+		
+		draw_actions_old = draw_actions
+		draw_actions = function( draw_count ) c.draw_many = c.draw_many + draw_count end
+		add_projectile_old = add_projectile
+		add_projectile = function( path ) table.insert( c.projs, { 1, path }) end
+		add_projectile_trigger_timer_old = add_projectile_trigger_timer
+		add_projectile_trigger_timer = function( path, delay, draw_count )
+			c.draw_many = c.draw_many + draw_count
+			table.insert( c.projs, { 2, path, draw_count, delay })
+		end
+		add_projectile_trigger_hit_world_old = add_projectile_trigger_hit_world
+		add_projectile_trigger_hit_world = function( path, draw_count )
+			c.draw_many = c.draw_many + draw_count
+			table.insert( c.projs, { 3, path, draw_count })
+		end
+		add_projectile_trigger_death_old = add_projectile_trigger_death
+		add_projectile_trigger_death = function( path, draw_count )
+			c.draw_many = c.draw_many + draw_count
+			table.insert( c.projs, { 4, path, draw_count })
+		end
+
+		ACTION_DRAW_RELOAD_TIME_INCREASE = 1e9
+		current_reload_time, shot_effects = 0, {}
+		dont_draw_actions, reflecting = true, true
+		SetRandomSeed( 0, 0 ); ConfigGunShotEffects_Init( shot_effects )
+
+		local metadata = create_shot()
+		c, metadata.state_proj = metadata.state, { damage = {}, explosion = {}, crit = {}, lightning = {}}
+		set_current_action( spell_data )
+		c.draw_many, c.projs = 0, {}
+		
+		pcall( spell_data.action )
+		if( spell_data.tip_data ~= nil ) then spell_data.tip_data() end
+		if( math.abs( current_reload_time ) > 1e6 ) then
+			spell_data.is_chainsaw = true
+			current_reload_time = current_reload_time + ACTION_DRAW_RELOAD_TIME_INCREASE end --shouldn't this be a minus?
+		metadata.state.reload_time, metadata.shot_effects = current_reload_time, pen.t.clone( shot_effects )
+		
+		local total_dmg_add, dmg_tbl = 0, {
+			"damage_projectile_add", "damage_curse_add", "damage_explosion_add", "damage_slice_add", "damage_poison_add",
+			"damage_melee_add", "damage_ice_add", "damage_electricity_add", "damage_drill_add", "damage_radioactive_add",
+			"damage_healing_add", "damage_fire_add", "damage_holy_add", "damage_physics_add", "damage_explosion", }
+		for i,dmg in ipairs( dmg_tbl ) do total_dmg_add = total_dmg_add + ( c[ dmg ] or 0 ) end
+		c.damage_total_add = total_dmg_add
+		
+		local is_gonna = false
+		c.proj_count = #c.projs
+		pen.hallway( function()
+			if( c.proj_count == 0 ) then return end
+			if( not( pen.vld( pen.lib ) and pen.vld( pen.lib.nxml ))) then return end
+
+			local xml = pen.lib.nxml.parse( pen.magic_read( c.projs[1][2]))
+			local xml_kid = xml:first_of( "ProjectileComponent" )
+			xml_kid = xml_kid or xml:first_of( "Base" ):first_of( "ProjectileComponent" )
+			if( not( pen.vld( xml_kid ))) then return end
+
+			metadata.state_proj = {
+				damage = {
+					projectile = tonumber( xml_kid.attr.damage or 0 ),
+					curse = 0, explosion = 0, slice = 0, poison = 0, melee = 0,
+					ice = 0, electricity = 0, drill = 0, radioactive = 0, healing = 0,
+					fire = 0, holy = 0, physics_hit = 0, overeating = 0,
+				},
+
+				explosion = {}, lightning = {}, laser = {}, crit = {},
+				damage_every_x_frames = tonumber( xml_kid.attr.damage_every_x_frames or -1 ),
+				damage_scaled_by_speed = tonumber( xml_kid.attr.damage_scaled_by_speed or 0 ) > 0,
+				
+				lifetime = tonumber( xml_kid.attr.lifetime or -1 ),
+				speed = math.floor((
+					tonumber( xml_kid.attr.speed_min or xml_kid.attr.speed_max or 0 )
+					+ tonumber( xml_kid.attr.speed_max or xml_kid.attr.speed_min or 0 )
+				)/2 + 0.5 ),
+
+				bounces = tonumber( xml_kid.attr.bounces_left or 0 ),
+				inf_bounces = tonumber( xml_kid.attr.bounce_always or 0 ) > 0,
+				
+				on_collision_die = tonumber( xml_kid.attr.on_collision_die or 1 ) > 0,
+				on_death_explode = tonumber( xml_kid.attr.on_death_explode or 0 ) > 0,
+				on_death_duplicate = tonumber( xml_kid.attr.on_death_duplicate_remaining or 0 ) > 0,
+				on_lifetime_out_explode = tonumber( xml_kid.attr.on_lifetime_out_explode or 0 ) > 0,
+
+				friendly_fire = tonumber( xml_kid.attr.friendly_fire or 0 ) > 0,
+				dont_collide_with_tag = xml_kid.attr.dont_collide_with_tag or "",
+				never_hit_player = tonumber( xml_kid.attr.never_hit_player or 0 ) > 0,
+				penetrate_entities = tonumber( xml_kid.attr.penetrate_entities or 0 ) > 0,
+				collide_with_entities = tonumber( xml_kid.attr.collide_with_entities or 1 ) > 0,
+				explosion_dont_damage_shooter = tonumber( xml_kid.attr.explosion_dont_damage_shooter or 0 ) > 0,
+
+				penetrate_world = tonumber( xml_kid.attr.penetrate_world or 0 ) > 0,
+				go_through_this_material = xml_kid.attr.go_through_this_material or "",
+				collide_with_world = tonumber( xml_kid.attr.collide_with_world or 1 ) > 0,
+				ground_penetration_coeff = tonumber( xml_kid.attr.ground_penetration_coeff or 0 ),
+				ground_penetration_max_durability = tonumber( xml_kid.attr.ground_penetration_max_durability_to_destroy or 0 ),
+			}
+
+			local dmg_kid = xml_kid:first_of( "damage_by_type" )
+			if( dmg_kid ) then
+				metadata.state_proj.damage[ "projectile" ] = metadata.state_proj.damage.projectile
+					+ tonumber( dmg_kid.attr.projectile or 0 )
+				metadata.state_proj.damage[ "curse" ] = tonumber( dmg_kid.attr.curse or 0 )
+				metadata.state_proj.damage[ "explosion" ] = tonumber( dmg_kid.attr.explosion or 0 )
+				metadata.state_proj.damage[ "slice" ] = tonumber( dmg_kid.attr.slice or 0 )
+				metadata.state_proj.damage[ "poison" ] = tonumber( dmg_kid.attr.poison or 0 )
+				metadata.state_proj.damage[ "melee" ] = tonumber( dmg_kid.attr.melee or 0 )
+				metadata.state_proj.damage[ "ice" ] = tonumber( dmg_kid.attr.ice or 0 )
+				metadata.state_proj.damage[ "electricity" ] = tonumber( dmg_kid.attr.electricity or 0 )
+				metadata.state_proj.damage[ "drill" ] = tonumber( dmg_kid.attr.drill or 0 )
+				metadata.state_proj.damage[ "radioactive" ] = tonumber( dmg_kid.attr.radioactive or 0 )
+				metadata.state_proj.damage[ "healing" ] = tonumber( dmg_kid.attr.healing or 0 )
+				metadata.state_proj.damage[ "fire" ] = tonumber( dmg_kid.attr.fire or 0 )
+				metadata.state_proj.damage[ "holy" ] = tonumber( dmg_kid.attr.holy or 0 )
+				metadata.state_proj.damage[ "physics_hit" ] = tonumber( dmg_kid.attr.physics_hit or 0 )
+				metadata.state_proj.damage[ "overeating" ] = tonumber( dmg_kid.attr.overeating or 0 )
+			end
+
+			local exp_kid = xml_kid:first_of( "config_explosion" )
+			if( exp_kid ) then
+				metadata.state_proj.explosion = {
+					damage_mortals = tonumber( exp_kid.attr.damage_mortals or 1 ) > 0,
+					damage = tonumber( exp_kid.attr.damage or 0 ),
+					is_digger = tonumber( exp_kid.attr.is_digger or 0 ) > 0,
+					explosion_radius = tonumber( exp_kid.attr.explosion_radius or 0 ),
+					max_durability_to_destroy = tonumber( exp_kid.attr.max_durability_to_destroy or 0 ),
+					ray_energy = tonumber( exp_kid.attr.ray_energy or 0 ),
+				}
+			end
+
+			local crit_kid = xml_kid:first_of( "damage_critical" )
+			if( crit_kid ) then
+				metadata.state_proj.crit = {
+					chance = tonumber( crit_kid.attr.chance or 0 ),
+					damage_multiplier = tonumber( crit_kid.attr.damage_multiplier or 1 ),
+				}
+			end
+
+			xml_kid = xml:first_of( "LightningComponent" ) or xml:first_of( "Base" ):first_of( "LightningComponent" )
+			if( xml_kid ) then
+				local lght_kid = xml_kid:first_of( "config_explosion" )
+				if( lght_kid ) then
+					metadata.state_proj.lightning = {
+						damage_mortals = tonumber( lght_kid.attr.damage_mortals or 1 ) > 0,
+						damage = tonumber( lght_kid.attr.damage or 0 ),
+						is_digger = tonumber( lght_kid.attr.is_digger or 0 ) > 0,
+						explosion_radius = tonumber( lght_kid.attr.explosion_radius or 0 ),
+						max_durability_to_destroy = tonumber( lght_kid.attr.max_durability_to_destroy or 0 ),
+						ray_energy = tonumber( lght_kid.attr.ray_energy or 0 ),
+					}
+				end
+			end
+
+			xml_kid = xml:first_of( "LaserEmitterComponent" ) or xml:first_of( "Base" ):first_of( "LaserEmitterComponent" )
+			if( xml_kid ) then
+				local laser_kid = xml_kid:first_of( "laser" )
+				if( laser_kid ) then
+					metadata.state_proj.laser = {
+						max_length = tonumber( laser_kid.attr.max_length or 0 ),
+						beam_radius = tonumber( laser_kid.attr.beam_radius or 0 ),
+						damage_to_entities = tonumber( laser_kid.attr.damage_to_entities or 0 ),
+						damage_to_cells = tonumber( laser_kid.attr.damage_to_cells or 0 ),
+						max_cell_durability_to_destroy = tonumber( laser_kid.attr.max_cell_durability_to_destroy or 0 ),
+					}
+				end
+			end
+			
+			local total_dmg = 0
+			for field,dmg in pairs( metadata.state_proj.damage ) do total_dmg = total_dmg + dmg end
+			if( metadata.state_proj.explosion.damage_mortals ) then
+				total_dmg = total_dmg + ( metadata.state_proj.explosion.damage or 0 ) end
+			if( metadata.state_proj.lightning.damage_mortals ) then
+				total_dmg = total_dmg + ( metadata.state_proj.lightning.damage or 0 ) end
+			metadata.state_proj.damage[ "total" ] = total_dmg
+		end)
+
+		ACTION_DRAW_RELOAD_TIME_INCREASE, c = 0, nil
+		draw_actions, add_projectile = draw_actions_old, add_projectile_old
+		add_projectile_trigger_timer = add_projectile_trigger_timer_old
+		add_projectile_trigger_hit_world = add_projectile_trigger_hit_world_old
+		add_projectile_trigger_death = add_projectile_trigger_death_old
+		clean_my_gun()
+
+		spell_data.meta = pen.t.clone( metadata )
+		return spell_data
+	end, { reset_count = 0 })
+end
+
 function pen.get_matter( matters, id )
 	local mttrs, total = id == nil and {} or { 0, 0 }, 0
 	if( not( pen.vld( matters ))) then return total, mttrs end
@@ -1810,13 +2025,41 @@ function pen.get_matter( matters, id )
 		end
 	end
 
-	if( id == nil ) then
-		table.sort( mttrs, function( a, b )
-			return a[2] > b[2]
-		end)
-	end
-	
+	if( id ~= nil ) then return total, mttrs end
+	table.sort( mttrs, function( a, b ) return a[2] > b[2] end)
 	return total, mttrs
+end
+
+function pen.magic_chugger( mttrs, eater_id, eatee_id, volume, perc )
+	if( not( pen.vld( mttrs ))) then return end
+
+	local gonna_pour = type( eater_id ) == "table"
+	if( gonna_pour ) then perc = 9/volume else perc = perc or 0.1 end
+	
+	local to_drink = volume*perc
+	local min_vol = math.ceil( to_drink*perc )
+	for i = #mttrs,1,-1 do
+		local mtr = mttrs[i]
+		if( mtr[2] > 0 ) then
+			local count = math.floor( mtr[2]*perc )
+			if( i == 1 ) then count = to_drink end
+			count = math.min( math.max( count, min_vol ), mtr[2])
+
+			local name = CellFactory_GetName( mtr[1])
+			if( gonna_pour ) then
+				local temp = to_drink - 1
+				for i = 1,count do
+					local off_x, off_y = -1.5 + temp%3, -1.5 + math.floor( temp/3 )%4
+					GameCreateParticle( name, eater_id[1] + off_x, eater_id[2] + off_y, 1, 0, 0, false, false, false )
+					temp = temp - 1
+				end
+			else EntityIngestMaterial( eater_id, mtr[1], count ) end
+			AddMaterialInventoryMaterial( eatee_id, name, math.floor( mtr[2] - count + 0.5 ))
+
+			to_drink = to_drink - count
+			if( to_drink <= 0 ) then break end
+		end
+	end
 end
 
 function pen.get_mass( entity_id )
@@ -3700,6 +3943,7 @@ pen.INDEX_WRITER = "PENMAN_WRITE_INDEX"
 pen.INDEX_T2F = "PENMAN_VIRTUAL_INDEX"
 pen.INDEX_DRAWER = "PENMAN_PIC_INDEX"
 
+pen.KEY = "$"
 pen.HOLE = "#"
 pen.DIV_0 = "@"
 pen.DIV_1 = "|"

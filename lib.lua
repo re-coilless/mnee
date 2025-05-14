@@ -498,7 +498,7 @@ function mnee.get_shifted_key( key )
 	else return dofile_once( "mods/mnee/lists.lua" )[4][ key ] or key end
 end
 
----Prettifies the passes key.
+---Prettifies the passed key.
 ---@param key string
 ---@param extra_fancy boolean
 ---@return string fancy_key

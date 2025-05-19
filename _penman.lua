@@ -202,12 +202,14 @@ function pen.atimer( tid, duration, reset_now, stillborn )
 	end; return math.min( frame_num - pen.c.animation_timer[ tid ], duration or 0 )
 end
 
-function pen.estimate( eid, target, speed, min_delta, max_delta ) --make it more advanced by stealing animate funcs
+function pen.estimate( eid, target, alg, min_delta, max_delta ) --thanks Nathan
+	alg = alg or "exp"
 	pen.c.estimator_memo = pen.c.estimator_memo or {}
-	pen.c.estimator_memo[ eid ] = pen.c.estimator_memo[ eid ] or 0
-	local delta = target - pen.c.estimator_memo[ eid ]
-	pen.c.estimator_memo[ eid ] = pen.c.estimator_memo[ eid ]
-		+ pen.limiter( pen.limiter(( speed or 0.1 )*delta, min_delta or 1, true ), pen.limiter( delta, max_delta or delta ))
+
+	local value = pen.c.estimator_memo[ eid ] or target
+	local delta = pen.ESTIM_ALGS[ string.sub( alg, 1, 3 )]( target, value, tonumber( string.sub( alg, 4, -1 )))
+	pen.c.estimator_memo[ eid ] = value +
+		pen.limiter( pen.limiter( delta, min_delta or 0.001, true ), pen.limiter( delta, max_delta or delta ))
 	return pen.c.estimator_memo[ eid ]
 end
 
@@ -278,7 +280,7 @@ end
 function pen.get_hybrid_function( func, input )
 	if( not( pen.vld( func ))) then return end
 	if( type( func ) == "function" ) then
-		return pen.catch( func, input )
+		return pen.catch( func, input, nil, pen.t.is_unarray( input ))
 	else return func end
 end
 
@@ -601,8 +603,11 @@ function pen.hallway( func )
 	return func()
 end
 
-function pen.catch( func, input, fallback )
-	local out = { pcall( func, unpack( input or {}))}
+function pen.catch( func, input, fallback, no_unpack )
+	local out = nil
+	if( not( no_unpack )) then
+		out = { pcall( func, unpack( input or {}))}
+	else out = { pcall( func, input )} end
 	if( out[1]) then table.remove( out, 1 ); return unpack( out ) end
 	if( not( pen.c.silent_catch )) then print( out[2]) end
 	if( pen.vld( fallback )) then return unpack( fallback ) end
@@ -727,7 +732,7 @@ function pen.ctrn( str, marker, is_unarrayed )
 end
 
 function pen.capitalizer( str )
-	return string.gsub( tostring( str ), "^%s-%l", string.upper )
+	return string.gsub( string.gsub( tostring( str ), "^%a", string.upper ), "%s%a", string.upper )
 end
 function pen.despacer( str )
 	return string.gsub( tostring( str ), "%s+$", "" )
@@ -1877,7 +1882,8 @@ function pen.get_spell_data( spell_id )
 
 			local xml = pen.lib.nxml.parse( pen.magic_read( c.projs[1][2]))
 			local xml_kid = xml:first_of( "ProjectileComponent" )
-			xml_kid = xml_kid or xml:first_of( "Base" ):first_of( "ProjectileComponent" )
+			local bs = { first_of = function() return end }
+			xml_kid = xml_kid or ( xml:first_of( "Base" ) or bs ):first_of( "ProjectileComponent" )
 			if( not( pen.vld( xml_kid ))) then return end
 
 			metadata.state_proj = {
@@ -1921,7 +1927,7 @@ function pen.get_spell_data( spell_id )
 			}
 
 			local dmg_kid = xml_kid:first_of( "damage_by_type" )
-			if( dmg_kid ) then
+			if( pen.vld( dmg_kid )) then
 				metadata.state_proj.damage[ "projectile" ] = metadata.state_proj.damage.projectile
 					+ tonumber( dmg_kid.attr.projectile or 0 )
 				metadata.state_proj.damage[ "curse" ] = tonumber( dmg_kid.attr.curse or 0 )
@@ -1941,7 +1947,7 @@ function pen.get_spell_data( spell_id )
 			end
 
 			local exp_kid = xml_kid:first_of( "config_explosion" )
-			if( exp_kid ) then
+			if( pen.vld( exp_kid )) then
 				metadata.state_proj.explosion = {
 					damage_mortals = tonumber( exp_kid.attr.damage_mortals or 1 ) > 0,
 					damage = tonumber( exp_kid.attr.damage or 0 ),
@@ -1953,17 +1959,17 @@ function pen.get_spell_data( spell_id )
 			end
 
 			local crit_kid = xml_kid:first_of( "damage_critical" )
-			if( crit_kid ) then
+			if( pen.vld( crit_kid )) then
 				metadata.state_proj.crit = {
 					chance = tonumber( crit_kid.attr.chance or 0 ),
 					damage_multiplier = tonumber( crit_kid.attr.damage_multiplier or 1 ),
 				}
 			end
 
-			xml_kid = xml:first_of( "LightningComponent" ) or xml:first_of( "Base" ):first_of( "LightningComponent" )
-			if( xml_kid ) then
+			xml_kid = xml:first_of( "LightningComponent" ) or ( xml:first_of( "Base" ) or bs ):first_of( "LightningComponent" )
+			if( pen.vld( xml_kid )) then
 				local lght_kid = xml_kid:first_of( "config_explosion" )
-				if( lght_kid ) then
+				if( pen.vld( lght_kid )) then
 					metadata.state_proj.lightning = {
 						damage_mortals = tonumber( lght_kid.attr.damage_mortals or 1 ) > 0,
 						damage = tonumber( lght_kid.attr.damage or 0 ),
@@ -1975,10 +1981,10 @@ function pen.get_spell_data( spell_id )
 				end
 			end
 
-			xml_kid = xml:first_of( "LaserEmitterComponent" ) or xml:first_of( "Base" ):first_of( "LaserEmitterComponent" )
-			if( xml_kid ) then
+			xml_kid = xml:first_of( "LaserEmitterComponent" ) or ( xml:first_of( "Base" ) or bs ):first_of( "LaserEmitterComponent" )
+			if( pen.vld( xml_kid )) then
 				local laser_kid = xml_kid:first_of( "laser" )
-				if( laser_kid ) then
+				if( pen.vld( laser_kid )) then
 					metadata.state_proj.laser = {
 						max_length = tonumber( laser_kid.attr.max_length or 0 ),
 						beam_radius = tonumber( laser_kid.attr.beam_radius or 0 ),
@@ -2897,7 +2903,8 @@ function pen.get_pic_dims( path, update_xml )
 end
 
 function pen.get_tip_dims( text, width, height, line_offset )
-	width = width or {}; width[1], width[2] = width[1] or 121, width[2] or 525
+	width = pen.get_hybrid_table( width or {})
+	width[1], width[2] = width[1] or 121, width[2] or 525
 
 	local _,dims = pen.liner( text ); local s_x, s_y = unpack( dims )
 	if( string.find( text, "[\n@]" ) ~= nil ) then s_x = 2*s_x end
@@ -3192,10 +3199,10 @@ function pen.new_image( pic_x, pic_y, pic_z, pic, data )
 	if( data.has_shadow ) then
 		local ss_x, ss_y = 1/w + 1, 1/h + 1
 		pen.colourer( gui, pen.PALETTE.SHADOW )
-		GuiZSetForNextWidget( gui, pic_z + 0.0001 )
+		GuiZSetForNextWidget( gui, pic_z + 0.001 )
 		GuiOptionsAddForNextWidget( gui, 2 ) --NonInteractive
 		GuiImage( gui, uid, pic_x - 0.5, pic_y - 0.5, pic,
-			0.1*( data.alpha or 1 ), ss_x, ss_y, data.angle or 0, data.anim_type or 2, data.anim or "" )
+			0.5*( data.alpha or 1 ), ss_x, ss_y, data.angle or 0, data.anim_type or 2, data.anim or "" )
 	end
 
 	if( not( data.can_click )) then return end
@@ -3440,7 +3447,7 @@ function pen.new_scroller( sid, pic_x, pic_y, pic_z, size_x, size_y, func, data 
 	local buffer = 1
 	local eid = sid.."_anim"
 	progress = math.min( math.max(( new_y - ( pic_y + 3 ))/bar_y, -buffer ), 1 + buffer )
-	progress = pen.estimate( eid, progress, bar_y/new_height, 0.01 )
+	progress = pen.estimate( eid, progress, bar_y/new_height, "exp100", 1 )
 
 	local is_waiting = GameGetFrameNum()%7 ~= 0
 	local is_clipped = progress > 0 and progress < 1
@@ -3486,8 +3493,8 @@ function pen.new_text( pic_x, pic_y, pic_z, text, data )
 		pen.colourer( gui, color, alpha )
 		GuiText( gui, pic_x, pic_y, txt, scale, font, is_pixel )
 		if( not( has_shadow )) then return end
-		GuiZSetForNextWidget( gui, pic_z + 0.0001 )
-		pen.colourer( gui, pen.PALETTE.SHADOW, 0.1*alpha )
+		GuiZSetForNextWidget( gui, pic_z + 0.001 )
+		pen.colourer( gui, pen.PALETTE.SHADOW, 0.5*alpha )
 		GuiText( gui, pic_x + scale/2, pic_y + scale/2, txt, scale, font, is_pixel )
 	end
 	
@@ -3678,7 +3685,8 @@ function pen.new_scrolling_text( sid, pic_x, pic_y, pic_z, dims, text, data )
 	local type_a = function()
 		local target, buffer, spacing = w - dims[1], 15, 5
 		local is_right = pen.c.scrolling_text_memo[ sid ] == 0
-		local shift = pen.estimate( sid.."_anim", is_right and ( target + buffer ) or -buffer, 0.001*speed, 0.1, 0.75 )
+		local shift = pen.estimate( sid.."_anim",
+			is_right and ( target + buffer ) or -buffer, "exp"..tostring( 1000*speed ), 0.1, 0.75 )
 		if( shift > ( target + spacing ) or shift < -spacing ) then pen.c.scrolling_text_memo[ sid ] = is_right and 1 or 0 end
 		pen.new_text( -shift, h/2, pic_z, text, data )
 	end
@@ -3797,8 +3805,8 @@ function pen.new_tooltip( text, data, func )
 		data.t = pen.c.ttips[ data.tid ].anim[3]
 		pen.c.ttips[ data.tid ].inter_state = { func( text, data )}
 	else pen.c.ttips[ data.tid ].inter_state = {} end
-
-	return data.is_active
+	
+	return data.is_active, data.dims
 end
 
 function pen.new_input( iid, pic_x, pic_y, pic_z, data )
@@ -4254,6 +4262,27 @@ pen.ANIM_INTERS = {
 		return delta[1] + ( delta[2] - delta[1])*math.log(( a + 1 )/( math.exp( k*math.sin( 1.5*math.pi*t )) + a ))
 	end,
 }
+pen.ESTIM_ALGS = { --huge thanks to Nathan
+	exp = function( t, v, p )
+		return ( t - v )/( p or 10 )
+	end,
+	hmd = function( t, v, p )
+		return (( p or 2 )*v*t )/( t + v ) - v
+	end,
+	gmp = function( t, v, p ) --only for t,v > 0
+		return math.pow( t*v, 1/( p or 2 )) - v
+	end,
+	wgt = function( t, v, p )
+		local w = p or 1.5
+		return ( v + w*t )/( 1 + w ) - v
+	end,
+	lsm = function( t, v, p )
+		return ( p or 0.1 )*v*( 1 - v/t )
+	end,
+	srt = function( t, v, p )
+		return pen.get_sign( t - v )*math.pow( math.abs( t - v ), 1/( p or 2 ))
+	end,
+}
 
 pen.SDF = { --https://iquilezles.org/articles/distfunctions2d/
 	CIRCLE = function( d, p )
@@ -4290,29 +4319,32 @@ pen.PALETTE = {
 	VNL = {
 		HP = {135,191,28}, _="ff87bf1c",
 		RED = {208,70,70}, _="ffd04646",
+		GREEN = {70,208,70}, _="ff46d046",
 		MANA = {66,168,226}, _="ff42a8e2",
 		CAST = {252,138,67}, _="fffc8a43",
 		BROWN = {121,71,56}, _="ff794738",
 		DAMAGE = {166,70,56}, _="ffa64638",
 		HP_LOW = {106,44,35}, _="ff6a2c23",
 		GREY = {170,170,170}, _="ffaaaaaa",
+		LGREY = {207,207,207}, _="ffcfcfcf",
 		FLIGHT = {255,170,64}, _="ffffaa40",
 		RUNIC = {121,201,153}, _="ff79c999",
 		WARNING = {252,67,85}, _="fffc4355",
 		YELLOW = {255,255,178}, _="ffffffb2",
 		DARK_SLOT = {185,220,223}, _="ffb9dcdf",
+		BRIGHT_SLOT = {255,0,0}, _="ffff0000",
 		NINE_MAIN = {180,159,129}, _="ffb49f81",
 		NINE_MAIN_DARK = {148,128,100}, _="ff948064",
 		NINE_ACCENT = {237,169,73}, _="ffeda949",
 		NINE_ACCENT_DARK = {201,137,48}, _="ffc98930",
-		ACTION_PROJECTILE = {204,20,0}, _="ffcc1400",
-		ACTION_STATIC = {204,126,0}, _="ffcc7e00",
-		ACTION_MODIFIER = {0,7,204}, _="ff0007cc",
-		ACTION_DRAW = {0,163,204}, _="ff00a3cc",
-		ACTION_MATERIAL = {0,204,24}, _="ff00cc18",
-		ACTION_UTILITY = {187,0,204}, _="ffbb00cc",
-		ACTION_PASSIVE = {0,105,0}, _="ff006900",
-		ACTION_OTHER = {204,204,204}, _="ffcccccc",
+		ACTION_PROJECTILE = {185,86,50}, _="ffb95632",
+		ACTION_STATIC = {204,128,182}, _="ffcc80b6",
+		ACTION_MODIFIER = {202,161,70}, _="ffcaa146",
+		ACTION_DRAW = {168,213,218}, _="ffa8d5da",
+		ACTION_MATERIAL = {142,195,115}, _="ff8ec373",
+		ACTION_UTILITY = {63,132,146}, _="ff3f8492",
+		ACTION_PASSIVE = {115,93,142}, _="ff735d8e",
+		ACTION_OTHER = {74,68,109}, _="ff4a446d",
 	},
 	HRMS = {
 		GOLD_1 = {205,104,61}, _="ffcd683d",

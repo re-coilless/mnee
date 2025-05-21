@@ -204,12 +204,16 @@ end
 
 function pen.estimate( eid, target, alg, min_delta, max_delta ) --thanks Nathan
 	alg = alg or "exp"
+	target = pen.get_hybrid_table( target )
+	min_delta = math.max( min_delta or 0.01, 0.0001 )
 	pen.c.estimator_memo = pen.c.estimator_memo or {}
-
-	local value = pen.c.estimator_memo[ eid ] or target
-	local delta = pen.ESTIM_ALGS[ string.sub( alg, 1, 3 )]( target, value, tonumber( string.sub( alg, 4, -1 )))
-	pen.c.estimator_memo[ eid ] = value +
-		pen.limiter( pen.limiter( delta, min_delta or 0.001, true ), pen.limiter( delta, max_delta or delta ))
+	if( target[3]) then pen.c.estimator_memo[ eid ] = nil end
+	pen.c.estimator_memo[ eid ] = pen.c.estimator_memo[ eid ] or target[2] or target[1]
+	
+	local value = pen.c.estimator_memo[ eid ]
+	if( pen.compare_float( value, target[1], min_delta )) then return target[1] end
+	local delta = pen.ESTIM_ALGS[ string.sub( alg, 1, 3 )]( target[1], value, tonumber( string.sub( alg, 4, -1 )))
+	pen.c.estimator_memo[ eid ] = value + pen.limiter( pen.limiter( delta, max_delta or delta ), min_delta, true )
 	return pen.c.estimator_memo[ eid ]
 end
 
@@ -907,6 +911,7 @@ function pen.font_cancer( font, is_huge )
 			default, is_huge = "data/fonts/font_small_numbers.xml", 2
 		else is_huge = 1 end
 		font = ( pen.FONT_MAP[ GameTextGetTranslatedOrNot( "$current_language" )] or {})[ is_huge ] or default
+		font = ( pen.t.unarray( pen.t.pack( GlobalsGetValue( pen.GLOBAL_FONT_REMAP, "" ))) or {})[ font ] or font
 	end
 	return font, string.find( font, "%.bin$", 1 ) == nil, pen.FONT_SPACING[ font ] or 0
 end
@@ -1499,6 +1504,7 @@ function pen.get_effect( entity_id, effect_name, effect_id )
 end
 
 function pen.get_active_item( entity_id )
+	if( not( pen.vld( entity_id ))) then return end
 	local inv_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "Inventory2Component" )
 	if( pen.vld( inv_comp, true )) then return tonumber( ComponentGetValue2( inv_comp, "mActiveItem" ) or 0 ) end
 end
@@ -1513,15 +1519,16 @@ function pen.reset_active_item( entity_id )
 	return inv_comp
 end
 
-function pen.get_item_owner( item_id, figure_it_out )
+function pen.get_item_owner( item_id, is_in_hand )
 	if( not( pen.vld( item_id, true ))) then return end
+
 	local parent = item_id
 	while( parent ~= EntityGetRootEntity( item_id )) do
 		parent = EntityGetParent( parent )
 		local item_check = pen.get_active_item( parent )
-		if( not( figure_it_out )) then
+		if( is_in_hand ) then
 			item_check = item_check == item_id
-		else item_check = item_check > 0 end
+		else item_check = pen.vld( item_check, true ) end
 		if( item_check ) then return parent end
 	end
 end
@@ -3447,8 +3454,8 @@ function pen.new_scroller( sid, pic_x, pic_y, pic_z, size_x, size_y, func, data 
 	local buffer = 1
 	local eid = sid.."_anim"
 	progress = math.min( math.max(( new_y - ( pic_y + 3 ))/bar_y, -buffer ), 1 + buffer )
-	progress = pen.estimate( eid, progress, bar_y/new_height, "exp100", 1 )
-
+	progress = pen.estimate( eid, progress, "wgt0.75", 0.001, 0.01 )
+	
 	local is_waiting = GameGetFrameNum()%7 ~= 0
 	local is_clipped = progress > 0 and progress < 1
 	local is_static = out[1][2] ~= 2 or pen.compare_float( new_y, bar_pos )
@@ -3657,7 +3664,10 @@ end
 function pen.new_shadowed_text( pic_x, pic_y, pic_z, text, data )
 	local _,is_pixel = pen.font_cancer()
 	data = data or {}; data.has_shadow = not( is_pixel )
-	if( is_pixel ) then data.font = "data/fonts/font_pixel.xml" end
+	if( is_pixel ) then
+		data.font = "data/fonts/font_pixel.xml"
+		data.font = ( pen.t.unarray( pen.t.pack( GlobalsGetValue( pen.GLOBAL_FONT_REMAP, "" ))) or {})[ data.font ] or data.font
+	end
 	return pen.new_text( pic_x, pic_y, pic_z, text, data )
 end
 
@@ -3934,6 +3944,7 @@ pen.GLOBAL_INTERFACE_SAFETY_TL = "PENMAN_INTERFACE_SAFETY_TL"
 pen.GLOBAL_INTERFACE_SAFETY_LR = "PENMAN_INTERFACE_SAFETY_LR"
 pen.GLOBAL_INTERFACE_SAFETY_TR = "PENMAN_INTERFACE_SAFETY_TR"
 pen.GLOBAL_SETTINGS_CACHE = "PENMAN_SETTINGS_CACHE"
+pen.GLOBAL_FONT_REMAP = "PENMAN_FONT_REMAP"
 
 pen.MARKER_TAB = "\\_"
 pen.MARKER_FANCY_TEXT = { "{>%S->{", "}<%S-<}", "{%-}%S-{%-}" }
@@ -4035,14 +4046,16 @@ pen.FONT_MODS = {
 	end,
 	shadow = function( pic_x, pic_y, pic_z, char_data, color, index )
 		GuiZSetForNextWidget( pen.c.gui_data.g, pic_z + 0.0001 )
-		pen.colourer( nil, pen.PALETTE.B, 0.8*(( color or {})[4] or 1 ))
+		pen.colourer( nil, pen.PALETTE.SHADOW, 0.5*(( color or {})[4] or 1 ))
 		GuiText( pen.c.gui_data.g, pic_x.l + 0.6, pic_y.l + 0.6, char_data.char, 1, char_data.font[1], char_data.font[2])
 	end,
 	runic = function( pic_x, pic_y, pic_z, char_data, color, index )
 		local new_one = char_data.char
 		local new_byte = pen.magic_byte( new_one )
 		if( new_byte > 10000 ) then new_one = pen.magic_byte( 65 + new_byte%57 ) end
-		return nil, nil, nil, { "data/fonts/font_pixel_runes.xml", true }, new_one == "$" and "!" or new_one
+		local font = "data/fonts/font_pixel_runes.xml"
+		font = ( pen.t.unarray( pen.t.pack( GlobalsGetValue( pen.GLOBAL_FONT_REMAP, "" ))) or {})[ font ] or font
+		return nil, nil, nil, { font, true }, new_one == "$" and "!" or new_one
 	end,
 	color = function( pic_x, pic_y, pic_z, char_data, color, index )
 		local new_color = nil
@@ -4276,11 +4289,12 @@ pen.ESTIM_ALGS = { --huge thanks to Nathan
 		local w = p or 1.5
 		return ( v + w*t )/( 1 + w ) - v
 	end,
-	lsm = function( t, v, p )
-		return ( p or 0.1 )*v*( 1 - v/t )
+	lsm = function( t, v, p ) --only for relatively similar values
+		v = math.max( v, 0.001 )
+		return ( p or 0.1 )*v*( 1 - v/math.max( t, 0.001 ))
 	end,
 	srt = function( t, v, p )
-		return pen.get_sign( t - v )*math.pow( math.abs( t - v ), 1/( p or 2 ))
+		return pen.get_sign( t - v )*math.pow( math.abs( t - v ), 1/( p or 1.5 ))
 	end,
 }
 
@@ -4325,8 +4339,9 @@ pen.PALETTE = {
 		BROWN = {121,71,56}, _="ff794738",
 		DAMAGE = {166,70,56}, _="ffa64638",
 		HP_LOW = {106,44,35}, _="ff6a2c23",
+		DGREY = {130,130,130}, _="ff828282",
 		GREY = {170,170,170}, _="ffaaaaaa",
-		LGREY = {207,207,207}, _="ffcfcfcf",
+		LGREY = {210,210,210}, _="ffd2d2d2",
 		FLIGHT = {255,170,64}, _="ffffaa40",
 		RUNIC = {121,201,153}, _="ff79c999",
 		WARNING = {252,67,85}, _="fffc4355",

@@ -677,9 +677,9 @@ function pen.chrono( func, input, storage_comp, name )
 		return
 	end
 
-	local out = { func( unpack( pen.get_hybrid_table( input )))}
 	check = GameGetRealWorldTimeSinceStarted()*1000 - check
-
+	
+	local out = { func( unpack( pen.get_hybrid_table( input )))}
 	if( pen.vld( storage_comp, true )) then
 		pen.magic_comp( storage_comp, { value_string = function( old_val )
 			return table.concat({ old_val, name, pen.DIV_1, check, pen.DIV_1 })
@@ -2966,13 +2966,13 @@ end
 ---@param y number
 ---@param is_raw? boolean
 ---@param no_shake? boolean
----@param is_inversed? boolean
+---@param in_reverse? boolean
 ---@return number pic_x, number pic_y, table scale_values
-function pen.world2gui( x, y, is_raw, no_shake, is_inversed ) --thanks to ImmortalDamned for the fix (x2 combo)
+function pen.world2gui( x, y, is_raw, no_shake, in_reverse ) --thanks to ImmortalDamned for the fix (x2 combo)
 	local w, h, view_w, view_h, real_w, real_h = pen.get_screen_data()
 	local massive_balls_x, massive_balls_y = w/view_w, h/view_h
 	
-	if( is_inversed ) then x, y = x/massive_balls_x, y/massive_balls_y end
+	if( in_reverse ) then x, y = x/massive_balls_x, y/massive_balls_y end
 	if( not( is_raw )) then
 		local cam_x, cam_y = GameGetCameraPos()
 		local _,_, cam_w, cam_h = GameGetCameraBounds()
@@ -2980,15 +2980,15 @@ function pen.world2gui( x, y, is_raw, no_shake, is_inversed ) --thanks to Immort
 		local off_h = tonumber( MagicNumbersGetValue( "VIRTUAL_RESOLUTION_OFFSET_Y" ))
 		
 		local off_x, off_y = cam_x - cam_w/2 - off_w, cam_y - cam_h/2 - off_h
-		if( is_inversed ) then off_x, off_y = -off_x, -off_y end
+		if( in_reverse ) then off_x, off_y = -off_x, -off_y end
 		x, y = x - off_x, y - off_y
 	end
 	if( not( no_shake or is_raw )) then
 		local shake_x, shake_y = pen.get_camera_shake( w, h, real_w, real_h )
-		if( is_inversed ) then shake_x, shake_y = -shake_x, -shake_y end
+		if( in_reverse ) then shake_x, shake_y = -shake_x, -shake_y end
 		x, y = x + shake_x, y + shake_y
 	end
-	if( not( is_inversed )) then x, y = x*massive_balls_x, y*massive_balls_y end
+	if( not( in_reverse )) then x, y = x*massive_balls_x, y*massive_balls_y end
 
 	return x, y, { massive_balls_x, massive_balls_y }
 end

@@ -94,7 +94,7 @@ function text_with_no_mod( key ) --inspired by Conga's approach
 				["简体中文"] = "[已完成]",
 			},
 		}
-		return csv[key][GameTextGetTranslatedOrNot("$current_language")] or csv[key]["English"]
+		return csv[ key ][ GameTextGet("$current_language")] or csv[ key ][ "English" ]
 	end
 end
 

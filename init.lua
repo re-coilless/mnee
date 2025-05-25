@@ -185,14 +185,14 @@ function OnWorldPreUpdate()
 		if( has_flag ) then
 			GameRemoveFlagRun( mnee.TOGGLER )
 		else GameAddFlagRun( mnee.TOGGLER ) end
-		GamePrint( GameTextGetTranslatedOrNot( table.concat({ "$mnee_", ( has_flag and "" or "no_" ), "input" })))
+		GamePrint( GameTextGet( table.concat({ "$mnee_", ( has_flag and "" or "no_" ), "input" })))
 		mnee.play_sound( has_flag and "capture" or "uncapture" )
 	end
 	if( mnee.mnin( "bind", { "mnee", "profile_change" }, { pressed = true })) then
 		local prf = pen.setting_get( "mnee.PROFILE" ) + 1
 		prf = prf > mnee.G.max_profiles and 1 or prf
 		pen.setting_set( "mnee.PROFILE", prf )
-		GamePrint( GameTextGetTranslatedOrNot( "$mnee_this_profile" )..": "..string.char( prf + 64 ))
+		GamePrint( GameTextGet( "$mnee_this_profile" )..": "..string.char( prf + 64 ))
 		mnee.play_sound( "switch_page" )
 		GlobalsSetValue( mnee.UPDATER, GameGetFrameNum())
 	end
@@ -208,12 +208,12 @@ function OnWorldPreUpdate()
 			local ctl = mnee.jpad_update( i )
 			if( not( mnee.stl.jauto )) then
 				if(( ctl or -1 ) == -1 ) then
-					GamePrint( GameTextGetTranslatedOrNot( "$mnee_error" ))
+					GamePrint( GameTextGet( "$mnee_error" ))
 					mnee.play_sound( "error" )
 				else mnee.play_sound( "confirm" ) end
 			end
 		elseif( gslot ) then
-			GamePrint( GameTextGetTranslatedOrNot( "$mnee_no_slot" ))
+			GamePrint( GameTextGet( "$mnee_no_slot" ))
 			mnee.play_sound( "error" )
 		end
 	end

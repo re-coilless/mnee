@@ -530,7 +530,7 @@ function mnee.get_binding_keys( mod_id, bind_id, is_compact )
 		local symbols = ( is_compact or false ) and {"","-","",","} or {"["," + ","]","/"}
 		local out = symbols[1]
 		if( tbl["_"] ~= nil or tbl[2] == "_" ) then
-			out = GameTextGetTranslatedOrNot( "$mnee_nil" )
+			out = GameTextGet( "$mnee_nil" )
 		elseif( tbl[1] == "is_axis" ) then
 			out = table.concat({ out, mnee.get_fancy_key( tbl[2])})
 			if( tbl[3] ~= nil ) then
@@ -667,7 +667,7 @@ function mnee.new_pager( pic_x, pic_y, pic_z, data )
 	
 	if( data.compact_mode ) then t_y = t_y - 11 else t_x = pic_x + 11 end
 	pen.new_image( t_x, t_y, pic_z, "mods/mnee/files/pics/button_21_B.png", { can_click = true })
-	if( data.compact_mode ) then mnee.new_tooltip( GameTextGetTranslatedOrNot( "$mnee_this_profile" ).."." ) end
+	if( data.compact_mode ) then mnee.new_tooltip( GameTextGet( "$mnee_this_profile" ).."." ) end
 	
 	local text = data.page
 	if( data.profile_mode ) then text = text - 1; text = string.char(( text < 1 and -29 or text ) + 64 ) end

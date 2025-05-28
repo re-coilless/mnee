@@ -1515,13 +1515,13 @@ function pen.get_active_item( entity_id )
 	if( pen.vld( inv_comp, true )) then return tonumber( ComponentGetValue2( inv_comp, "mActiveItem" ) or 0 ) end
 end
 
-function pen.reset_active_item( entity_id )
+function pen.reset_active_item( entity_id, saved_index )
 	local inv_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "Inventory2Component" )
 	if( pen.vld( inv_comp, true )) then
 		ComponentSetValue2( inv_comp, "mActiveItem", 0 )
 		ComponentSetValue2( inv_comp, "mActualActiveItem", 0 )
-		ComponentSetValue2( inv_comp, "mSavedActiveItemIndex", 0 )
 		ComponentSetValue2( inv_comp, "mInitialized", false )
+		if( saved_index ~= false ) then ComponentSetValue2( inv_comp, "mSavedActiveItemIndex", saved_index or 0 ) end
 	end
 	return inv_comp
 end
@@ -1728,32 +1728,28 @@ function pen.get_creature_head( entity_id )
 end
 
 function pen.get_creature_dimensions( entity_id, is_simple ) --this should work with phys bodies
-	local borders = { 0, 0, 0, 0 }
+	local borders = { min_x = 0, max_x = 0, min_y = 0, max_y = 0 }
 	local char_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "CharacterDataComponent" )
 	local has_collision = pen.vld( char_comp, true )
 	if( has_collision ) then
-		borders[1] = ComponentGetValue2( char_comp, "collision_aabb_min_x" )
-		borders[2] = ComponentGetValue2( char_comp, "collision_aabb_max_x" )
-		borders[3] = ComponentGetValue2( char_comp, "collision_aabb_min_y" )
-		borders[4] = ComponentGetValue2( char_comp, "collision_aabb_max_y" )
+		borders.min_x = ComponentGetValue2( char_comp, "collision_aabb_min_x" )
+		borders.max_x = ComponentGetValue2( char_comp, "collision_aabb_max_x" )
+		borders.min_y = ComponentGetValue2( char_comp, "collision_aabb_min_y" )
+		borders.max_y = ComponentGetValue2( char_comp, "collision_aabb_max_y" )
 	end
 
 	local sprite_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "SpriteComponent", "character" )
 	if( not( is_simple ) and pen.vld( sprite_comp, true )) then
 		local offset_x = ComponentGetValue2( sprite_comp, "offset_x" )
-		if( offset_x == 0 ) then
-			offset_x = has_collision and ( math.abs( borders[1]) + math.abs( borders[2]))/2 or 3
-		end
 		local offset_y = ComponentGetValue2( sprite_comp, "offset_y" )
-		if( offset_y == 0 ) then
-			offset_y = has_collision and borders[3] or 3
-		end
+		if( offset_x == 0 ) then offset_x = has_collision and ( math.abs( borders.min_x ) + math.abs( borders.max_x ))/2 or 3 end
+		if( offset_y == 0 ) then offset_y = has_collision and borders.min_y or 3 end
 
-		local temp = { -offset_x, offset_x, -offset_y, offset_y }
-		for i,v in ipairs( borders ) do
+		local temp = { min_x = -offset_x, max_x = offset_x, min_y = -offset_y, max_y = offset_y }
+		for i,v in pairs( borders ) do
 			if( has_collision ) then
 				borders[i] = ( temp[i] + v )/2
-			else borders[i] = temp[i]*( i == 4 and 0.5 or 1 ) end
+			else borders[i] = temp[i]*( i == "max_y" and 0.5 or 1 ) end
 		end
 	end
 
@@ -2270,10 +2266,10 @@ end
 
 function pen.scale_emitter( entity_id, emit_comp )
 	local borders = pen.get_creature_dimensions( entity_id )
-	ComponentSetValue2( emit_comp, "x_pos_offset_min", borders[1])
-	ComponentSetValue2( emit_comp, "x_pos_offset_max", borders[2])
-	ComponentSetValue2( emit_comp, "y_pos_offset_min", borders[3])
-	ComponentSetValue2( emit_comp, "y_pos_offset_max", borders[4])
+	ComponentSetValue2( emit_comp, "x_pos_offset_min", borders.min_x )
+	ComponentSetValue2( emit_comp, "x_pos_offset_max", borders.max_x )
+	ComponentSetValue2( emit_comp, "y_pos_offset_min", borders.min_y )
+	ComponentSetValue2( emit_comp, "y_pos_offset_max", borders.max_y )
 end
 
 function pen.matter_fabricator( x, y, data )
@@ -2308,6 +2304,33 @@ function pen.matter_fabricator( x, y, data )
 		ComponentSetValue2( comp, "y_pos_offset_max", size[4])
 	else ComponentSetValue2( comp, "area_circle_radius", size[1], size[2]) end
 	EntityAddComponent2( mtrr, "LifetimeComponent", { lifetime = data.frames or 1 })
+end
+
+function pen.add_perk( hooman, perk_id ) --bad
+	dofile_once( "data/scripts/lib/utilities.lua" )
+	dofile_once( "data/scripts/perks/perk.lua" )
+	dofile_once( "data/scripts/perks/perk_list.lua" )
+
+	local perk_data = get_perk_with_id( perk_list, perk_id )
+	local name = get_perk_picked_flag_name( perk_id )
+	local name_persistent = string.lower( name )
+	if( not( HasFlagPersistent( name_persistent ))) then
+		GameAddFlagRun( "new_"..name_persistent )
+	end
+	GameAddFlagRun( name )
+	AddFlagPersistent( name_persistent )
+	
+	if( pen.vld( perk_data.game_effect )) then
+		ComponentSetValue2( GetGameEffectLoadTo( hooman, perk_data.game_effect, true ), "frames", -1 ) end
+	if( pen.vld( perk_data.func )) then perk_data.func( nil, hooman, nil ) end
+	
+	local ui = EntityCreateNew()
+	EntityAddComponent( ui, "UIIconComponent", {
+		name = perk_data.ui_name,
+		description = perk_data.ui_description,
+		icon_sprite_file = perk_data.ui_icon
+	})
+	EntityAddChild( hooman, ui )
 end
 
 function pen.rate_projectile( proj_id, hooman, data )--sparkbolt at 20m is ~1
@@ -2541,9 +2564,10 @@ end
 
 --[INTERFACE]
 function pen.gui_builder( gui )
+	local iuid = 69
 	local frame_num = GameGetFrameNum()
 	pen.c.gui_dump = pen.c.gui_dump or {}
-	if( gui == false or ( gui == true and (( pen.c.gui_data or {}).i or 0 ) < 2 )) then
+	if( gui == false or ( gui == true and (( pen.c.gui_data or {}).i or 0 ) < ( iuid + 1 ))) then
 		if(( pen.c.gui_data or {}).g ) then
 			pen.c.gui_dump[ pen.c.gui_data.g ] = nil
 			GuiDestroy( pen.c.gui_data.g )
@@ -2556,12 +2580,13 @@ function pen.gui_builder( gui )
 		end
 		if( pen.c.gui_dump[ gui ] ~= nil ) then
 			pen.c.gui_data = pen.t.clone( pen.c.gui_dump[ gui ])
-		else pen.c.gui_data = { g = gui, i = 1, f = 0, _g = ( pen.c.gui_data or {}).g } end
+		else pen.c.gui_data = { g = gui, i = iuid, f = 0, _g = ( pen.c.gui_data or {}).g } end
 	end
 
-	pen.c.gui_data = pen.c.gui_data or { g = GuiCreate(), i = 1, f = 0 }
+	pen.c.gui_data = pen.c.gui_data or { g = GuiCreate(), i = iuid, f = 0 }
 	if( pen.c.gui_data.f ~= frame_num ) then
-		pen.c.gui_data.i, pen.c.gui_data.f = 1, frame_num; GuiStartFrame( pen.c.gui_data.g )
+		pen.c.gui_data.i, pen.c.gui_data.f = iuid, frame_num
+		GuiStartFrame( pen.c.gui_data.g )
 	else pen.c.gui_data.i = pen.c.gui_data.i + 1 end
 	GuiIdPush( pen.c.gui_data.g, pen.c.gui_data.i )
 	return pen.c.gui_data.g, pen.c.gui_data.i, pen.c.gui_data.f, pen.c.gui_data._g
@@ -3289,11 +3314,13 @@ function pen.new_dragger( did, pic_x, pic_y, s_x, s_y, pic_z, data )
 	-- pen.c.dragger_data[ did ].old_pos = { m_x, m_y }
 	
 	local clicked = false
-	local _, r_clicked, is_hovered = pen.new_interface( pic_x, pic_y, s_x, s_y, pic_z, data )
-	
+	local is_going = pen.c.dragger_data[ did ].is_going
+	local real_clicked, r_clicked, is_hovered = pen.new_interface( pic_x, pic_y, s_x, s_y, pic_z, data )
+	if( not( is_going ) and data.no_dragging ) then return pic_x, pic_y, 0, real_clicked, r_clicked, is_hovered end
+
 	local state = 0
 	local mouse_state = InputIsMouseButtonDown( 1 )
-	if( pen.c.dragger_data[ did ].is_going ) then
+	if( is_going ) then
 		if( mouse_state ) then
 			state = 2
 			pic_x = m_x + pen.c.dragger_data[ did ].off[1]
@@ -3727,7 +3754,7 @@ end
 ---@param text? string
 ---@param data? PenmanTooltipData
 ---@param func? fun( text?:string, d?:PenmanTooltipData ): { clicked:boolean, r_clicked:boolean, is_hovered:boolean } The definition of the custom visuals. Draws the default tip if left empty.
----@return boolean is_active
+---@return boolean is_active, table dims, boolean is_pinned
 function pen.new_tooltip( text, data, func )
 	data = data or {}
 	data.tid = data.tid or "dft"
@@ -3743,10 +3770,11 @@ function pen.new_tooltip( text, data, func )
 		local extra = 0
 		if( pen.vld( text[2])) then
 			extra = 2
-			text[1] = text[1].."\n{>indent>{{>color>{{-}|VNL|GREY|{-}"..string.lower( text[2]).."}<color<}}<indent<}" end
+			text[1] = text[1].."\n{>indent>{{>color>{{-}|VNL|GREY|{-}"..text[2].."}<color<}}<indent<}" end
 		return text[1], extra, 0
 	end
 
+	local is_pinned = false
 	local gui = pen.gui_builder()
 	local frame_num = GameGetFrameNum()
 	pen.c.ttips = pen.c.ttips or {}
@@ -3754,6 +3782,7 @@ function pen.new_tooltip( text, data, func )
 		going = 0, anim = { frame_num - 1, 0, 0 }, inter_state = {}}
 	if( data.is_active == nil ) then _,_,data.is_active = GuiGetPreviousWidgetInfo( gui ) end
 	if( data.allow_hover and pen.vld( pen.c.ttips[ data.tid ].inter_state )) then
+		is_pinned = pen.c.ttips[ data.tid ].inter_state[3]
 		data.is_active = data.is_active or pen.c.ttips[ data.tid ].inter_state[3]
 	end
 	if( not( data.is_active )) then return end
@@ -3838,7 +3867,7 @@ function pen.new_tooltip( text, data, func )
 		pen.c.ttips[ data.tid ].inter_state = { func( text, data )}
 	else pen.c.ttips[ data.tid ].inter_state = {} end
 	
-	return data.is_active, data.dims
+	return data.is_active, data.dims, is_pinned
 end
 
 function pen.new_input( iid, pic_x, pic_y, pic_z, data )

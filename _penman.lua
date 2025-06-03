@@ -108,7 +108,7 @@ function pen.get_sign( a )
 	return ( a or 0 ) < 0 and -1 or 1
 end
 
-function pen.compare_float( a, b, eps )
+function pen.eps_compare( a, b, eps )
 	return math.abs( a - ( b or 0 )) < ( eps or 0.00001 )
 end
 
@@ -212,7 +212,7 @@ function pen.estimate( eid, target, alg, min_delta, max_delta ) --thanks Nathan
 	pen.c.estimator_memo[ eid ] = pen.c.estimator_memo[ eid ] or target[2] or target[1]
 	
 	local value = pen.c.estimator_memo[ eid ]
-	if( pen.compare_float( value, target[1], min_delta )) then return target[1] end
+	if( pen.eps_compare( value, target[1], min_delta )) then return target[1] end
 	local delta = pen.ESTIM_ALGS[ string.sub( alg, 1, 3 )]( target[1], value, tonumber( string.sub( alg, 4, -1 )))
 	pen.c.estimator_memo[ eid ] = value + pen.limiter( pen.limiter( delta, max_delta or delta ), min_delta, true )
 	return pen.c.estimator_memo[ eid ]
@@ -1320,15 +1320,17 @@ function pen.magic_comp( id, data, func )
 	end
 end
 
-function pen.magic_storage( entity_id, name, field, value, force_create )
-	if( force_create == nil ) then force_create = value ~= nil end
+function pen.magic_storage( entity_id, name, field, value, default )
+	if( default == nil ) then default = value ~= nil end
 	local out = pen.t.loop( EntityGetComponentIncludingDisabled( entity_id, "VariableStorageComponent" ), function( i, comp )
 		if( ComponentGetValue2( comp, "name" ) == name ) then return comp end
 	end)
 
 	if( field ~= nil ) then
-		if( not( pen.vld( out, true )) and force_create ) then
-			out = EntityAddComponent2( entity_id, "VariableStorageComponent", { name = name })
+		if( not( pen.vld( out, true )) and default ) then
+			local v = { name = name }
+			if( type( default ) ~= "boolean" ) then v[ field ] = default end
+			out = EntityAddComponent2( entity_id, "VariableStorageComponent", v )
 		end
 		if( pen.vld( out, true )) then return pen.magic_comp( out, field, value ) end
 	end
@@ -1510,7 +1512,7 @@ function pen.get_effect( entity_id, effect_name, effect_id )
 end
 
 function pen.get_active_item( entity_id )
-	if( not( pen.vld( entity_id ))) then return end
+	if( not( pen.vld( entity_id, true ))) then return end
 	local inv_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "Inventory2Component" )
 	if( pen.vld( inv_comp, true )) then return tonumber( ComponentGetValue2( inv_comp, "mActiveItem" ) or 0 ) end
 end
@@ -1756,6 +1758,87 @@ function pen.get_creature_dimensions( entity_id, is_simple ) --this should work 
 	return borders
 end
 
+function pen.raytrace_entities( hooman, deadman, barrel_x, barrel_y, amount, delta_x, delta_y, is_piercing, hit_action ) --get start and end, execute function on every encountered entity
+	barrel_x, barrel_y = x + barrel_x*2, y + barrel_y*2
+	end_x, end_y = barrel_x + end_x, barrel_y + end_y
+
+	local hit, hit_x, hit_y = RaytracePlatforms( barrel_x, barrel_y, end_x, end_y )
+
+	local l_x = 0
+	local l_y = 0
+	local lenght = 0
+	if( hit ) then
+		l_x = hit_x - barrel_x
+		l_y = hit_y - barrel_y
+		lenght = math.sqrt(( l_x )^2 + ( l_y )^2 )
+	else
+		l_x = math.cos( r )*diameter
+		l_y = math.sin( r )*diameter
+		lenght = diameter
+	end
+
+	if( lenght > 0 ) then
+		local amount = math.ceil( lenght/2 )
+		local delta_x = l_x/amount
+		local delta_y = l_y/amount
+
+		local meat = get_killable_stuff( barrel_x + l_x/2, barrel_y + l_y/2, lenght/2 + 20 )
+		if( #meat > 0 ) then
+			for e,deadman in ipairs( meat ) do
+				if( hooman ~= deadman ) then
+					if( EntityGetComponent( deadman, "DamageModelComponent" ) ~= nil ) then
+						local is_hostile = EntityGetComponent( deadman, "GenomeDataComponent" ) == nil or ModSettingGetNextValue( "heres_ferrei.IGNORE_LOYALTY" ) or EntityGetHerdRelation( deadman, hooman ) < 95 or GameHasFlagRun( "let_the_god_decide" )
+						if( is_hostile ) then
+							local e_x, e_y = EntityGetTransform( deadman )
+							
+							local hitbox_comp = EntityGetComponent( deadman, "HitboxComponent" ) or {}
+							local hitbox_count = 1
+							if( #hitbox_comp > 1 ) then
+								hitbox_count = #hitbox_comp
+							end
+							
+							local hitbox_right = 0
+							local hitbox_left = 0
+							local hitbox_up = 0
+							local hitbox_down = 0
+							local hitbox_dmg_scale = 0
+							for i = 1,hitbox_count do
+								if( i > #hitbox_comp ) then
+									local hitbox_size = 5
+									hitbox_right = hitbox_size
+									hitbox_left = 0-hitbox_size
+									hitbox_up = 0-hitbox_size
+									hitbox_down = hitbox_size
+									hitbox_dmg_scale = 1
+								else
+									hitbox_right = ComponentGetValue2( hitbox_comp[i], "aabb_max_x" )
+									hitbox_left = ComponentGetValue2( hitbox_comp[i], "aabb_min_x" )
+									hitbox_up = ComponentGetValue2( hitbox_comp[i], "aabb_min_y" )
+									hitbox_down = ComponentGetValue2( hitbox_comp[i], "aabb_max_y" )
+									hitbox_dmg_scale = ComponentGetValue2( hitbox_comp[i], "damage_multiplier" )
+								end
+								
+								for k = 0,amount do
+									local beam_part_x = barrel_x + delta_x*k
+									local beam_part_y = barrel_y + delta_y*k
+									
+									if(( beam_part_x <= e_x + hitbox_right ) and ( beam_part_x >= e_x + hitbox_left ) and ( beam_part_y <= e_y + hitbox_down ) and ( beam_part_y >= e_y + hitbox_up )) then
+										if( is_piercing ) then
+											hit_action( hooman, deadman, k, beam_part_x, beam_part_y, hitbox_dmg_scale )
+										else
+											return deadman, k
+										end
+									end
+								end
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+end
+
 function pen.get_spell( action_id ) --isolate globals
 	dofile_once( "data/scripts/gun/gun_enums.lua" )
 	dofile_once( "data/scripts/gun/gun_actions.lua" )
@@ -1763,12 +1846,13 @@ function pen.get_spell( action_id ) --isolate globals
 end
 
 function pen.get_card_id()
-	if( current_action ~= nil ) then return end
-	if( current_action.deck_index ~= nil ) then return end
+	if( dont_draw_actions or reflecting ) then return end
+	if( not( pen.vld( current_action ))) then return end
+	if( not( pen.vld( current_action.deck_index ))) then return end
 
-	local man = GetUpdatedEntityID()
-	if( not( pen.vld( man, true ))) then return end
-	local wand_id = pen.get_active_item( man )
+	local hooman = GetUpdatedEntityID()
+	if( not( pen.vld( hooman, true ))) then return end
+	local wand_id = pen.get_active_item( hooman )
 	if( not( pen.vld( wand_id, true ))) then return end
 
 	local abil_comp = EntityGetFirstComponentIncludingDisabled( wand_id, "AbilityComponent" )
@@ -1778,7 +1862,7 @@ function pen.get_card_id()
 	local index_offset = 1
 	pen.t.loop( spells, function( i, spell_id )
 		local item_comp = EntityGetFirstComponentIncludingDisabled( spell_id, "ItemComponent" )
-		if( item_comp ~= nil and ComponentGetValue2( item_comp, "permanently_attached" )) then
+		if( pen.vld( item_comp, true ) and ComponentGetValue2( item_comp, "permanently_attached" )) then
 			index_offset = index_offset + 1
 		end
 	end)
@@ -2199,6 +2283,78 @@ function pen.lag_me( frame_time )
 	end
 end
 
+function pen.get_hotspot_pos( entity_id, tag )
+	local x, y, r, s_x, s_y = EntityGetTransform( entity_id )
+	local off_x, off_y = EntityGetHotspot( entity_id, tag, nil, true )
+	off_x, off_y = pen.rotate_offset( off_x*s_x, off_y*s_y, r )
+	return x + off_x, y + off_y, r
+end
+
+function pen.gunshot()
+	local card_id = pen.get_card_id()
+	if( not( pen.vld( card_id, true ))) then return end
+	local action = pen.t.get( actions, current_action.id, nil, nil, {})
+	if( not( pen.vld( action ))) then return end
+
+	local frame_num = GameGetFrameNum()
+	local gun_id = EntityGetParent( card_id )
+	
+	--play trigger click only once per empty mag, make player rack the bolt after that
+
+	if(( pen.magic_storage( gun_id, "cycling_frame", "value_int" ) or frame_num ) > frame_num ) then return end
+
+	local max_ammo = pen.magic_storage( card_id, "ammo_max", "value_int" ) or -1
+	local ammo = pen.magic_storage( card_id, "ammo", "value_int", nil, max_ammo )
+	if( ammo == 0 ) then return end
+
+	local x, y, r, s_x, s_y = EntityGetTransform( gun_id )
+	local shot_x, shot_y = pen.get_hotspot_pos( gun_id, "shoot_pos" )
+	pen.play_sound({ action.sfx[1], action.sfx[2].."/shoot" }, shot_x, shot_y )
+
+	--degrate firerate at high heat and lower accuracy
+	local bolt_delay = pen.magic_storage( gun_id, "cycling", "value_int" ) or 0
+	pen.magic_storage( gun_id, "cycling_frame", "value_int", frame_num + bolt_delay )
+
+	local count, heat = 0, 0
+	local recoil = shot_effects.recoil_knockback
+	for i,v in ipairs( action.projectiles ) do
+		for e = 1,( v.c or 1 ) do
+			add_projectile( v.p )
+			heat = heat + ( v.h or 0 )
+			count = count + ( v.s or 1 )
+			recoil = recoil + ( v.r or 0 )
+		end
+	end
+
+	local max_heat = pen.magic_storage( gun_id, "heat_max", "value_float" ) or -1
+	if( max_heat > 0 ) then
+		local killer = "mods/Noita40K/files/misc/premature_detonation.xml,"
+		local total_heat = pen.magic_storage( gun_id, "heat", "value_float", nil, true ) + heat
+		if( total_heat > max_heat ) then c.extra_entities, ammo = c.extra_entities..killer, math.min( ammo, 1 ) end
+		pen.magic_storage( gun_id, "heat", "value_float", total_heat )
+	end
+
+	pen.magic_storage( card_id, "ammo", "value_int", ammo - 1 )
+
+	--this should be dynamically calculated from projectile muzzle energy and gun stats (muzzle break + mass)
+	shot_effects.recoil_knockback = recoil
+	
+	--play bolt ejection sound (and make sure bolt feed sound plays on return)
+	
+	local eject_force = 300
+	local eject_angle = r - pen.get_sign( s_y )*math.rad( 135 )
+	local eject_force_x = math.cos( eject_angle )*eject_force
+	local eject_force_y = math.sin( eject_angle )*eject_force
+	local eject_x, eject_y = pen.get_hotspot_pos( gun_id, "eject_pos" )
+	for i,v in ipairs( action.shells ) do
+		local v_x = eject_force_x - math.random( 50, 100 )
+		local v_y = eject_force_y - math.random( 10, 75 )
+		pen.magic_shooter( 0, v, eject_x, eject_y, v_x, v_y )
+	end
+
+	return card_id, action
+end
+
 function pen.magic_shooter( who_shot, path, x, y, v_x, v_y, do_it, proj_mods, custom_values )
 	who_shot = pen.get_hybrid_table( who_shot )
 	pen.magic_comp( who_shot[1], "ProjectileComponent", function( comp_id, v, is_enabled )
@@ -2227,7 +2383,7 @@ function pen.magic_shooter( who_shot, path, x, y, v_x, v_y, do_it, proj_mods, cu
 		v.mVelocity = { v_x, v_y }
 	end)
 	
-	if( proj_mods ~= nil ) then proj_mods( proj_id, custom_values ) end
+	if( pen.vld( proj_mods )) then proj_mods( proj_id, custom_values ) end
 	return proj_id
 end
 
@@ -3158,7 +3314,7 @@ function pen.new_interface( pic_x, pic_y, s_x, s_y, pic_z, data )
 
 			local down_toggle = GameHasFlagRun( pen.FLAG_INTERFACE_TOGGLE )
 			if( not( down_toggle ) or is_figuring or not( is_new )) then clicked, r_clicked = false, false end
-			if( is_figuring and frame_num - update_frame > 1 and pen.compare_float( pic_z, top_z, 0.001 )) then
+			if( is_figuring and frame_num - update_frame > 1 and pen.eps_compare( pic_z, top_z, 0.001 )) then
 				clicked, r_clicked = interface_memo.lc, interface_memo.rc
 				GlobalsSetValue( pen.GLOBAL_INTERFACE_Z, "nope" )
 				GameRemoveFlagRun( pen.FLAG_INTERFACE_TOGGLE )
@@ -3496,7 +3652,7 @@ function pen.new_scroller( sid, pic_x, pic_y, pic_z, size_x, size_y, func, data 
 	
 	local is_waiting = GameGetFrameNum()%7 ~= 0
 	local is_clipped = progress > 0 and progress < 1
-	local is_static = out[1][2] ~= 2 or pen.compare_float( new_y, bar_pos )
+	local is_static = out[1][2] ~= 2 or pen.eps_compare( new_y, bar_pos )
 	if( not( is_clipped )) then
 		pen.c.estimator_memo[ eid ] = math.min( math.max( pen.c.estimator_memo[ eid ], 0 ), 1 )
 	elseif( not( is_static or is_waiting )) then pen.play_sound( pen.TUNES.VNL.HOVER ) end

@@ -275,6 +275,12 @@ function pen.animate( delta, frame, data ) --https://www.febucci.com/2018/08/eas
 	else return pen.ANIM_INTERS[ data.type ]( time, delta, data.params ) end
 end
 
+function pen.simulate()
+	--gets uid and init pos with data, returns new pos
+	--does a full-blown rigibody sim, executes with a frame-long delay to collect all the objects
+	--build colliders either by evaluating sprite pixels manually, or just pass a table with vertexes
+end
+
 --[TECHNICAL]
 function pen.get_hybrid_table( table, allow_unarray )
 	if( type( table ) == "table" and ( allow_unarray or not( pen.t.is_unarray( table )))) then
@@ -1517,12 +1523,13 @@ function pen.get_active_item( entity_id )
 	if( pen.vld( inv_comp, true )) then return tonumber( ComponentGetValue2( inv_comp, "mActiveItem" ) or 0 ) end
 end
 
-function pen.reset_active_item( entity_id, saved_index )
+function pen.reset_active_item( entity_id, saved_index, will_log )
 	local inv_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "Inventory2Component" )
 	if( pen.vld( inv_comp, true )) then
 		ComponentSetValue2( inv_comp, "mActiveItem", 0 )
 		ComponentSetValue2( inv_comp, "mActualActiveItem", 0 )
 		ComponentSetValue2( inv_comp, "mInitialized", false )
+		ComponentSetValue2( inv_comp, "mDontLogNextItemEquip", not( will_log ))
 		if( saved_index ~= false ) then ComponentSetValue2( inv_comp, "mSavedActiveItemIndex", saved_index or 0 ) end
 	end
 	return inv_comp
@@ -1758,7 +1765,7 @@ function pen.get_creature_dimensions( entity_id, is_simple ) --this should work 
 	return borders
 end
 
-function pen.raytrace_entities( hooman, deadman, barrel_x, barrel_y, amount, delta_x, delta_y, is_piercing, hit_action ) --get start and end, execute function on every encountered entity
+function pen.raytrace_entities( hooman, deadman, barrel_x, barrel_y, amount, delta_x, delta_y, is_piercing, hit_action ) --get start and end, execute function on every encountered entity, optionally compensate for loss of accuracy due to rotation
 	barrel_x, barrel_y = x + barrel_x*2, y + barrel_y*2
 	end_x, end_y = barrel_x + end_x, barrel_y + end_y
 
@@ -2291,15 +2298,16 @@ function pen.get_hotspot_pos( entity_id, tag )
 end
 
 function pen.gunshot()
-	local card_id = pen.get_card_id()
+	local card_id = gunshot_card_id or pen.get_card_id()
 	if( not( pen.vld( card_id, true ))) then return end
 	local action = pen.t.get( actions, current_action.id, nil, nil, {})
 	if( not( pen.vld( action ))) then return end
 
 	local frame_num = GameGetFrameNum()
-	local gun_id = EntityGetParent( card_id )
+	local gun_id = gunshot_gun_id or EntityGetParent( card_id )
+	local arm_id = gunshot_arm_id or pen.get_child( EntityGetRootEntity( gun_id ), "arm_r" )
 	
-	--play trigger click only once per empty mag, make player rack the bolt after that
+	--play trigger click only once per empty mag, set "locked_and_unloaded" gun_id varstorage to true after that
 
 	if(( pen.magic_storage( gun_id, "cycling_frame", "value_int" ) or frame_num ) > frame_num ) then return end
 
@@ -2311,12 +2319,11 @@ function pen.gunshot()
 	local shot_x, shot_y = pen.get_hotspot_pos( gun_id, "shoot_pos" )
 	pen.play_sound({ action.sfx[1], action.sfx[2].."/shoot" }, shot_x, shot_y )
 
-	--degrate firerate at high heat and lower accuracy
+	local recoil = pen.magic_storage( gun_id, "recoil", "value_float" ) or 0
 	local bolt_delay = pen.magic_storage( gun_id, "cycling", "value_int" ) or 0
 	pen.magic_storage( gun_id, "cycling_frame", "value_int", frame_num + bolt_delay )
 
 	local count, heat = 0, 0
-	local recoil = shot_effects.recoil_knockback
 	for i,v in ipairs( action.projectiles ) do
 		for e = 1,( v.c or 1 ) do
 			add_projectile( v.p )
@@ -2334,13 +2341,13 @@ function pen.gunshot()
 		pen.magic_storage( gun_id, "heat", "value_float", total_heat )
 	end
 
-	pen.magic_storage( card_id, "ammo", "value_int", ammo - 1 )
-
 	--this should be dynamically calculated from projectile muzzle energy and gun stats (muzzle break + mass)
-	shot_effects.recoil_knockback = recoil
+	pen.magic_storage( gun_id, "recoil", "value_float", recoil )
+	pen.magic_storage( card_id, "ammo", "value_int", ammo - 1 )
 	
 	--play bolt ejection sound (and make sure bolt feed sound plays on return)
-	
+	--ejector smoke and sparks (customizable per-spell)
+
 	local eject_force = 300
 	local eject_angle = r - pen.get_sign( s_y )*math.rad( 135 )
 	local eject_force_x = math.cos( eject_angle )*eject_force
@@ -2351,6 +2358,12 @@ function pen.gunshot()
 		local v_y = eject_force_y - math.random( 10, 75 )
 		pen.magic_shooter( 0, v, eject_x, eject_y, v_x, v_y )
 	end
+
+	local trans_comp = EntityGetFirstComponentIncludingDisabled( arm_id, "InheritTransformComponent" )
+	local rx, ry = ComponentGetValue2( trans_comp, "Transform" )
+	local abil_comp = EntityGetFirstComponentIncludingDisabled( gun_id, "AbilityComponent" )
+	local rr = ComponentGetValue2( abil_comp, "item_recoil_rotation_coeff" )
+	c.spread_degrees = c.spread_degrees + math.abs( rx ) + math.abs( ry ) + math.abs( rr )
 
 	return card_id, action
 end
@@ -2487,6 +2500,12 @@ function pen.add_perk( hooman, perk_id ) --bad
 		icon_sprite_file = perk_data.ui_icon
 	})
 	EntityAddChild( hooman, ui )
+end
+
+function pen.strip_player( hooman, leave_barren )
+	--remove all comps, leave_barren removes everything to the point of crashing the game
+	-- AudioComponent
+	-- AudioLoopComponent
 end
 
 function pen.rate_projectile( proj_id, hooman, data )--sparkbolt at 20m is ~1

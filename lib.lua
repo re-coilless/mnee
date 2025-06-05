@@ -989,9 +989,11 @@ mnee.INMODES = {
 		local vals = {
 			{ "mButtonDownLeftClick", "mouse_left", "mouse_left_gui" },
 			{ "mButtonDownRightClick", "mouse_right", "mouse_right_gui" },
+			{ "mButtonDownChangeItemL", "mouse_wheel_up", "mouse_wheel_up_gui" },
+			{ "mButtonDownChangeItemR", "mouse_wheel_down", "mouse_wheel_down_gui" },
 		}
 		
-		for i = 1,2 do
+		for _,i in ipairs({ 1, 2, 4, 5 }) do
 			local state = InputIsMouseButtonDown( i )
 			if( mnee.G.mb_memo[i] and not( ComponentGetValue2( ctrl_comp, vals[i][1]))) then
 				active = string.gsub( active, vals[i][2], vals[i][3])
@@ -1009,11 +1011,13 @@ mnee.INMODES = {
 		local vals = {
 			{ "mButtonDownLeftClick", "mouse_left", "mouse_left_gui" },
 			{ "mButtonDownRightClick", "mouse_right", "mouse_right_gui" },
+			{ "mButtonDownChangeItemL", "mouse_wheel_up", "mouse_wheel_up_gui" },
+			{ "mButtonDownChangeItemR", "mouse_wheel_down", "mouse_wheel_down_gui" },
 		}
 		
-		for i = 1,2 do
-			local is_going = ComponentGetValue2( ctrl_comp, vals[i][1])
-			if( not( is_going )) then active = string.gsub( active, vals[i][2], vals[i][3]) end
+		for i,v in ipairs( vals ) do
+			local is_going = ComponentGetValue2( ctrl_comp, v[1])
+			if( not( is_going )) then active = string.gsub( active, v[2], v[3]) end
 		end
 
 		return active

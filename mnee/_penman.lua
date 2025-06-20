@@ -176,6 +176,7 @@ function pen.hash_me( str, is_huge )
 end
 
 function pen.key_me( str )
+	if( #str > 999 ) then return str end
 	str = string.gsub( string.gsub( str, pen.KEY, pen.HOLE ), "%c", pen.HOLE )
 	return string.gsub( string.gsub( str, pen.DIV_1, pen.HOLE ), pen.DIV_2, pen.HOLE )
 end
@@ -1179,7 +1180,7 @@ end
 
 function pen.add_translations( path )
 	local main = "data/translations/common.csv"
-	local file = string.gsub( string.gsub( pen.magic_read( path ), "\r", "" ), "\n\n+", "\n" )
+	local file = string.gsub( string.gsub( pen.magic_read( path ).."\n", "\r", "" ), "\n\n+", "\n" )
 	if( pen.magic_write ) then pen.magic_write( main, pen.magic_read( main )..string.gsub( file, "^[^\n]*\n", "" )) end
 end
 
@@ -2185,9 +2186,15 @@ function pen.magic_chugger( mttrs, eater_id, eatee_id, volume, perc )
 	end
 end
 
+function pen.get_strength( hooman )
+	local kick_comp = EntityGetFirstComponentIncludingDisabled( hooman, "KickComponent" )
+	if( pen.vld( kick_comp, true )) then return 3*ComponentGetValue2( kick_comp, "max_force" ) end
+	return 0
+end
+
 function pen.get_mass( entity_id )
 	local mass = 0
-	local shape_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "PhysicsImageShapeComponent" )
+	local shape_comp = EntityGetFirstComponent( entity_id, "PhysicsImageShapeComponent" )
 	local char_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "CharacterDataComponent" )
 	local vel_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "VelocityComponent" )
 	if( pen.vld( shape_comp, true )) then
@@ -2364,8 +2371,14 @@ function pen.gunshot()
 		pen.magic_storage( gun_id, "heat", "value_float", total_heat )
 	end
 
-	--this should be dynamically calculated from projectile muzzle energy and gun stats (muzzle break + mass)
-	pen.magic_storage( gun_id, "recoil", "value_float", recoil )
+	local hooman = gunshot_hooman_id or EntityGetRootEntity( gun_id )
+	recoil = ( recoil^2 )/( 10*pen.get_mass( gun_id )) -- 1 unit of recoil is 4kg
+
+	local is_advanced = not( pen.magic_storage( hooman, "vector_no_handling", "value_bool" ))
+	if( EntityHasTag( hooman, "vector_ctrl" ) and is_advanced ) then
+		local v = pen.magic_storage( gun_id, "recoil", "value_float", nil, true )
+		pen.magic_storage( gun_id, "recoil", "value_float", v + recoil )
+	else shot_effects.recoil_knockback = shot_effects.recoil_knockback + recoil end
 	pen.magic_storage( card_id, "ammo", "value_int", ammo - 1 )
 	
 	--play bolt ejection sound (and make sure bolt feed sound plays on return)
@@ -2382,11 +2395,11 @@ function pen.gunshot()
 		pen.magic_shooter( 0, v, eject_x, eject_y, v_x, v_y )
 	end
 
-	--at high diversion angles, apply pattern-based angle redictection with phantom projectile
+	--at high diversion angles, apply pattern-based angle redictection with phantom projectile (this will have to be done as the first spell in the wand)
 	local trans_comp = EntityGetFirstComponentIncludingDisabled( arm_id, "InheritTransformComponent" )
 	local rx, ry = ComponentGetValue2( trans_comp, "Transform" )
 	local abil_comp = EntityGetFirstComponentIncludingDisabled( gun_id, "AbilityComponent" )
-	local rr = ComponentGetValue2( abil_comp, "item_recoil_rotation_coeff" )
+	local rr = ComponentGetValue2( abil_comp, "item_recoil_rotation_coeff" ) --tilt should be penalized by accuracy loss much more
 	c.spread_degrees = c.spread_degrees + math.abs( rx ) + math.abs( ry ) + math.abs( rr )
 
 	return card_id, action

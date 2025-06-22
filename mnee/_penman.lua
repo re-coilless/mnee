@@ -2328,7 +2328,7 @@ function pen.get_hotspot_pos( entity_id, tag )
 	return x + off_x, y + off_y, r
 end
 
-function pen.gunshot( eject_func, shot_func )
+function pen.gunshot( shot_func, eject_func )
 	local card_id = gunshot_card_id or pen.get_card_id()
 	if( not( pen.vld( card_id, true ))) then return end
 	local action = pen.t.get( actions, current_action.id, nil, nil, {})
@@ -2338,7 +2338,9 @@ function pen.gunshot( eject_func, shot_func )
 	local gun_id = gunshot_gun_id or EntityGetParent( card_id )
 	local arm_id = gunshot_arm_id or pen.get_child( EntityGetRootEntity( gun_id ), "arm_r" )
 	
+	--add clanking sound for the last 25% of shots from the mag (capped at 10 shots max and 1 shot min, is ignored for mags with less than 3 shots)
 	--play trigger click only once per empty mag, set "locked_and_unloaded" gun_id varstorage to true after that
+	--play ejection/feeding sound
 
 	if(( pen.magic_storage( gun_id, "cycling_frame", "value_int" ) or frame_num ) > frame_num ) then return end
 
@@ -2380,23 +2382,23 @@ function pen.gunshot( eject_func, shot_func )
 		pen.magic_storage( gun_id, "recoil", "value_float", v + recoil )
 	else shot_effects.recoil_knockback = shot_effects.recoil_knockback + 3*recoil end
 	pen.magic_storage( card_id, "ammo", "value_int", ammo - 1 )
-
+	
 	local eject_force = 300
 	local eject_angle = r - pen.get_sign( s_y )*math.rad( 135 )
 	local eject_force_x = math.cos( eject_angle )*eject_force
 	local eject_force_y = math.sin( eject_angle )*eject_force
 	local eject_x, eject_y = pen.get_hotspot_pos( gun_id, "eject_pos" )
 	for i,v in ipairs( action.shells ) do
-		local v_x = eject_force_x - math.random( 50, 100 )
-		local v_y = eject_force_y - math.random( 10, 75 )
-		pen.magic_shooter( 0, v, eject_x, eject_y, v_x, v_y )
+		local v_x = eject_force_x - pen.get_sign( eject_force_x )*math.random( 50, 100 )
+		local v_y = eject_force_y + pen.get_sign( eject_force_y )*math.random( 10, 75 )
+		pen.magic_shooter( gun_id, v, eject_x, eject_y, v_x, v_y )
 	end
 
 	--at high diversion angles, apply pattern-based angle redictection with phantom projectile (this will have to be done as the first spell in the wand)
 	local trans_comp = EntityGetFirstComponentIncludingDisabled( arm_id, "InheritTransformComponent" )
 	local rx, ry = ComponentGetValue2( trans_comp, "Transform" )
 	local abil_comp = EntityGetFirstComponentIncludingDisabled( gun_id, "AbilityComponent" )
-	local rr = ComponentGetValue2( abil_comp, "item_recoil_rotation_coeff" ) --tilt should be penalized by accuracy loss much more
+	local rr = ComponentGetValue2( abil_comp, "item_recoil_rotation_coeff" ) --tilt should be penalized with accuracy loss much more
 	c.spread_degrees = c.spread_degrees + math.abs( rx ) + math.abs( ry ) + math.abs( rr )
 
 	if( pen.vld( eject_func )) then

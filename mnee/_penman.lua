@@ -2422,8 +2422,10 @@ function pen.magic_shooter( who_shot, path, x, y, v_x, v_y, do_it, proj_mods, cu
 	if( pen.vld( gene_comp, true )) then who_shot[3] = ComponentGetValue2( gene_comp, "herd_id" ) end
 	if( do_it ) then GameShootProjectile( who_shot[1], x, y, x + v_x, y + v_y, proj_id, true, who_shot[2]) end
 
+	local proj_comp = 0
 	local do_ff = EntityHasTag( who_shot[1], "friendly_fire_enabled" )
 	pen.magic_comp( proj_id, "ProjectileComponent", function( comp_id, v, is_enabled )
+		proj_comp = comp_id
 		v.mWhoShot = who_shot[2] or who_shot[1]
 		v.mShooterHerdId = who_shot[3] or 0
 
@@ -2437,7 +2439,7 @@ function pen.magic_shooter( who_shot, path, x, y, v_x, v_y, do_it, proj_mods, cu
 		v.mVelocity = { v_x, v_y }
 	end)
 	
-	if( pen.vld( proj_mods )) then proj_mods( proj_id, custom_values ) end
+	if( pen.vld( proj_mods )) then proj_mods( proj_id, proj_comp, custom_values ) end
 	return proj_id
 end
 

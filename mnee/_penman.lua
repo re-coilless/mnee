@@ -2192,6 +2192,19 @@ function pen.get_strength( hooman )
 	return 0
 end
 
+function pen.get_speed( entity_id ) --should work for everything
+	local v_x, v_y = 0, 0
+	local char_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "CharacterDataComponent" )
+	local plat_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "CharacterPlatformingComponent" )
+	if( pen.vld( char_comp, true ) and pen.vld( plat_comp, true )) then
+		v_x, v_y = ComponentGetValue2( char_comp, "mVelocity" )
+		if( pen.get_sign( s_x ) == pen.get_sign( v_x )) then v_x = -v_x end
+		v_y = v_y - ComponentGetValue2( plat_comp, "pixel_gravity" )/60
+		if( ComponentGetValue2( char_comp, "is_on_ground" )) then v_y = v_y - 60 end
+	end
+	return v_x, v_y
+end
+
 function pen.get_mass( entity_id )
 	local mass = 0
 	local shape_comp = EntityGetFirstComponent( entity_id, "PhysicsImageShapeComponent" )
@@ -2342,7 +2355,18 @@ function pen.gunshot( shot_func, eject_func )
 	--play trigger click only once per empty mag, set "locked_and_unloaded" gun_id varstorage to true after that
 	--play ejection/feeding sound
 
-	if(( pen.magic_storage( gun_id, "cycling_frame", "value_int" ) or frame_num ) > frame_num ) then return end
+	local locked_frame = pen.magic_storage( gun_id, "cycling_frame", "value_int" )
+	if(( locked_frame or frame_num ) > frame_num ) then return end
+
+	local is_holding = ( frame_num - ( locked_frame or 0 )) < 3
+	local recoil = pen.magic_storage( gun_id, "recoil", "value_float" ) or 0
+	local bolt_delay = pen.magic_storage( gun_id, "cycling", "value_int" ) or 0
+	if( bolt_delay > 0 ) then
+		is_holding = false
+		locked_frame = frame_num + bolt_delay
+	else locked_frame = frame_num - 1 end
+	pen.magic_storage( gun_id, "cycling_frame", "value_int", locked_frame )
+	if( is_holding ) then return end
 
 	local max_ammo = pen.magic_storage( card_id, "ammo_max", "value_int" ) or -1
 	local ammo = pen.magic_storage( card_id, "ammo", "value_int", nil, max_ammo )
@@ -2351,10 +2375,6 @@ function pen.gunshot( shot_func, eject_func )
 	local x, y, r, s_x, s_y = EntityGetTransform( gun_id )
 	local shot_x, shot_y = pen.get_hotspot_pos( gun_id, "shoot_pos" )
 	pen.play_sound({ action.sfx[1], action.sfx[2].."/shoot" }, shot_x, shot_y )
-
-	local recoil = pen.magic_storage( gun_id, "recoil", "value_float" ) or 0
-	local bolt_delay = pen.magic_storage( gun_id, "cycling", "value_int" ) or 0
-	pen.magic_storage( gun_id, "cycling_frame", "value_int", frame_num + bolt_delay )
 
 	local count, heat = 0, 0
 	for i,v in ipairs( action.projectiles ) do
@@ -2369,7 +2389,7 @@ function pen.gunshot( shot_func, eject_func )
 	local max_heat = pen.magic_storage( gun_id, "heat_max", "value_float" ) or -1
 	if( max_heat > 0 ) then
 		local total_heat = pen.magic_storage( gun_id, "heat", "value_float", nil, true ) + heat
-		if( total_heat > max_heat ) then ammo = math.min( ammo, 1 ) end
+		-- semi auto overheating penalty should be misfire
 		pen.magic_storage( gun_id, "heat", "value_float", total_heat )
 	end
 
@@ -2839,11 +2859,15 @@ function pen.magic_particles( x, y, r, data )
 	data.v_range[3], data.v_range[4] = pen.rotate_offset( data.v_range[3] or 0, data.v_range[4] or 0, r )
 	ComponentSetValue2( emit_comp, "randomize_velocity", unpack( data.v_range ))
 	
+	data.p_range = data.p_range or {}
+	data.p_range[1], data.p_range[2] = pen.rotate_offset( data.p_range[1] or -0.5, data.p_range[2] or -0.5, r )
+	data.p_range[3], data.p_range[4] = pen.rotate_offset( data.p_range[3] or 0.5, data.p_range[4] or 0.5, r )
+	ComponentSetValue2( emit_comp, "randomize_position", unpack( data.p_range ))
+
 	data.scale = data.scale or {}
 	ComponentSetValue2( emit_comp, "scale", data.scale[1] or 0.5, data.scale[2] or 0.5 )
 
 	-- randomize_lifetime
-	-- randomize_position
 	-- randomize_scale
 	-- randomize_rotation
 	-- randomize_angular_velocity

@@ -1778,85 +1778,49 @@ function pen.get_creature_dimensions( entity_id, is_simple ) --this should work 
 	return borders
 end
 
-function pen.raytrace_entities( hooman, deadman, barrel_x, barrel_y, amount, delta_x, delta_y, is_piercing, hit_action ) --get start and end, execute function on every encountered entity, optionally compensate for loss of accuracy due to rotation
-	barrel_x, barrel_y = x + barrel_x*2, y + barrel_y*2
-	end_x, end_y = barrel_x + end_x, barrel_y + end_y
+function pen.raytrace_entities( x, y, r, l, hit_action, data ) --compensate for loss of accuracy due to rotation
+	data = data or {}
 
-	local hit, hit_x, hit_y = RaytracePlatforms( barrel_x, barrel_y, end_x, end_y )
-
-	local l_x = 0
-	local l_y = 0
-	local lenght = 0
+	local diameter = l
+	local d_x, d_y = math.cos( r )*l, math.sin( r )*l
+	local hit, hit_x, hit_y = RaytracePlatforms( x, y, x + d_x, y + d_y )
 	if( hit ) then
-		l_x = hit_x - barrel_x
-		l_y = hit_y - barrel_y
-		lenght = math.sqrt(( l_x )^2 + ( l_y )^2 )
-	else
-		l_x = math.cos( r )*diameter
-		l_y = math.sin( r )*diameter
-		lenght = diameter
+		d_x, d_y = hit_x - x, hit_y - y
+		diameter = math.sqrt(( d_x )^2 + ( d_y )^2 )
 	end
 
-	if( lenght > 0 ) then
-		local amount = math.ceil( lenght/2 )
-		local delta_x = l_x/amount
-		local delta_y = l_y/amount
+	if( diameter == 0 ) then return end
+	local amount = math.ceil( diameter/( data.res or 2 ))
+	local step_x, step_y = d_x/amount, d_y/amount
+	return pen.t.loop( pen.get_killable( x + d_x/2, y + d_y/2, diameter/2 + 32 ), function( i, deadman )
+		if( data.shooter == deadman ) then return end
+		
+		local dmg_comp = EntityGetFirstComponentIncludingDisabled( deadman, "DamageModelComponent" )
+		if( not( pen.vld( dmg_comp, true ))) then return end
 
-		local meat = get_killable_stuff( barrel_x + l_x/2, barrel_y + l_y/2, lenght/2 + 20 )
-		if( #meat > 0 ) then
-			for e,deadman in ipairs( meat ) do
-				if( hooman ~= deadman ) then
-					if( EntityGetComponent( deadman, "DamageModelComponent" ) ~= nil ) then
-						local is_hostile = EntityGetComponent( deadman, "GenomeDataComponent" ) == nil or ModSettingGetNextValue( "heres_ferrei.IGNORE_LOYALTY" ) or EntityGetHerdRelation( deadman, hooman ) < 95 or GameHasFlagRun( "let_the_god_decide" )
-						if( is_hostile ) then
-							local e_x, e_y = EntityGetTransform( deadman )
-							
-							local hitbox_comp = EntityGetComponent( deadman, "HitboxComponent" ) or {}
-							local hitbox_count = 1
-							if( #hitbox_comp > 1 ) then
-								hitbox_count = #hitbox_comp
-							end
-							
-							local hitbox_right = 0
-							local hitbox_left = 0
-							local hitbox_up = 0
-							local hitbox_down = 0
-							local hitbox_dmg_scale = 0
-							for i = 1,hitbox_count do
-								if( i > #hitbox_comp ) then
-									local hitbox_size = 5
-									hitbox_right = hitbox_size
-									hitbox_left = 0-hitbox_size
-									hitbox_up = 0-hitbox_size
-									hitbox_down = hitbox_size
-									hitbox_dmg_scale = 1
-								else
-									hitbox_right = ComponentGetValue2( hitbox_comp[i], "aabb_max_x" )
-									hitbox_left = ComponentGetValue2( hitbox_comp[i], "aabb_min_x" )
-									hitbox_up = ComponentGetValue2( hitbox_comp[i], "aabb_min_y" )
-									hitbox_down = ComponentGetValue2( hitbox_comp[i], "aabb_max_y" )
-									hitbox_dmg_scale = ComponentGetValue2( hitbox_comp[i], "damage_multiplier" )
-								end
-								
-								for k = 0,amount do
-									local beam_part_x = barrel_x + delta_x*k
-									local beam_part_y = barrel_y + delta_y*k
-									
-									if(( beam_part_x <= e_x + hitbox_right ) and ( beam_part_x >= e_x + hitbox_left ) and ( beam_part_y <= e_y + hitbox_down ) and ( beam_part_y >= e_y + hitbox_up )) then
-										if( is_piercing ) then
-											hit_action( hooman, deadman, k, beam_part_x, beam_part_y, hitbox_dmg_scale )
-										else
-											return deadman, k
-										end
-									end
-								end
-							end
-						end
-					end
+		local gene_comp = EntityGetFirstComponentIncludingDisabled( deadman, "GenomeDataComponent" )
+		local is_ecological = pen.vld( gene_comp ) and pen.vld( data.shooter, true )
+		local is_hostile = is_ecological and EntityGetHerdRelation( deadman, data.shooter ) < 95
+		if( not( data.friendly_fire or is_hostile )) then return end
+
+		local default_size = data.hitbox_size or 5
+		local e_x, e_y = EntityGetTransform( deadman )
+		return pen.t.loop( EntityGetComponent( deadman, "HitboxComponent" ) or { -1 }, function( e, hitbox )
+			local hitbox_dmg = hitbox < 0 and 1 or ComponentGetValue2( hitbox, "damage_multiplier" )
+			local hitbox_pos = hitbox < 0 and { -default_size, default_size, -default_size, default_size } or {
+				ComponentGetValue2( hitbox, "aabb_min_x" ), ComponentGetValue2( hitbox, "aabb_max_x" ),
+				ComponentGetValue2( hitbox, "aabb_min_y" ), ComponentGetValue2( hitbox, "aabb_max_y" ),
+			}
+
+			for k = 0,amount do
+				local point_x, point_y = x + step_x*k, y + step_y*k
+				if( pen.check_bounds({ point_x, point_y }, hitbox_pos, { e_x, e_y })) then
+					if( data.will_stop ) then return { deadman, k, point_x, point_y, hitbox_dmg, true } end
+					hit_action( deadman, k, point_x, point_y, hitbox_dmg, k == amount )
 				end
 			end
-		end
-	end
+		end)
+	end)
 end
 
 function pen.get_spell( action_id ) --isolate globals
@@ -2259,7 +2223,7 @@ function pen.get_xy_matter_file()
 	end), 1, -2 )
 	return string.gsub( pen.FILE_XML_MATTER, "_MATTERLISTHERE_", full_list )
 end
-function pen.get_xy_matter( x, y, duration )
+function pen.get_xy_matter( x, y, duration ) --do this via pen.life_support
 	if( not( ModDoesFileExist( pen.FILE_MATTER ))) then
 		if( pen.magic_write and not( pen.c.matter_test_file )) then
 			pen.c.matter_test_file = true
@@ -2427,6 +2391,44 @@ function pen.gunshot( shot_func, eject_func )
 		local muzzle_x, muzzle_y = pen.get_hotspot_pos( gun_id, "shoot_pos" )
 		shot_func( muzzle_x, muzzle_y, r, s_x, s_y, gun_id, card_id, action ) end	
 	return gun_id, card_id, action
+end
+
+-- function pen.beamshot( data ) --this should be a part of gunshot (if ejector_func == true)
+-- 	data = data or {}
+-- 	data.shooter = data.shooter or EntityGetRootEntity( gun_id )
+
+-- 	--create and support lifetime of visual beam entity
+-- 	--visual beam is determined by the gun and the fuel
+-- 	--physical beam and shot effects are determined by the fuel alone
+
+-- 	local length = pen.magic_storage( gun_id, "beam_length", "value_float" )
+
+-- 	local x, y, r = EntityGetTransform( gun_id )
+-- 	local beam_x, beam_y = pen.get_hotspot_pos( gun_id, "shoot_pos" )
+-- 	pen.raytrace_entities( beam_x, beam_y, r, length, function( hit_id, k, hit_x, hit_y, dmg_mult, is_final )
+-- 		EntityInflictDamage( hit_id, data.dmg or 0.02, data.dmg_type or "DAMAGE_DRILL",
+-- 			data.dmg_msg or "slash", data.dmg_effect or "NORMAL", 0, 0, data.shooter, hit_x, hit_y, 0 )
+-- 		if( is_final ) then pen.life_support( entity_id, path, x, y ) end
+-- 	end, data )
+-- end
+
+function pen.bladeshot( sword_id, data )
+	data = data or {}
+	data.shooter = data.shooter or EntityGetRootEntity( sword_id )
+
+	--control momentum here through recoil and arm offset
+	--two modes: swing and simulated
+	--swing applies input momentum and the returns to rest pos
+	--simulated follows the pointer
+
+	local length = pen.magic_storage( sword_id, "blade_length", "value_float" )
+
+	local x, y, r = EntityGetTransform( sword_id )
+	local blade_x, blade_y = pen.get_hotspot_pos( sword_id, "shoot_pos" )
+	pen.raytrace_entities( blade_x, blade_y, r, length, function( hit_id, k, hit_x, hit_y, dmg_mult, is_final )
+		EntityInflictDamage( hit_id, data.dmg or 0.02, data.dmg_type or "DAMAGE_DRILL",
+			data.dmg_msg or "slash", data.dmg_effect or "NORMAL", 0, 0, data.shooter, hit_x, hit_y, 0 )
+	end, data )
 end
 
 function pen.magic_shooter( who_shot, path, x, y, v_x, v_y, do_it, proj_mods, custom_values )
@@ -2792,6 +2794,17 @@ function pen.rate_creature( entity_id, hooman, data )--hamis at 20m is 1
 	local main = f_distance*f_speed*f_vulner*f_hp
 	local final_value = f_php*0.5*( 0.08*( main - ( main > f_supremacy and f_supremacy or 0 )) + f_violence )
 	return pen.vld( final_value ) and final_value or 0
+end
+
+function pen.life_support( entity_id, path, x, y )
+	if( not( pen.vld( entity_id, true ))) then entity_id = EntityLoad( path, x, y ) end
+	local life_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "LifetimeComponent" )
+
+	if( not( pen.vld( life_comp ))) then
+		life_comp = EntityAddComponent2( entity_id, "LifetimeComponent", { lifetime = 2 }) end
+	ComponentSetValue2( life_comp, "kill_frame", GameGetFrameNum() + 2 )
+
+	return entity_id
 end
 
 function pen.magic_particles( x, y, r, data )

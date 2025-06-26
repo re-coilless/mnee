@@ -1789,9 +1789,15 @@ function pen.raytrace_entities( x, y, r, l, hit_action, data ) --compensate for 
 		diameter = math.sqrt(( d_x )^2 + ( d_y )^2 )
 	end
 
-	if( diameter == 0 ) then return end
 	local amount = math.ceil( diameter/( data.res or 2 ))
+	local out = { 0, x + d_x, y + d_y, 1, amount }
+	if( data.will_choke and diameter == 0 ) then return out end
+
 	local step_x, step_y = d_x/amount, d_y/amount
+	if( pen.vld( data.point_action )) then
+		for k = 0,amount do data.point_action( data, x + step_x*k, y + step_y*k, k, k == amount ) end
+	end
+
 	return pen.t.loop( pen.get_killable( x + d_x/2, y + d_y/2, diameter/2 + 32 ), function( i, deadman )
 		if( data.shooter == deadman ) then return end
 		
@@ -1800,7 +1806,7 @@ function pen.raytrace_entities( x, y, r, l, hit_action, data ) --compensate for 
 
 		local gene_comp = EntityGetFirstComponentIncludingDisabled( deadman, "GenomeDataComponent" )
 		local is_ecological = pen.vld( gene_comp ) and pen.vld( data.shooter, true )
-		local is_hostile = is_ecological and EntityGetHerdRelation( deadman, data.shooter ) < 95
+		local is_hostile = not( is_ecological ) or EntityGetHerdRelation( deadman, data.shooter ) < 95
 		if( not( data.friendly_fire or is_hostile )) then return end
 
 		local default_size = data.hitbox_size or 5
@@ -1815,12 +1821,12 @@ function pen.raytrace_entities( x, y, r, l, hit_action, data ) --compensate for 
 			for k = 0,amount do
 				local point_x, point_y = x + step_x*k, y + step_y*k
 				if( pen.check_bounds({ point_x, point_y }, hitbox_pos, { e_x, e_y })) then
-					if( data.will_stop ) then return { deadman, k, point_x, point_y, hitbox_dmg, true } end
-					hit_action( deadman, k, point_x, point_y, hitbox_dmg, k == amount )
+					if( data.will_stop ) then return { deadman, point_x, point_y, hitbox_dmg, k } end
+					hit_action( deadman, point_x, point_y, hitbox_dmg, k )
 				end
 			end
 		end)
-	end)
+	end) or out
 end
 
 function pen.get_spell( action_id ) --isolate globals
@@ -2305,6 +2311,50 @@ function pen.get_hotspot_pos( entity_id, tag )
 	return x + off_x, y + off_y, r
 end
 
+function pen.life_support( memo, id, path, x, y, r, s_x, s_y )
+	local entity_id = memo[ id ] or 0
+	if( not( EntityGetIsAlive( entity_id ))) then
+		entity_id = pen.vld( path ) and EntityLoad( path, x, y ) or EntityCreateNew( "loop" ) end
+	EntitySetTransform( entity_id, x, y, r or 0, s_x or 1, s_y or 1 )
+	memo[ id ] = entity_id
+	
+	local life_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "LifetimeComponent" )
+	if( not( pen.vld( life_comp ))) then
+		life_comp = EntityAddComponent2( entity_id, "LifetimeComponent", { lifetime = 2 }) end
+	ComponentSetValue2( life_comp, "kill_frame", GameGetFrameNum() + 2 )
+	
+	return entity_id
+end
+
+function pen.new_projectile( ids, action, path )
+	local hooman, arm_id, gun_id, card_id = unpack( ids )
+	if( pen.vld( path )) then return add_projectile( path ) end
+
+	local data = action.beam
+	data.shooter = hooman
+	data.card = card_id
+	data.gun = gun_id
+	
+	local x, y, r = EntityGetTransform( gun_id )
+	local beam_x, beam_y = pen.get_hotspot_pos( gun_id, "shoot_pos" )
+	local beam_path = pen.magic_storage( gun_id, "beam", "value_string" )
+	local length = pen.magic_storage( gun_id, "beam_length", "value_float" )
+	
+	pen.c.beam_ids = pen.c.beam_ids or {}
+	pen.child_play( pen.c.beam_ids[ gun_id ], function( parent, child, i )
+		pen.t.loop( EntityGetComponentIncludingDisabled( child, "LaserEmitterComponent" ), function( i, comp )
+			ComponentSetValue2( comp, "is_emitting", true )
+		end)
+	end)
+	
+	pen.life_support( pen.c.beam_ids, gun_id, beam_path, beam_x, beam_y, r )
+	pen.raytrace_entities( beam_x, beam_y, r, length, function( hit_id, k, hit_x, hit_y, dmg_mult )
+		if( pen.vld( data.f )) then data.f( hit_id, hit_x, hit_y ) end
+		EntityInflictDamage( hit_id, dmg_mult*( data.dmg or 0.02 ), data.dmg_type or "DAMAGE_MATERIAL",
+			data.dmg_msg or "beam", data.dmg_effect or "NORMAL", 0, 0, hooman, hit_x, hit_y, 0 )
+	end, data )
+end
+
 function pen.gunshot( shot_func, eject_func )
 	local card_id = gunshot_card_id or pen.get_card_id()
 	if( not( pen.vld( card_id, true ))) then return end
@@ -2313,7 +2363,8 @@ function pen.gunshot( shot_func, eject_func )
 
 	local frame_num = GameGetFrameNum()
 	local gun_id = gunshot_gun_id or EntityGetParent( card_id )
-	local arm_id = gunshot_arm_id or pen.get_child( EntityGetRootEntity( gun_id ), "arm_r" )
+	local hooman = gunshot_hooman_id or EntityGetRootEntity( gun_id )
+	local arm_id = gunshot_arm_id or pen.get_child( hooman, "arm_r" )
 	
 	--add clanking sound for the last 25% of shots from the mag (capped at 10 shots max and 1 shot min, is ignored for mags with less than 3 shots)
 	--play trigger click only once per empty mag, set "locked_and_unloaded" gun_id varstorage to true after that
@@ -2325,7 +2376,7 @@ function pen.gunshot( shot_func, eject_func )
 	local is_holding = ( frame_num - ( locked_frame or 0 )) < 3
 	local recoil = pen.magic_storage( gun_id, "recoil", "value_float" ) or 0
 	local bolt_delay = pen.magic_storage( gun_id, "cycling", "value_int" ) or 0
-	if( bolt_delay > 0 ) then
+	if( bolt_delay >= 0 ) then
 		is_holding = false
 		locked_frame = frame_num + bolt_delay
 	else locked_frame = frame_num - 1 end
@@ -2338,12 +2389,13 @@ function pen.gunshot( shot_func, eject_func )
 
 	local x, y, r, s_x, s_y = EntityGetTransform( gun_id )
 	local shot_x, shot_y = pen.get_hotspot_pos( gun_id, "shoot_pos" )
-	pen.play_sound({ action.sfx[1], action.sfx[2].."/shoot" }, shot_x, shot_y )
+	pen.play_sound({ action.sfx[1], action.sfx[2].."/shoot", action.sfx[3]}, shot_x, shot_y )
 
 	local count, heat = 0, 0
+	local ids = { hooman, arm_id, gun_id, card_id }
 	for i,v in ipairs( action.projectiles ) do
 		for e = 1,( v.c or 1 ) do
-			add_projectile( v.p )
+			pen.new_projectile( ids, action, v.p )
 			heat = heat + ( v.h or 0 )
 			count = count + ( v.s or 1 )
 			recoil = recoil + ( v.r or 0 )
@@ -2354,63 +2406,47 @@ function pen.gunshot( shot_func, eject_func )
 	if( max_heat > 0 ) then
 		local total_heat = pen.magic_storage( gun_id, "heat", "value_float", nil, true ) + heat
 		-- semi auto overheating penalty should be misfire
+		-- energy overheating penalty should be waiting until total heat drop to half of max
 		pen.magic_storage( gun_id, "heat", "value_float", total_heat )
 	end
 
-	local hooman = gunshot_hooman_id or EntityGetRootEntity( gun_id )
-	recoil = ( recoil^2 )/( 10*pen.get_mass( gun_id )) -- 1 unit of recoil is 4kg
-
 	local is_advanced = not( pen.magic_storage( hooman, "vector_no_handling", "value_bool" ))
+	recoil = ( recoil^2 )/( 10*pen.get_mass( gun_id )) -- 1 unit of recoil is 4kg
 	if( EntityHasTag( hooman, "vector_ctrl" ) and is_advanced ) then
 		local v = pen.magic_storage( gun_id, "recoil", "value_float", nil, true )
 		pen.magic_storage( gun_id, "recoil", "value_float", v + recoil )
 	else shot_effects.recoil_knockback = shot_effects.recoil_knockback + 3*recoil end
-	pen.magic_storage( card_id, "ammo", "value_int", ammo - 1 )
+	if( ammo > 0 ) then pen.magic_storage( card_id, "ammo", "value_int", ammo - 1 ) end
 	
-	local eject_force = 300
-	local eject_angle = r - pen.get_sign( s_y )*math.rad( 135 )
-	local eject_force_x = math.cos( eject_angle )*eject_force
-	local eject_force_y = math.sin( eject_angle )*eject_force
-	local eject_x, eject_y = pen.get_hotspot_pos( gun_id, "eject_pos" )
-	for i,v in ipairs( action.shells ) do
-		local v_x = eject_force_x - pen.get_sign( eject_force_x )*math.random( 50, 100 )
-		local v_y = eject_force_y + pen.get_sign( eject_force_y )*math.random( 10, 75 )
-		pen.magic_shooter( gun_id, v, eject_x, eject_y, v_x, v_y )
+	if( pen.vld( action.shells )) then
+		local eject_force = 300
+		local eject_angle = r - pen.get_sign( s_y )*math.rad( 135 )
+		local eject_force_x = math.cos( eject_angle )*eject_force
+		local eject_force_y = math.sin( eject_angle )*eject_force
+		local eject_x, eject_y = pen.get_hotspot_pos( gun_id, "eject_pos" )
+		for i,v in ipairs( action.shells ) do
+			local v_x = eject_force_x - pen.get_sign( eject_force_x )*math.random( 50, 100 )
+			local v_y = eject_force_y + pen.get_sign( eject_force_y )*math.random( 10, 75 )
+			pen.magic_shooter( gun_id, v, eject_x, eject_y, v_x, v_y )
+		end
 	end
 
-	--at high diversion angles, apply pattern-based angle redictection with phantom projectile (this will have to be done as the first spell in the wand)
-	local trans_comp = EntityGetFirstComponentIncludingDisabled( arm_id, "InheritTransformComponent" )
-	local rx, ry = ComponentGetValue2( trans_comp, "Transform" )
-	local abil_comp = EntityGetFirstComponentIncludingDisabled( gun_id, "AbilityComponent" )
-	local rr = ComponentGetValue2( abil_comp, "item_recoil_rotation_coeff" ) --tilt should be penalized with accuracy loss much more
-	c.spread_degrees = c.spread_degrees + math.abs( rx ) + math.abs( ry ) + math.abs( rr )
+	if( eject_func ~= true ) then
+		--at high diversion angles, apply pattern-based angle redictection with phantom projectile (this will have to be done as the first spell in the wand)
+		local trans_comp = EntityGetFirstComponentIncludingDisabled( arm_id, "InheritTransformComponent" )
+		local rx, ry = ComponentGetValue2( trans_comp, "Transform" )
+		local abil_comp = EntityGetFirstComponentIncludingDisabled( gun_id, "AbilityComponent" )
+		local rr = ComponentGetValue2( abil_comp, "item_recoil_rotation_coeff" ) --tilt should be penalized with accuracy loss much more
+		c.spread_degrees = c.spread_degrees + math.abs( rx ) + math.abs( ry ) + math.abs( rr )
+	end
 
-	if( pen.vld( eject_func )) then
+	if( eject_func ~= true and pen.vld( eject_func )) then
 		eject_func( eject_x, eject_y, eject_angle, s_x, s_y, gun_id, card_id, action ) end
 	if( pen.vld( shot_func )) then
 		local muzzle_x, muzzle_y = pen.get_hotspot_pos( gun_id, "shoot_pos" )
 		shot_func( muzzle_x, muzzle_y, r, s_x, s_y, gun_id, card_id, action ) end	
 	return gun_id, card_id, action
 end
-
--- function pen.beamshot( data ) --this should be a part of gunshot (if ejector_func == true)
--- 	data = data or {}
--- 	data.shooter = data.shooter or EntityGetRootEntity( gun_id )
-
--- 	--create and support lifetime of visual beam entity
--- 	--visual beam is determined by the gun and the fuel
--- 	--physical beam and shot effects are determined by the fuel alone
-
--- 	local length = pen.magic_storage( gun_id, "beam_length", "value_float" )
-
--- 	local x, y, r = EntityGetTransform( gun_id )
--- 	local beam_x, beam_y = pen.get_hotspot_pos( gun_id, "shoot_pos" )
--- 	pen.raytrace_entities( beam_x, beam_y, r, length, function( hit_id, k, hit_x, hit_y, dmg_mult, is_final )
--- 		EntityInflictDamage( hit_id, data.dmg or 0.02, data.dmg_type or "DAMAGE_DRILL",
--- 			data.dmg_msg or "slash", data.dmg_effect or "NORMAL", 0, 0, data.shooter, hit_x, hit_y, 0 )
--- 		if( is_final ) then pen.life_support( entity_id, path, x, y ) end
--- 	end, data )
--- end
 
 function pen.bladeshot( sword_id, data )
 	data = data or {}
@@ -2426,7 +2462,7 @@ function pen.bladeshot( sword_id, data )
 	local x, y, r = EntityGetTransform( sword_id )
 	local blade_x, blade_y = pen.get_hotspot_pos( sword_id, "shoot_pos" )
 	pen.raytrace_entities( blade_x, blade_y, r, length, function( hit_id, k, hit_x, hit_y, dmg_mult, is_final )
-		EntityInflictDamage( hit_id, data.dmg or 0.02, data.dmg_type or "DAMAGE_DRILL",
+		EntityInflictDamage( hit_id, dmg_mult*( data.dmg or 0.02 ), data.dmg_type or "DAMAGE_DRILL",
 			data.dmg_msg or "slash", data.dmg_effect or "NORMAL", 0, 0, data.shooter, hit_x, hit_y, 0 )
 	end, data )
 end
@@ -2794,17 +2830,6 @@ function pen.rate_creature( entity_id, hooman, data )--hamis at 20m is 1
 	local main = f_distance*f_speed*f_vulner*f_hp
 	local final_value = f_php*0.5*( 0.08*( main - ( main > f_supremacy and f_supremacy or 0 )) + f_violence )
 	return pen.vld( final_value ) and final_value or 0
-end
-
-function pen.life_support( entity_id, path, x, y )
-	if( not( pen.vld( entity_id, true ))) then entity_id = EntityLoad( path, x, y ) end
-	local life_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "LifetimeComponent" )
-
-	if( not( pen.vld( life_comp ))) then
-		life_comp = EntityAddComponent2( entity_id, "LifetimeComponent", { lifetime = 2 }) end
-	ComponentSetValue2( life_comp, "kill_frame", GameGetFrameNum() + 2 )
-
-	return entity_id
 end
 
 function pen.magic_particles( x, y, r, data )
@@ -3200,7 +3225,21 @@ function pen.play_sound( sfx, x, y, no_bullshit )
 	end
 	
 	if( x == nil ) then x, y = GameGetCameraPos() end
-	GamePlaySound( sfx[1], sfx[2], x, y )
+	
+	if( sfx[3]) then
+		local lid = sfx[1]..sfx[2]
+		pen.c.looped_sfxes = pen.c.looped_sfxes or {}
+		local is_new = EntityGetIsAlive( pen.c.looped_sfxes[ lid ] or 0 )
+		local loop_id = pen.life_support( pen.c.looped_sfxes, lid, nil, x, y )
+		if( is_new ) then
+			EntityAddComponent2( loop_id, "AudioLoopComponent", {
+				_tags = "loop",
+				file = sfx[1], event_name = sfx[2],
+				volume_autofade_speed = tonumber( sfx[3]) or 0.25,
+			})
+		end
+		GameEntityPlaySoundLoop( pen.c.looped_sfxes[ lid ], "loop", 1.0 )
+	else GamePlaySound( sfx[1], sfx[2], x, y ) end
 end
 
 function pen.play_entity_sound( entity_id, x, y, event_mutator, no_bullshit )

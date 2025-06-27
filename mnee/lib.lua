@@ -1,4 +1,6 @@
-dofile_once( "mods/mnee/_penman.lua" )
+if( ModIsEnabled( "penman" )) then
+	dofile_once( "mods/penman/_penman.lua" )
+else dofile_once( "mods/mnee/_penman.lua" ) end
 
 mnee = mnee or {}
 mnee.G = mnee.G or {}

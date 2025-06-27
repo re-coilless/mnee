@@ -217,9 +217,11 @@ function pen.estimate( eid, target, alg, min_delta, max_delta ) --thanks Nathan
 	pen.c.estimator_memo[ eid ] = pen.c.estimator_memo[ eid ] or target[2] or target[1]
 	
 	local value = pen.c.estimator_memo[ eid ]
-	if( pen.eps_compare( value, target[1], min_delta )) then return target[1] end
-	local delta = pen.ESTIM_ALGS[ string.sub( alg, 1, 3 )]( target[1], value, tonumber( string.sub( alg, 4, -1 )))
-	pen.c.estimator_memo[ eid ] = value + pen.limiter( pen.limiter( delta, max_delta or delta ), min_delta, true )
+	if( not( pen.eps_compare( value, target[1], 1.05*min_delta ))) then
+		local delta = pen.ESTIM_ALGS[ string.sub( alg, 1, 3 )]( target[1], value, tonumber( string.sub( alg, 4, -1 )))
+		max_delta = math.min( math.abs( max_delta or delta ), math.abs( target[1] - value ))
+		pen.c.estimator_memo[ eid ] = value + pen.limiter( pen.limiter( delta, max_delta ), min_delta, true )
+	else pen.c.estimator_memo[ eid ] = target[1] end
 	return pen.c.estimator_memo[ eid ]
 end
 
@@ -1778,7 +1780,7 @@ function pen.get_creature_dimensions( entity_id, is_simple ) --this should work 
 	return borders
 end
 
-function pen.raytrace_entities( x, y, r, l, hit_action, data ) --compensate for loss of accuracy due to rotation
+function pen.raytrace_entities( x, y, r, l, hit_action, data )
 	data = data or {}
 
 	local diameter = l
@@ -1797,6 +1799,17 @@ function pen.raytrace_entities( x, y, r, l, hit_action, data ) --compensate for 
 	if( pen.vld( data.point_action )) then
 		for k = 0,amount do data.point_action( data, x + step_x*k, y + step_y*k, k, k == amount ) end
 	end
+	if( data.is_debugging ) then
+		for k = 0,amount do
+			local pic_x, pic_y = pen.world2gui( x + step_x*k, y + step_y*k )
+			pen.new_pixel( pic_x - 0.5, pic_y - 0.5, pen.LAYERS.WORLD_BACK )
+		end
+	end
+
+	--compensate for loss of accuracy due to rotation
+	--check y delta from previous frame
+	--do this per-dot and if delta is over the res step, add missing dots to the hit checker
+	--extra dots should be on-hit only one per k by default
 
 	return pen.t.loop( pen.get_killable( x + d_x/2, y + d_y/2, diameter/2 + 32 ), function( i, deadman )
 		if( data.shooter == deadman ) then return end
@@ -2293,7 +2306,7 @@ function pen.get_color_matter( matter )
 end
 
 function pen.debug_dot( x, y, frames )
-	GameCreateSpriteForXFrames( "data/ui_gfx/debug_marker.png", x, y, true, 0, 0, frames or 1, true )
+	GameCreateSpriteForXFrames( pen.FILE_PIC_NUL, x, y, true, 0, 0, frames or 1, true )
 end
 
 function pen.lag_me( frame_time )
@@ -2448,23 +2461,77 @@ function pen.gunshot( shot_func, eject_func )
 	return gun_id, card_id, action
 end
 
-function pen.bladeshot( sword_id, data )
+function pen.bladesim( sword_id, data )
 	data = data or {}
+	data.sword = sword_id
+	data.drift = data.drift or {}
 	data.shooter = data.shooter or EntityGetRootEntity( sword_id )
 
-	--control momentum here through recoil and arm offset
-	--two modes: swing and simulated
-	--swing applies input momentum and the returns to rest pos
-	--simulated follows the pointer
+	pen.c.sword_state = pen.c.sword_state or {}
+	pen.c.sword_state[ sword_id ] = pen.c.sword_state[ sword_id ] or {}
 
-	local length = pen.magic_storage( sword_id, "blade_length", "value_float" )
+	local x, y, r, ss_x, ss_y = EntityGetTransform( sword_id )
+	local _, _, _, s_x, s_y = EntityGetTransform( data.shooter )
+	local rest_pos = pen.t.pack( pen.magic_storage( sword_id, "rest_position", "value_string" ))
+	local eid_r, eid_x, eid_y = sword_id.."r", sword_id.."x", sword_id.."y"
 
-	local x, y, r = EntityGetTransform( sword_id )
-	local blade_x, blade_y = pen.get_hotspot_pos( sword_id, "shoot_pos" )
-	pen.raytrace_entities( blade_x, blade_y, r, length, function( hit_id, k, hit_x, hit_y, dmg_mult, is_final )
-		EntityInflictDamage( hit_id, dmg_mult*( data.dmg or 0.02 ), data.dmg_type or "DAMAGE_DRILL",
-			data.dmg_msg or "slash", data.dmg_effect or "NORMAL", 0, 0, data.shooter, hit_x, hit_y, 0 )
-	end, data )
+	local sword_mass = pen.get_mass( sword_id )
+	local strength = pen.get_strength( data.shooter )
+	local handling_aim = math.min( 1/( 0.75 + pen.get_ratio( sword_mass, strength )), 1 )
+	local hand_speed = math.max( math.floor( 15*( handling_aim^3 )), 3 )
+	local arm_speed = math.max( math.floor( 8*handling_aim ), 3 )
+
+	local aim = 0
+	local got_anim = pen.vld( data.drift )
+	pen.c.estimator_memo = pen.c.estimator_memo or {}
+	if( got_anim ) then aim = r - ( s_x < 0 and pen.get_sign( r )*math.rad( 180 ) or 0 ) end
+	
+	local t_r = aim + math.rad( rest_pos[1])
+	pen.c.estimator_memo[ eid_r ] = pen.c.estimator_memo[ eid_r ] or t_r
+	local t_x = pen.get_sign( s_x )*rest_pos[2]
+	pen.c.estimator_memo[ eid_x ] = pen.c.estimator_memo[ eid_x ] or t_x
+	local t_y = pen.get_sign( s_y )*rest_pos[3]
+	pen.c.estimator_memo[ eid_y ] = pen.c.estimator_memo[ eid_y ] or t_y
+	
+	local anim_done = false
+	local d_r, d_x, d_y = 0, 0, 0
+	local alg, mult = data.a or "wgt2", data.m or 1
+	if( got_anim ) then
+		local k = pen.c.sword_state[ sword_id ].k or 1
+		local anim = data.drift[1] == nil and { data.drift } or data.drift
+		alg, mult = anim[k].a or "ixp", anim[k].m or 1
+		
+		d_r = pen.get_sign( s_x )*math.rad( anim[k].r or 0 )
+		local got_r = pen.eps_compare( pen.c.estimator_memo[ eid_r ], t_r + d_r, math.rad( 3 ))
+		d_x = pen.get_sign( s_x )*( anim[k].x or 0 )
+		local got_x = pen.eps_compare( pen.c.estimator_memo[ eid_x ], t_x + d_x, 0.1 )
+		d_y = pen.get_sign( s_y )*( anim[k].y or 0 )
+		local got_y = pen.eps_compare( pen.c.estimator_memo[ eid_y ], t_y + d_y, 0.1 )
+		
+		if( got_r and got_x and got_y ) then
+			pen.c.sword_state[ sword_id ].k, anim_done = math.min( k + 1, #anim ), true end
+	else pen.c.sword_state[ sword_id ].k = 1 end
+
+	d_r = pen.estimate( eid_r, t_r + d_r, alg, 0.1, 1*mult )
+	d_x = pen.estimate( eid_x, t_x + d_x, alg, 0.01, 2*mult )
+	d_y = pen.estimate( eid_y, t_y + d_y, alg, 0.01, 2*mult )
+	EntitySetTransform( sword_id, x + d_x, y + d_y, d_r )
+	
+	--apply momentum directly from the mouse delta and try to aim for the mouse only when the delta is below a threshold
+	--simulated mode
+
+	if( data.active ) then
+		local blade_x, blade_y = pen.get_hotspot_pos( sword_id, "shoot_pos" )
+		local length = pen.magic_storage( sword_id, "blade_length", "value_float" )
+		local hit_action = function( hit_id, k, hit_x, hit_y, dmg_mult, is_final )
+			EntityInflictDamage( hit_id, dmg_mult*( data.dmg or 0.02 ), data.dmg_type or "DAMAGE_DRILL",
+				data.dmg_msg or "slash", data.dmg_effect or "NORMAL", 0, 0, data.shooter, hit_x, hit_y, 0 )
+		end
+		
+		pen.raytrace_entities( blade_x, blade_y, d_r, length, hit_action, data )
+	end
+
+	return anim_done
 end
 
 function pen.magic_shooter( who_shot, path, x, y, v_x, v_y, do_it, proj_mods, custom_values )
@@ -4695,22 +4762,22 @@ pen.ESTIM_ALGS = { --huge thanks to Nathan
 	exp = function( t, v, p )
 		return ( t - v )/( p or 10 )
 	end,
+	ixp = function( t, v, p )
+		return math.tanh(( p or 5 )*( t - v ))*math.pow( math.abs( t - v ), 0.5 )
+	end,
 	hmd = function( t, v, p )
 		return (( p or 2 )*v*t )/( t + v ) - v
 	end,
 	gmp = function( t, v, p ) --only for t,v > 0
 		return math.pow( t*v, 1/( p or 2 )) - v
 	end,
-	wgt = function( t, v, p )
-		local w = p or 1.5
-		return ( v + w*t )/( 1 + w ) - v
-	end,
 	lsm = function( t, v, p ) --only for relatively similar values
 		v = math.max( v, 0.001 )
 		return ( p or 0.1 )*v*( 1 - v/math.max( t, 0.001 ))
 	end,
-	srt = function( t, v, p )
-		return pen.get_sign( t - v )*math.pow( math.abs( t - v ), 1/( p or 1.5 ))
+	wgt = function( t, v, p )
+		local w = p or 1.5
+		return ( v + w*t )/( 1 + w ) - v
 	end,
 }
 

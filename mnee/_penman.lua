@@ -1751,6 +1751,7 @@ function pen.get_creature_head( entity_id )
 	return x, y
 end
 
+--change this to get_dimensions that works for everything
 function pen.get_creature_dimensions( entity_id, is_simple ) --this should work with phys bodies
 	local borders = { min_x = 0, max_x = 0, min_y = 0, max_y = 0 }
 	local char_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "CharacterDataComponent" )
@@ -1927,8 +1928,25 @@ function pen.get_spell_data( spell_id )
 		local spell_data = pen.t.clone( pen.t.get( actions, spell_id, nil, nil, {}), nil )
 		if( spell_data.action == nil ) then return spell_data end
 		
+		-- thanks Lamia
+		-- local functions_to_shadow = {
+		-- 	"EndProjectile",
+		-- 	"StartReload",
+		-- 	"RegisterGunAction",
+		-- 	"SetProjectileConfigs",
+		-- 	"EndTrigger",
+		-- 	"OnActionPlayed",
+		-- 	"GameScreenshake",
+		-- 	"GamePlaySound",
+		-- 	"GamePrint",
+		-- 	"GamePrintImportant",
+		-- 	"GlobalsSetValue",
+		-- }
+
 		local real_GetUpdatedEntityID = GetUpdatedEntityID
 		GetUpdatedEntityID = function() return -1 end
+		local real_EntityLoad = EntityLoad
+		EntityLoad = function() return -1 end
 
 		draw_actions_old = draw_actions
 		draw_actions = function( draw_count ) c.draw_many = c.draw_many + draw_count end
@@ -2110,6 +2128,7 @@ function pen.get_spell_data( spell_id )
 		add_projectile_trigger_hit_world = add_projectile_trigger_hit_world_old
 		add_projectile_trigger_death = add_projectile_trigger_death_old
 		GetUpdatedEntityID = real_GetUpdatedEntityID
+		EntityLoad = real_EntityLoad
 		clean_my_gun()
 
 		spell_data.meta = pen.t.clone( metadata )
@@ -4763,7 +4782,7 @@ pen.ESTIM_ALGS = { --huge thanks to Nathan
 		return ( t - v )/( p or 10 )
 	end,
 	ixp = function( t, v, p )
-		return math.tanh(( p or 5 )*( t - v ))*math.pow( math.abs( t - v ), 0.5 )
+		return math.tanh(( p or 10 )*( t - v ))
 	end,
 	hmd = function( t, v, p )
 		return (( p or 2 )*v*t )/( t + v ) - v

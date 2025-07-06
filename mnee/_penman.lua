@@ -337,7 +337,7 @@ end
 
 function pen.t.loop( tbl, func, return_tbl )
 	if( not( pen.vld( tbl ))) then return end
-
+	
 	local sorter = false
 	local is_unarray = pen.t.is_unarray( tbl )
 	if( type( tbl ) == "function" ) then
@@ -345,6 +345,8 @@ function pen.t.loop( tbl, func, return_tbl )
 			local value = func( i, v )
 			if( value ~= nil ) then return value end
 		end
+		
+		return
 	elseif( type( tbl ) ~= "table" ) then return func( 0, tbl ) end
 
 	for i,v in ( is_unarray and pairs or ipairs )( tbl ) do

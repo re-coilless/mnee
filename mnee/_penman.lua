@@ -337,7 +337,7 @@ end
 
 function pen.t.loop( tbl, func, return_tbl )
 	if( not( pen.vld( tbl ))) then return end
-	
+
 	local sorter = false
 	local is_unarray = pen.t.is_unarray( tbl )
 	if( type( tbl ) == "function" ) then
@@ -4394,7 +4394,7 @@ function pen.new_pager( pic_x, pic_y, pic_z, data )
 		end
 	end
 
-	return data.page, sfx_type
+	return data.page, max_page, sfx_type
 end
 
 function pen.new_plot( pic_x, pic_y, pic_z, data )

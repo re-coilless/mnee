@@ -677,11 +677,8 @@ function mnee.new_pager( pic_x, pic_y, pic_z, data )
 	pen.new_image( t_x, t_y, pic_z, "mods/mnee/files/pics/button_21_B.png", { can_click = true })
 	if( data.compact_mode ) then mnee.new_tooltip( GameTextGet( "$mnee_this_profile" ).."." ) end
 	
-	local text = data.page
-	if( data.profile_mode ) then text = text - 1; text = string.char(( text < 1 and -29 or text ) + 64 ) end
-	pen.new_text( t_x + 2, t_y, pic_z - 0.01, text, { color = pen.PALETTE.PRSP.BLUE })
-	
-	data.page, sfx_type = pen.new_pager( pic_x, pic_y, pic_z, {
+	local max_page = 0
+	data.page, max_page, sfx_type = pen.new_pager( pic_x, pic_y, pic_z, {
 		func = data.func, order_func = data.order_func,
 		list = data.list, page = data.page, items_per_page = data.items_per_page,
 		click = { clicked[1] and 1 or ( r_clicked[1] and -1 or 0 ), clicked[2] and 1 or ( r_clicked[2] and -1 or 0 )}
@@ -691,6 +688,13 @@ function mnee.new_pager( pic_x, pic_y, pic_z, data )
 	elseif( sfx_type == -1 ) then
 		mnee.play_sound( "switch_page" )
 	end
+
+	if( max_page > 1 ) then
+		local text = data.page..( max_page < 10 and "/"..max_page or "" )
+		if( data.profile_mode ) then text = data.page - 1; text = string.char(( text < 1 and -29 or text ) + 64 ) end
+		pen.new_text( t_x + 2, t_y, pic_z - 0.01, text, { color = pen.PALETTE.PRSP.BLUE })
+	end
+	
 	return data.page
 end
 
@@ -977,6 +981,7 @@ mnee.G_EXE = "MNEE_EXE"
 mnee.G_JPADS = "MNEE_JPADS"
 mnee.G_DISARMER = "MNEE_DISARMER"
 mnee.G_AXES_MEMO = "MNEE_AXES_MEMO"
+mnee.G_FORCED = "MNEE_FORCED_SCROLLER"
 
 mnee.SPECIAL_KEYS = pen.t.unarray({
 	"left_shift", "right_shift",

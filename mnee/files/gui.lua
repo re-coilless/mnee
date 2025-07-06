@@ -37,7 +37,7 @@ if( not( gonna_rebind )) then
         highlight = pen.PALETTE.PRSP[ mnee.G.show_alt and "PURPLE" or "WHITE" ]})
     if( clicked ) then mnee.G.show_alt = not( mnee.G.show_alt ); mnee.play_sound( "button_special" ) end
     
-    if( pen.setting_get( "mnee.FRONTEND" ) == 1 or GlobalsGetValue( "MNEE_FORCED_SCROLLER", "0" ) == "1" ) then
+    if( pen.setting_get( "mnee.FRONTEND" ) == 1 or GlobalsGetValue( mnee.G_FORCED, "0" ) == "1" ) then
         pen.new_pixel( pic_x + 132, pic_y + 10, pic_z, pen.PALETTE.PRSP.BLUE, 3, 1 )
         pen.new_pixel( pic_x + 132, pic_y + 109, pic_z, pen.PALETTE.PRSP.BLUE, 3, 1 )
         pen.new_pixel( pic_x + 133, pic_y + 10, pic_z - 0.05, pen.PALETTE.PRSP.PURPLE, 1, 100 )

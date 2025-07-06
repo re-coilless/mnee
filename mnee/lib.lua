@@ -1,5 +1,5 @@
 if( ModIsEnabled( "penman" )) then
-	dofile_once( "mods/penman/_penman.lua" )
+	dofile_once( "mods/penman/_libman.lua" )
 else dofile_once( "mods/mnee/_penman.lua" ) end
 
 mnee = mnee or {}
@@ -613,7 +613,13 @@ function mnee.new_button( pic_x, pic_y, pic_z, pic, data )
 		return pic_x, pic_y, pic_z, pic, d
 	end
 	data.hov_event = data.hov_event or function( pic_x, pic_y, pic_z, pic, d )
-		if( pen.vld( d.tip )) then mnee.new_tooltip( d.tip, { is_active = true }) end
+		if( pen.vld( d.tip )) then
+			if( pen.vld( pen.c.cutter_dims )) then
+				pen.uncutter( function( cut_x, cut_y, cut_w, cut_h )
+					return mnee.new_tooltip( d.tip, { is_active = true })
+				end)
+			else mnee.new_tooltip( d.tip, { is_active = true }) end
+		end
 		if( d.highlight ) then pen.new_pixel(
 			pic_x - 1, pic_y - 1, pic_z + 0.001, d.highlight,
 			( d.s_x or 1 )*d.dims[1] + 2, ( d.s_y or 1 )*d.dims[2] + 2 ) end

@@ -109,7 +109,7 @@ function pen.get_sign( a )
 end
 
 function pen.eps_compare( a, b, eps )
-	return math.abs( a - ( b or 0 )) < ( eps or 0.00001 )
+	return math.abs( a - ( b or 0 )) < ( eps or 0.001 )
 end
 
 function pen.get_ratio( v, total )
@@ -337,9 +337,16 @@ end
 
 function pen.t.loop( tbl, func, return_tbl )
 	if( not( pen.vld( tbl ))) then return end
-	if( type( tbl ) ~= "table" ) then return func( 0, tbl ) end
 
+	local sorter = false
 	local is_unarray = pen.t.is_unarray( tbl )
+	if( type( tbl ) == "function" ) then
+		for i,v in tbl do
+			local value = func( i, v )
+			if( value ~= nil ) then return value end
+		end
+	elseif( type( tbl ) ~= "table" ) then return func( 0, tbl ) end
+
 	for i,v in ( is_unarray and pairs or ipairs )( tbl ) do
 		local value = func( i, v )
 		if( value ~= nil ) then return value end
@@ -398,7 +405,7 @@ function pen.t.bins( tbl, value )
 end
 
 function pen.t.is_unarray( tbl )
-	return pen.t.count( tbl ) ~= #tbl
+	return type( tbl ) == "table" and pen.t.count( tbl ) ~= #tbl
 end
 
 function pen.t.unarray( tbl, dft )
@@ -1783,6 +1790,8 @@ end
 
 function pen.raytrace_entities( x, y, r, l, hit_action, data )
 	data = data or {}
+	--if data.uid is provided, do corrections
+	--compile a table of all baseline points, then interpolate from last memorized pos (angle interpolation should be such that the max step delta at furthest point is not higher than a res value) and add every point that has d_x or d_y to the previous k point higher than res value
 
 	local diameter = l
 	local d_x, d_y = math.cos( r )*l, math.sin( r )*l
@@ -2209,7 +2218,7 @@ end
 
 function pen.get_mass( entity_id )
 	local mass = 0
-	local shape_comp = EntityGetFirstComponent( entity_id, "PhysicsImageShapeComponent" )
+	local shape_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "PhysicsImageShapeComponent" )
 	local char_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "CharacterDataComponent" )
 	local vel_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "VelocityComponent" )
 	if( pen.vld( shape_comp, true )) then
@@ -2218,7 +2227,7 @@ function pen.get_mass( entity_id )
 		local drift_y = ComponentGetValue2( shape_comp, "offset_y" )
 		x, y = x - drift_x, y - drift_y; drift_x, drift_y = 1.5*drift_x, 1.5*drift_y
 		PhysicsApplyForceOnArea( function( entity, body_mass, body_x, body_y, body_vel_x, body_vel_y, body_vel_angular )
-			if( math.abs( x - body_x ) < 0.001 and math.abs( y - body_y ) < 0.001 ) then mass = body_mass end
+			if( pen.eps_compare( x, body_x ) and pen.eps_compare( y - body_y )) then mass = body_mass end
 			return body_x, body_y, 0, 0, 0
 		end, nil, x - drift_x, y - drift_y, x + drift_x, y + drift_y )
 	elseif( pen.vld( char_comp, true )) then
@@ -3608,7 +3617,7 @@ function pen.new_interface( pic_x, pic_y, s_x, s_y, pic_z, data )
 
 			local down_toggle = GameHasFlagRun( pen.FLAG_INTERFACE_TOGGLE )
 			if( not( down_toggle ) or is_figuring or not( is_new )) then clicked, r_clicked = false, false end
-			if( is_figuring and frame_num - update_frame > 1 and pen.eps_compare( pic_z, top_z, 0.001 )) then
+			if( is_figuring and frame_num - update_frame > 1 and pen.eps_compare( pic_z, top_z )) then
 				clicked, r_clicked = interface_memo.lc, interface_memo.rc
 				GlobalsSetValue( pen.GLOBAL_INTERFACE_Z, "nope" )
 				GameRemoveFlagRun( pen.FLAG_INTERFACE_TOGGLE )
@@ -3695,7 +3704,7 @@ function pen.new_image( pic_x, pic_y, pic_z, pic, data )
 		GuiZSetForNextWidget( gui, pic_z + 0.001 )
 		GuiOptionsAddForNextWidget( gui, 2 ) --NonInteractive
 		GuiImage( gui, uid, pic_x - 0.5, pic_y - 0.5, pic,
-			0.5*( data.alpha or 1 ), ss_x, ss_y, data.angle or 0, data.anim_type or 2, data.anim or "" )
+			math.max( 0.1*( data.alpha or 1 ), 0.05 ), ss_x, ss_y, data.angle or 0, data.anim_type or 2, data.anim or "" )
 	end
 
 	if( not( data.can_click )) then return end
@@ -3861,7 +3870,7 @@ function pen.new_scroller( sid, pic_x, pic_y, pic_z, size_x, size_y, func, data 
 			pen.PALETTE.VNL.NINE_MAIN_DARK, pen.PALETTE.VNL.NINE_ACCENT_DARK,
 			pen.PALETTE.VNL.NINE_MAIN, pen.PALETTE.VNL.NINE_ACCENT,
 			pen.PALETTE.VNL.NINE_MAIN_DARK, pen.PALETTE.VNL.NINE_ACCENT_DARK,
-			{0,0,0,0.83}
+			{ 0, 0, 0, 0.83 }
 		}
 		color[14] = color[14] or color[13]
 
@@ -3989,7 +3998,7 @@ function pen.new_text( pic_x, pic_y, pic_z, text, data )
 		GuiText( gui, pic_x, pic_y, txt, scale, font, is_pixel )
 		if( not( has_shadow )) then return end
 		GuiZSetForNextWidget( gui, pic_z + 0.001 )
-		pen.colourer( gui, pen.PALETTE.SHADOW, 0.5*alpha )
+		pen.colourer( gui, pen.PALETTE.SHADOW, math.max( 0.1*alpha, 0.05 ))
 		GuiText( gui, pic_x + scale/2, pic_y + scale/2, txt, scale, font, is_pixel )
 	end
 	

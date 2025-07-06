@@ -37,151 +37,279 @@ if( not( gonna_rebind )) then
         highlight = pen.PALETTE.PRSP[ mnee.G.show_alt and "PURPLE" or "WHITE" ]})
     if( clicked ) then mnee.G.show_alt = not( mnee.G.show_alt ); mnee.play_sound( "button_special" ) end
     
-    mnee.G.mod_page = mnee.new_pager( pic_x + 2, pic_y, pic_z, {
-        auid = "mod",
-        list = _BINDINGS, items_per_page = 8, page = mnee.G.mod_page,
-        func = function( x, y, z, i,v,k, is_hidden )
-            local is_fancy = _MNEEDATA[i] ~= nil
-            if( is_fancy and pen.get_hybrid_function( _MNEEDATA[i].is_hidden, { i, mnee.G.jpad_maps })) then
-                return true
-            elseif( is_hidden ) then return false end
-            
-            local t_x, t_y = x, y + k*11
-            local is_current = mnee.G.current_mod == i
-            local name = pen.magic_translate( is_fancy and _MNEEDATA[i].name or i )
-            clicked = mnee.new_button( t_x, t_y, pic_z,
-                "mods/mnee/files/pics/button_43_"..( is_current and "B" or "A" )..".png", {
-                auid = table.concat({ "mod_", name }),
-                tip = name..( is_current and (( is_fancy and _MNEEDATA[i].desc ~= nil ) and " @ "..pen.magic_translate( _MNEEDATA[i].desc ) or "" ) or " @ "..GameTextGet( "$mnee_lmb_keys" ))})
-            pen.new_text( t_x + 43/2, t_y, pic_z - 0.01, name, {
-                dims = {39,0}, is_centered_x = true, color = pen.PALETTE.PRSP[ is_current and "RED" or "WHITE" ]})
-            if( clicked ) then mnee.G.binding_page, mnee.G.current_mod = 1, i; mnee.play_sound( "button_special" ) end
+    if( pen.setting_get( "mnee.FRONTEND" ) == 1 or GlobalsGetValue( "MNEE_FORCED_SCROLLER", "0" ) == "1" ) then
+        pen.new_pixel( pic_x + 132, pic_y + 10, pic_z, pen.PALETTE.PRSP.BLUE, 3, 1 )
+        pen.new_pixel( pic_x + 132, pic_y + 109, pic_z, pen.PALETTE.PRSP.BLUE, 3, 1 )
+        pen.new_pixel( pic_x + 133, pic_y + 10, pic_z - 0.05, pen.PALETTE.PRSP.PURPLE, 1, 100 )
 
-            return c
-        end,
-    })
-    
-    local meta = {}
-    if( _MNEEDATA[ mnee.G.current_mod ] ~= nil ) then
-        meta.func = _MNEEDATA[ mnee.G.current_mod ].func
-        meta.is_advanced = _MNEEDATA[ mnee.G.current_mod ].is_advanced or false
-        meta.is_locked = pen.get_hybrid_function(
-            _MNEEDATA[ mnee.G.current_mod ].is_locked, { mnee.G.current_mod, mnee.G.jpad_maps }) or false
-    end
-    
-    if( meta.func ~= nil ) then
-        local result = pen.catch( meta.func, { t_x, t_y, pic_z, {
-            ks = KEYS,
-            k_type = key_type,
-        }}) or false
-        if( result ) then
-            mnee.G.current_binding = result.set_bind
-            mnee.G.doing_axis = result.will_axis
-            mnee.G.btn_axis_mode = result.btn_axis
-            mnee.G.advanced_mode = result.set_advanced
-        end
+        pen.catch( pen.new_scroller, { "mnee", pic_x + 1, pic_y + 10, pic_z + 0.03, 131, 100, function( scroll_pos )
+			local cnt, height, accum = 0, 0, 0
+			pen.t.loop( pen.t.order( _BINDINGS ), function( i, m )
+                cnt = cnt + 1
+                
+                local is_fancy = _MNEEDATA[i] ~= nil
+                if( is_fancy and pen.get_hybrid_function( _MNEEDATA[i].is_hidden, { i, mnee.G.jpad_maps })) then
+                    accum = accum + 1; return end
+                
+                local pos_y = 1 + scroll_pos + 11*( cnt - ( 1 + accum ))
+                local name = pen.magic_translate( is_fancy and _MNEEDATA[i].name or i )
+                
+                pen.new_pixel( 1, pos_y + 3, pic_z + 0.01, pen.PALETTE.PRSP.PURPLE, 129, 2 )
+                pen.new_pixel( 1, pos_y + 6, pic_z + 0.01, pen.PALETTE.PRSP.PURPLE, 129, 2 )
+                local dims = pen.new_text( 131/2, pos_y, pic_z - 0.01, name, {
+                    aggressive = true, dims = {130,0}, is_centered_x = true, color = pen.PALETTE.PRSP.BLUE })
+                pen.new_pixel(( 131 - dims[1])/2 - 2, pos_y, pic_z, pen.PALETTE.PRSP.WHITE, dims[1] + 3, dims[2])
+                
+                -- name..(( is_fancy and _MNEEDATA[i].desc ~= nil ) and " @ "..pen.magic_translate( _MNEEDATA[i].desc ) or "" )
+                -- pressing the title should hide the list
+                
+                local meta = {}
+                if( is_fancy ) then
+                    meta.func = _MNEEDATA[i].func
+                    meta.is_advanced = _MNEEDATA[i].is_advanced
+                    meta.is_locked = pen.get_hybrid_function( _MNEEDATA[i].is_locked, { i, mnee.G.jpad_maps })
+                end
+                
+                if( meta.func ~= nil ) then
+                    local result = pen.catch( meta.func, { t_x, t_y, pic_z, { ks = KEYS, k_type = key_type }}) or {}
+                    if( result.set_bind ~= nil ) then
+                        mnee.G.current_mod = i
+                        mnee.G.current_binding = result.set_bind
+                        mnee.G.doing_axis = result.will_axis
+                        mnee.G.btn_axis_mode = result.btn_axis
+                        mnee.G.advanced_mode = result.set_advanced
+                    end
+                    height = height + ( result.height or 0 )
+                else
+                    pen.t.loop( pen.t.order( m ), function( e, b )
+                        cnt = cnt + 1
+
+                        if( pen.get_hybrid_function( b.is_hidden, {{ i, e }, mnee.G.jpad_maps })) then
+                            accum = accum + 1; return end
+                        pos_y = 1 + scroll_pos + 11*( cnt - ( 1 + accum ))
+                        if( pos_y < -10 or pos_y > 130 ) then height = height + 11; return end
+                        
+                        local is_static = b.is_locked
+                        if( is_static == nil ) then
+                            is_static = meta.is_locked or false
+                        else is_static = pen.get_hybrid_function( is_static, {{ i, e }, mnee.G.jpad_maps }) end
+                        local is_axis = b.axes ~= nil or mnee.get_pbd( KEYS[i][e])[ key_type ][1] == "is_axis"
+                        
+                        local name = pen.magic_translate( b.name )
+                        clicked, r_clicked = pen.catch( mnee.new_button, { 2, pos_y, pic_z,
+                            "mods/mnee/files/pics/button_116_"..( is_static and "B" or "A" )..".png", {
+                            auid = table.concat({ i, "_bind_", name }), no_anim = true,
+                            tip = table.concat({
+                                is_axis and ( GameTextGet( "$mnee_axis", b.jpad_type or "EXTRA" )..( is_static and "" or " @ " )) or "",
+                                is_static and GameTextGet( "$mnee_static" ).." @ " or "",
+                                name, ": ", pen.magic_translate( b.desc ), " @ ", 
+                                mnee.bind2string( KEYS[i][e], key_type, KEYS[i]),
+                                is_axis and " @ "..GameTextGet( "$mnee_lmb_axis" ) or "",
+                            })}})
+                        pen.new_text( 3 + 116/2, pos_y, pic_z - 0.01, name, {
+                            aggressive = true, dims = {110,0}, is_centered_x = true, color = pen.PALETTE.PRSP[ is_static and "BLUE" or "WHITE" ]})
+                        if( clicked or r_clicked ) then
+                            if( not( is_static )) then
+                                mnee.G.current_mod = i
+                                mnee.G.current_binding = e
+                                mnee.G.doing_axis = is_axis
+                                mnee.G.btn_axis_mode = is_axis and r_clicked
+                                mnee.play_sound( "select" )
+                                
+                                if( not( b.never_advanced )) then
+                                    mnee.G.advanced_mode = b.is_advanced
+                                    if( mnee.G.advanced_mode == nil ) then mnee.G.advanced_mode = meta.is_advanced or false end
+                                    mnee.G.advanced_mode = mnee.G.advanced_mode or ( r_clicked and not( is_axis ))
+                                else mnee.G.advanced_mode = false end
+                            else
+                                GamePrint( GameTextGet( "$mnee_error" ).." "..GameTextGet( "$mnee_no_change" ))
+                                mnee.play_sound( "error" )
+                            end
+                        end
+                        
+                        clicked, r_clicked = mnee.new_button( 119, pos_y, pic_z,
+                            "mods/mnee/files/pics/key_delete.png", {
+                            auid = table.concat({ i, "_bind_delete_", name }),
+                            tip = GameTextGet( "$mnee_rmb_default" )})
+                        if( r_clicked ) then
+                            if( b.axes ~= nil ) then
+                                KEYS[i][ b.axes[1]].keys[ profile ] = nil
+                                KEYS[i][ b.axes[2]].keys[ profile ] = nil
+                            else KEYS[i][e].keys[ profile ] = nil end
+                            mnee.play_sound( "clear_all" )
+                            gonna_update = true
+                            
+                            if( _MNEEDATA[i] ~= nil ) then
+                                local func = _MNEEDATA[i].on_changed
+                                if( func ~= nil ) then func( _MNEEDATA[i]) end
+                                local f = b.on_reset or b.on_changed
+                                if( f ~= nil ) then f( b ) end
+                            end
+                        end
+
+                        height = height + 11
+                    end)
+                end
+
+				height = height + 11
+			end)
+
+			return height + 5
+		end, { color = {
+			pen.PALETTE.PRSP.BLUE, pen.PALETTE.PRSP.RED,
+			pen.PALETTE.PRSP.BLUE, pen.PALETTE.PRSP.RED,
+			pen.PALETTE.PRSP.BLUE, pen.PALETTE.PRSP.RED,
+			pen.PALETTE.PRSP.BLUE, pen.PALETTE.PRSP.RED,
+			pen.PALETTE.PRSP.BLUE, pen.PALETTE.PRSP.RED,
+			pen.PALETTE.PRSP.BLUE, pen.PALETTE.PRSP.RED,
+			pen.PALETTE.PRSP.PURPLE, pen.PALETTE.PRSP.BLUE
+		}}})
     else
-        mnee.G.binding_page = mnee.new_pager( pic_x + 48, pic_y, pic_z, {
-            auid = "bind",
-            list = _BINDINGS[ mnee.G.current_mod ], items_per_page = 8, page = mnee.G.binding_page,
-            func = function( pic_x, pic_y, pic_z, i,v,k, is_hidden )
-                if( pen.get_hybrid_function( v.is_hidden, {{ mnee.G.current_mod, i }, mnee.G.jpad_maps })) then
+        pen.new_pixel( pic_x + 46, pic_y + 11, pic_z, pen.PALETTE.PRSP.BLUE, 1, 98 )
+        pen.new_pixel( pic_x + 134, pic_y + 11, pic_z, pen.PALETTE.PRSP.BLUE, 1, 98 )
+
+        mnee.G.mod_page = mnee.new_pager( pic_x + 2, pic_y, pic_z, {
+            auid = "mod",
+            list = _BINDINGS, items_per_page = 8, page = mnee.G.mod_page,
+            func = function( x, y, z, i,v,k, is_hidden )
+                local is_fancy = _MNEEDATA[i] ~= nil
+                if( is_fancy and pen.get_hybrid_function( _MNEEDATA[i].is_hidden, { i, mnee.G.jpad_maps })) then
                     return true
                 elseif( is_hidden ) then return false end
-
-                local is_static = v.is_locked
-                if( is_static == nil ) then
-                    is_static = meta.is_locked or false
-                else is_static = pen.get_hybrid_function( is_static, {{ mnee.G.current_mod, i }, mnee.G.jpad_maps }) end
-                local is_axis = v.axes ~= nil or mnee.get_pbd( KEYS[ mnee.G.current_mod ][i])[ key_type ][1] == "is_axis"
                 
-                local t_x, t_y = pic_x, pic_y + k*11
-                local name = pen.magic_translate( v.name )
-                clicked, r_clicked = pen.catch( mnee.new_button, { t_x, t_y, pic_z,
-                    "mods/mnee/files/pics/button_74_"..( is_static and "B" or "A" )..".png", {
-                    auid = table.concat({ mnee.G.current_mod, "_bind_", name }), no_anim = true,
-                    tip = table.concat({
-                        is_axis and ( GameTextGet( "$mnee_axis", v.jpad_type or "EXTRA" )..( is_static and "" or " @ " )) or "",
-                        is_static and GameTextGet( "$mnee_static" ).." @ " or "",
-                        name, ": ", pen.magic_translate( v.desc ), " @ ", 
-                        mnee.bind2string( KEYS[ mnee.G.current_mod ][i], key_type, KEYS[ mnee.G.current_mod ]),
-                        is_axis and " @ "..GameTextGet( "$mnee_lmb_axis" ) or "",
-                    })}})
-                pen.new_text( t_x + 74/2, t_y, pic_z - 0.01, name, {
-                    aggressive = true, dims = {70,0}, is_centered_x = true, color = pen.PALETTE.PRSP[ is_static and "BLUE" or "WHITE" ]})
-                if( clicked or r_clicked ) then
-                    if( not( is_static )) then
-                        mnee.G.current_binding = i
-                        mnee.G.doing_axis = is_axis
-                        mnee.G.btn_axis_mode = is_axis and r_clicked
-                        mnee.play_sound( "select" )
-                        
-                        if( not( v.never_advanced )) then
-                            mnee.G.advanced_mode = v.is_advanced
-                            if( mnee.G.advanced_mode == nil ) then mnee.G.advanced_mode = meta.is_advanced or false end
-                            mnee.G.advanced_mode = mnee.G.advanced_mode or ( r_clicked and not( is_axis ))
-                        else mnee.G.advanced_mode = false end
-                    else
-                        GamePrint( GameTextGet( "$mnee_error" ).." "..GameTextGet( "$mnee_no_change" ))
-                        mnee.play_sound( "error" )
-                    end
-                end
-                
-                clicked, r_clicked = mnee.new_button( t_x + 75, t_y, pic_z,
-                    "mods/mnee/files/pics/key_delete.png", {
-                    auid = table.concat({ mnee.G.current_mod, "_bind_delete_", name }),
-                    tip = GameTextGet( "$mnee_rmb_default" )})
-                if( r_clicked ) then
-                    if( v.axes ~= nil ) then
-                        KEYS[ mnee.G.current_mod ][ v.axes[1]].keys[ profile ] = nil
-                        KEYS[ mnee.G.current_mod ][ v.axes[2]].keys[ profile ] = nil
-                    else KEYS[ mnee.G.current_mod ][ i ].keys[ profile ] = nil end
-                    mnee.play_sound( "clear_all" )
-                    gonna_update = true
-                    
-                    if( _MNEEDATA[ mnee.G.current_mod ] ~= nil ) then
-                        local func = _MNEEDATA[ mnee.G.current_mod ].on_changed
-                        if( func ~= nil ) then func( _MNEEDATA[ mnee.G.current_mod ]) end
-                        local f = v.on_reset or v.on_changed
-                        if( f ~= nil ) then f( v ) end
-                    end
-                end
-
-                return c
-            end, order_func = mnee.order_sorter,
+                local t_x, t_y = x, y + k*11
+                local is_current = mnee.G.current_mod == i
+                local name = pen.magic_translate( is_fancy and _MNEEDATA[i].name or i )
+                clicked = mnee.new_button( t_x, t_y, pic_z,
+                    "mods/mnee/files/pics/button_43_"..( is_current and "B" or "A" )..".png", {
+                    auid = table.concat({ "mod_", name }),
+                    tip = name..( is_current and (( is_fancy and _MNEEDATA[i].desc ~= nil ) and " @ "..pen.magic_translate( _MNEEDATA[i].desc ) or "" ) or " @ "..GameTextGet( "$mnee_lmb_keys" ))})
+                pen.new_text( t_x + 43/2, t_y, pic_z - 0.01, name, {
+                    dims = {39,0}, is_centered_x = true, color = pen.PALETTE.PRSP[ is_current and "RED" or "WHITE" ]})
+                if( clicked ) then mnee.G.binding_page, mnee.G.current_mod = 1, i; mnee.play_sound( "button_special" ) end
+            end,
         })
-    end
-    
-    mnee.new_button( pic_x + 101, pic_y + 99, pic_z,
-        "mods/mnee/files/pics/help.png", {
-        auid = "help_main",
-        tip = table.concat({
-            GameTextGet( "$mnee_lmb_bind" ), " @ ",
-            GameTextGet( "$mnee_rmb_advanced" ), " @ ",
-            GameTextGet( "$mnee_alt_help" )
-        }),
-        no_anim = true, highlight = pen.PALETTE.PRSP.PURPLE,
-    })
-    
-    clicked, r_clicked = mnee.new_button( pic_x + 112, pic_y + 99, pic_z,
-        "mods/mnee/files/pics/button_21_A.png", {
-        auid = "mod_reset",
-        tip = GameTextGet( "$mnee_rmb_mod" )})
-    pen.new_text( pic_x + 123, pic_y + 99, pic_z - 0.01, "DFT", {
-        dims = {-17,0}, is_centered_x = true, color = pen.PALETTE.PRSP.WHITE })
-    if( r_clicked ) then
-        for bind,bind_tbl in pairs( KEYS[ mnee.G.current_mod ]) do
-            if( bind_tbl.axes == nil ) then KEYS[ mnee.G.current_mod ][ bind ].keys[ profile ] = nil end
-        end
-        mnee.play_sound( "clear_all" )
-        gonna_update = true
         
+        local meta = {}
         if( _MNEEDATA[ mnee.G.current_mod ] ~= nil ) then
-            local func = _MNEEDATA[ mnee.G.current_mod ].on_reset or _MNEEDATA[ mnee.G.current_mod ].on_changed
-            if( func ~= nil ) then func( _MNEEDATA[ mnee.G.current_mod ]) end
-            for i,v in mnee.order_sorter( KEYS[ mnee.G.current_mod ]) do
-                local f = v.on_reset or v.on_changed
-                if( f ~= nil ) then f( v ) end
+            meta.func = _MNEEDATA[ mnee.G.current_mod ].func
+            meta.is_advanced = _MNEEDATA[ mnee.G.current_mod ].is_advanced or false
+            meta.is_locked = pen.get_hybrid_function(
+                _MNEEDATA[ mnee.G.current_mod ].is_locked, { mnee.G.current_mod, mnee.G.jpad_maps }) or false
+        end
+        
+        if( meta.func ~= nil ) then
+            local result = pen.catch( meta.func, { t_x, t_y, pic_z, {
+                ks = KEYS,
+                k_type = key_type,
+            }}) or false
+            if( result ) then
+                mnee.G.current_binding = result.set_bind
+                mnee.G.doing_axis = result.will_axis
+                mnee.G.btn_axis_mode = result.btn_axis
+                mnee.G.advanced_mode = result.set_advanced
+            end
+        else
+            mnee.G.binding_page = mnee.new_pager( pic_x + 48, pic_y, pic_z, {
+                auid = "bind",
+                list = _BINDINGS[ mnee.G.current_mod ], items_per_page = 8, page = mnee.G.binding_page,
+                func = function( pic_x, pic_y, pic_z, i,v,k, is_hidden )
+                    if( pen.get_hybrid_function( v.is_hidden, {{ mnee.G.current_mod, i }, mnee.G.jpad_maps })) then
+                        return true
+                    elseif( is_hidden ) then return false end
+
+                    local is_static = v.is_locked
+                    if( is_static == nil ) then
+                        is_static = meta.is_locked or false
+                    else is_static = pen.get_hybrid_function( is_static, {{ mnee.G.current_mod, i }, mnee.G.jpad_maps }) end
+                    local is_axis = v.axes ~= nil or mnee.get_pbd( KEYS[ mnee.G.current_mod ][i])[ key_type ][1] == "is_axis"
+                    
+                    local t_x, t_y = pic_x, pic_y + k*11
+                    local name = pen.magic_translate( v.name )
+                    clicked, r_clicked = pen.catch( mnee.new_button, { t_x, t_y, pic_z,
+                        "mods/mnee/files/pics/button_74_"..( is_static and "B" or "A" )..".png", {
+                        auid = table.concat({ mnee.G.current_mod, "_bind_", name }), no_anim = true,
+                        tip = table.concat({
+                            is_axis and ( GameTextGet( "$mnee_axis", v.jpad_type or "EXTRA" )..( is_static and "" or " @ " )) or "",
+                            is_static and GameTextGet( "$mnee_static" ).." @ " or "",
+                            name, ": ", pen.magic_translate( v.desc ), " @ ", 
+                            mnee.bind2string( KEYS[ mnee.G.current_mod ][i], key_type, KEYS[ mnee.G.current_mod ]),
+                            is_axis and " @ "..GameTextGet( "$mnee_lmb_axis" ) or "",
+                        })}})
+                    pen.new_text( t_x + 74/2, t_y, pic_z - 0.01, name, {
+                        aggressive = true, dims = {70,0}, is_centered_x = true, color = pen.PALETTE.PRSP[ is_static and "BLUE" or "WHITE" ]})
+                    if( clicked or r_clicked ) then
+                        if( not( is_static )) then
+                            mnee.G.current_binding = i
+                            mnee.G.doing_axis = is_axis
+                            mnee.G.btn_axis_mode = is_axis and r_clicked
+                            mnee.play_sound( "select" )
+                            
+                            if( not( v.never_advanced )) then
+                                mnee.G.advanced_mode = v.is_advanced
+                                if( mnee.G.advanced_mode == nil ) then mnee.G.advanced_mode = meta.is_advanced or false end
+                                mnee.G.advanced_mode = mnee.G.advanced_mode or ( r_clicked and not( is_axis ))
+                            else mnee.G.advanced_mode = false end
+                        else
+                            GamePrint( GameTextGet( "$mnee_error" ).." "..GameTextGet( "$mnee_no_change" ))
+                            mnee.play_sound( "error" )
+                        end
+                    end
+                    
+                    clicked, r_clicked = mnee.new_button( t_x + 75, t_y, pic_z,
+                        "mods/mnee/files/pics/key_delete.png", {
+                        auid = table.concat({ mnee.G.current_mod, "_bind_delete_", name }),
+                        tip = GameTextGet( "$mnee_rmb_default" )})
+                    if( r_clicked ) then
+                        if( v.axes ~= nil ) then
+                            KEYS[ mnee.G.current_mod ][ v.axes[1]].keys[ profile ] = nil
+                            KEYS[ mnee.G.current_mod ][ v.axes[2]].keys[ profile ] = nil
+                        else KEYS[ mnee.G.current_mod ][ i ].keys[ profile ] = nil end
+                        mnee.play_sound( "clear_all" )
+                        gonna_update = true
+                        
+                        if( _MNEEDATA[ mnee.G.current_mod ] ~= nil ) then
+                            local func = _MNEEDATA[ mnee.G.current_mod ].on_changed
+                            if( func ~= nil ) then func( _MNEEDATA[ mnee.G.current_mod ]) end
+                            local f = v.on_reset or v.on_changed
+                            if( f ~= nil ) then f( v ) end
+                        end
+                    end
+                end, order_func = mnee.order_sorter,
+            })
+        end
+
+        mnee.new_button( pic_x + 101, pic_y + 99, pic_z,
+            "mods/mnee/files/pics/help.png", {
+            auid = "help_main",
+            tip = table.concat({
+                GameTextGet( "$mnee_lmb_bind" ), " @ ",
+                GameTextGet( "$mnee_rmb_advanced" ), " @ ",
+                GameTextGet( "$mnee_alt_help" )
+            }),
+            no_anim = true, highlight = pen.PALETTE.PRSP.PURPLE,
+        })
+        
+        clicked, r_clicked = mnee.new_button( pic_x + 112, pic_y + 99, pic_z,
+            "mods/mnee/files/pics/button_21_A.png", {
+            auid = "mod_reset",
+            tip = GameTextGet( "$mnee_rmb_mod" )})
+        pen.new_text( pic_x + 123, pic_y + 99, pic_z - 0.01, "DFT", {
+            dims = {-17,0}, is_centered_x = true, color = pen.PALETTE.PRSP.WHITE })
+        if( r_clicked ) then
+            for bind,bind_tbl in pairs( KEYS[ mnee.G.current_mod ]) do
+                if( bind_tbl.axes == nil ) then KEYS[ mnee.G.current_mod ][ bind ].keys[ profile ] = nil end
+            end
+            mnee.play_sound( "clear_all" )
+            gonna_update = true
+            
+            if( _MNEEDATA[ mnee.G.current_mod ] ~= nil ) then
+                local func = _MNEEDATA[ mnee.G.current_mod ].on_reset or _MNEEDATA[ mnee.G.current_mod ].on_changed
+                if( func ~= nil ) then func( _MNEEDATA[ mnee.G.current_mod ]) end
+                for i,v in mnee.order_sorter( KEYS[ mnee.G.current_mod ]) do
+                    local f = v.on_reset or v.on_changed
+                    if( f ~= nil ) then f( v ) end
+                end
             end
         end
     end

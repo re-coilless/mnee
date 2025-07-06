@@ -7,6 +7,26 @@ function mod_setting_blinking_text( mod_id, gui, in_main_menu, im_id, setting )
 	GuiText( gui, mod_setting_group_x_offset, 0, GameTextGetTranslatedOrNot( setting.ui_name ))
 end
 
+function mod_setting_custom_enum( mod_id, gui, in_main_menu, im_id, setting )
+	local value = ModSettingGetNextValue( mod_setting_get_id( mod_id, setting ))
+	local text = setting.ui_name .. ": " .. setting.values[ value ]
+	
+	local new_value = value
+	local clicked,right_clicked = GuiButton( gui, im_id, mod_setting_group_x_offset, 0, text )
+	if clicked then
+		new_value = new_value + 1
+		if( new_value > #setting.values ) then new_value = 1 end
+	end
+	if right_clicked and setting.value_default then
+		new_value = setting.value_default
+	end
+	if( new_value ~= value ) then
+		ModSettingSetNextValue( mod_setting_get_id( mod_id, setting ), new_value, false )
+	end
+
+	mod_setting_tooltip( mod_id, gui, in_main_menu, setting )
+end
+
 function mod_setting_full_resetter( mod_id, gui, in_main_menu, im_id, setting )
 	GuiColorSetForNextWidget( gui, 245/255, 132/255, 132/255, 1 )
 	local clicked, right_clicked = GuiButton( gui, im_id, mod_setting_group_x_offset, 0, "<<"..GameTextGetTranslatedOrNot( setting.ui_name )..">>"..(( mnee_it_is_done or false ) and " - "..GameTextGetTranslatedOrNot( setting.ui_extra ) or "" ))
@@ -47,6 +67,26 @@ function text_with_no_mod( key ) --inspired by Conga's approach
 				["简体中文"] = "[在游戏内按下左CTRL+M以开启该菜单]",
 				-- ["日本語"] = "",
 				-- ["한국어"] = "",
+			},
+			["$mnee_frontend"] = {
+				["English"] = "Frontend Mode",
+				["русский"] = "Режим Интерфейса",
+				["简体中文"] = "前端模式",
+			},
+			["$mnee_frontend_a"] = {
+				["English"] = "Scroller",
+				["русский"] = "Лента",
+				["简体中文"] = "丝带",
+			},
+			["$mnee_frontend_b"] = {
+				["English"] = "Paged",
+				["русский"] = "Страницы",
+				["简体中文"] = "页面",
+			},
+			["$mnee_frontend_desc"] = {
+				["English"] = "Changes the global menu behavior.",
+				["русский"] = "Изменяет поведение глобального интерфейса.",
+				["简体中文"] = "更改全局菜单行为。",
 			},
 			["$mnee_living"] = {
 				["English"] = "Disable Internal Deadzones",
@@ -94,7 +134,7 @@ function text_with_no_mod( key ) --inspired by Conga's approach
 				["简体中文"] = "[已完成]",
 			},
 		}
-		return csv[ key ][ GameTextGet("$current_language")] or csv[ key ][ "English" ]
+		return csv[ key ][ GameTextGet( "$current_language" )] or csv[ key ][ "English" ]
 	end
 end
 
@@ -118,11 +158,21 @@ mod_settings =
 		ui_name = function() return text_with_no_mod( "$mnee_tutorial" ) end,
 	}),
 	add_dynamic_fields({
+		id = "FRONTEND",
+		value_default = 2,
+		scope = MOD_SETTING_SCOPE_RUNTIME,
+		ui_fn = mod_setting_custom_enum,
+	},{
+		ui_name = function() return GameTextGetTranslatedOrNot( text_with_no_mod( "$mnee_frontend" )) end,
+		ui_description = function() return text_with_no_mod( "$mnee_frontend_desc" ) end,
+		values = function() return { GameTextGetTranslatedOrNot( text_with_no_mod( "$mnee_frontend_a" )), GameTextGetTranslatedOrNot( text_with_no_mod( "$mnee_frontend_b" ))} end,
+	}),
+	add_dynamic_fields({
 		id = "LIVING",
 		value_default = false,
 		scope = MOD_SETTING_SCOPE_RUNTIME,
 	},{
-		ui_name = function() return text_with_no_mod( "$mnee_living" ) end,
+		ui_name = function() return GameTextGetTranslatedOrNot( text_with_no_mod( "$mnee_living" )) end,
 		ui_description = function() return text_with_no_mod( "$mnee_living_desc" ) end,
 	}),
 	add_dynamic_fields({

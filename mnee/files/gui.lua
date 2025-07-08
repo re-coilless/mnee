@@ -56,9 +56,9 @@ if( not( gonna_rebind )) then
                 
                 pen.new_pixel( 1, pos_y + 3, pic_z + 0.01, pen.PALETTE.PRSP.PURPLE, 129, 2 )
                 pen.new_pixel( 1, pos_y + 6, pic_z + 0.01, pen.PALETTE.PRSP.PURPLE, 129, 2 )
-                local dims = pen.new_text( 131/2, pos_y, pic_z - 0.01, name, {
-                    aggressive = true, dims = {130,0}, is_centered_x = true, color = pen.PALETTE.PRSP.BLUE })
-                pen.new_pixel(( 131 - dims[1])/2 - 2, pos_y, pic_z, pen.PALETTE.PRSP.WHITE, dims[1] + 3, dims[2])
+                local dims = pen.new_text( 3 + 116/2, pos_y, pic_z - 0.01, name, {
+                    aggressive = true, dims = {100,0}, is_centered_x = true, color = pen.PALETTE.PRSP.BLUE })
+                pen.new_pixel( 1 + ( 116 - dims[1])/2, pos_y, pic_z, pen.PALETTE.PRSP.WHITE, dims[1] + 3, dims[2])
                 
                 -- name..(( is_fancy and _MNEEDATA[i].desc ~= nil ) and " @ "..pen.magic_translate( _MNEEDATA[i].desc ) or "" )
                 -- pressing the title should hide the list

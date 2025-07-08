@@ -673,10 +673,6 @@ function mnee.new_pager( pic_x, pic_y, pic_z, data )
 	clicked[2], r_clicked[2] = mnee.new_button( t_x + 11, t_y, pic_z, "mods/mnee/files/pics/key_right.png", {
 		auid = table.concat({ "page_", data.auid, "_r" })})
 	
-	if( data.compact_mode ) then t_y = t_y - 11 else t_x = pic_x + 11 end
-	pen.new_image( t_x, t_y, pic_z, "mods/mnee/files/pics/button_21_B.png", { can_click = true })
-	if( data.compact_mode ) then mnee.new_tooltip( GameTextGet( "$mnee_this_profile" ).."." ) end
-	
 	local max_page = 0
 	data.page, max_page, sfx_type = pen.new_pager( pic_x, pic_y, pic_z, {
 		func = data.func, order_func = data.order_func,
@@ -688,6 +684,11 @@ function mnee.new_pager( pic_x, pic_y, pic_z, data )
 	elseif( sfx_type == -1 ) then
 		mnee.play_sound( "switch_page" )
 	end
+	
+	if( data.compact_mode ) then t_y = t_y - 11 else t_x = pic_x + 11 end
+	pen.new_image( t_x, t_y, pic_z,
+		"mods/mnee/files/pics/button_21_"..( max_page > 1 and "B" or "A" )..".png", { can_click = true })
+	if( data.compact_mode ) then mnee.new_tooltip( GameTextGet( "$mnee_this_profile" ).."." ) end
 
 	if( max_page > 1 ) then
 		local text = data.page..( max_page < 10 and "/"..max_page or "" )

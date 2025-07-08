@@ -290,9 +290,9 @@ end
 
 --[TECHNICAL]
 function pen.get_hybrid_table( table, allow_unarray )
-	if( type( table ) == "table" and ( allow_unarray or not( pen.t.is_unarray( table )))) then
-		return table
-	else return { table } end
+	if( table == nil ) then return {} end
+	local is_table = type( table ) == "table" and ( allow_unarray or not( pen.t.is_unarray( table )))
+	if( is_table ) then return table else return { table } end
 end
 
 function pen.get_hybrid_function( func, input )
@@ -1096,7 +1096,7 @@ function pen.magic_translate( text )
 	end)
 end
 
-function pen.magic_append( to_file, from_file )
+function pen.magic_append( to_file, from_file ) --gsub will eat "%", use "%%" instead
 	local marker = pen.MARKER_MAGIC_APPEND
 	local a, b = pen.magic_read( to_file ), pen.magic_read( from_file )
 	if( pen.magic_write ) then pen.magic_write( to_file, string.gsub( a, marker, table.concat({ b, "\n\n\n", marker }))) end
@@ -2336,7 +2336,9 @@ function pen.get_color_matter( matter )
 end
 
 function pen.debug_dot( x, y, frames )
-	GameCreateSpriteForXFrames( pen.FILE_PIC_NUL, x, y, true, 0, 0, frames or 1, true )
+	if( frames ~= nil ) then
+		GameCreateSpriteForXFrames( pen.FILE_PIC_NUL, x, y, true, 0, 0, frames or 1, true )
+	else x, y = pen.world2gui( x, y ); pen.new_pixel( x - 0.5, y - 0.5 ) end
 end
 
 function pen.lag_me( frame_time )
@@ -3465,7 +3467,9 @@ end
 ---@param no_shake? boolean
 ---@param in_reverse? boolean
 ---@return number pic_x, number pic_y, table scale_values
-function pen.world2gui( x, y, is_raw, no_shake, in_reverse ) --thanks to ImmortalDamned for the fix (x2 combo)
+function pen.world2gui( x, y, is_raw, no_shake, in_reverse )
+	--thanks to ImmortalDamned for the fix (x2 combo)
+	
 	local w, h, view_w, view_h, real_w, real_h = pen.get_screen_data()
 	local massive_balls_x, massive_balls_y = w/view_w, h/view_h
 	

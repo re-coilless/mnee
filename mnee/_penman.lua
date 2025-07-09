@@ -1517,28 +1517,26 @@ function pen.lua_callback( entity_id, funcs, input )
 	return got_some
 end
 
-function pen.get_effect( entity_id, effect_name, effect_id )
-	local children = EntityGetAllChildren( entity_id )
-	if( not( pen.vld( children ))) then return end
-	if( pen.vld( effect_id, true )) then
-		if( type( effect_id ) == "string" ) then
-			dofile_once( "data/scripts/status_effects/status_list.lua" )
-			_,effect_id = pen.t.get( status_effects, effect_id, "ui_name" )
-		end
-		
-		for i,child in ipairs( children ) do			
-			local effect_comp = EntityGetFirstComponentIncludingDisabled( child, "GameEffectComponent" )
-			if( effect_comp ~= nil and (
-				ComponentGetValue2( effect_comp, "effect" ) == effect_name or
-				ComponentGetValue2( effect_comp, "causing_status_effect" ) == effect_id or
-				ComponentGetValue2( effect_comp, "ragdoll_effect" ) == effect_name
-			)) then return child, effect_comp, effect_id end
-		end
-	else
-		for i,child in ipairs( children ) do
-			if( EntityGetName( child ) == effect_name ) then return child end
-		end
+function pen.get_effect( entity_id, name, id )
+	if( type( id or 0 ) == "string" ) then
+		dofile_once( "data/scripts/status_effects/status_list.lua" )
+		_,id = pen.t.get( status_effects, id, "ui_name" )
 	end
+
+	local comp = nil
+	return pen.child_play( entity_id, function( parent, child )
+		if( id == nil ) then
+			local gotcha = EntityGetName( child ) == name
+			if( gotcha ) then return child else return end
+		end
+
+		comp = EntityGetFirstComponentIncludingDisabled( child, "GameEffectComponent" )
+		if( pen.vld( comp, true ) and (
+			ComponentGetValue2( comp, "effect" ) == name or
+			ComponentGetValue2( comp, "causing_status_effect" ) == id or
+			ComponentGetValue2( comp, "ragdoll_effect" ) == name
+		)) then return child end
+	end), comp, id
 end
 
 function pen.get_active_item( entity_id )
@@ -2335,10 +2333,10 @@ function pen.get_color_matter( matter )
 	return color
 end
 
-function pen.debug_dot( x, y, frames )
-	if( frames ~= nil ) then
+function pen.debug_dot( x, y, data )
+	if( type( data or {}) == "number" ) then
 		GameCreateSpriteForXFrames( pen.FILE_PIC_NUL, x, y, true, 0, 0, frames or 1, true )
-	else x, y = pen.world2gui( x, y ); pen.new_pixel( x - 0.5, y - 0.5 ) end
+	else x, y = pen.world2gui( x, y ); pen.new_pixel( x - 0.5, y - 0.5, nil, data ) end
 end
 
 function pen.lag_me( frame_time )
@@ -2347,6 +2345,12 @@ function pen.lag_me( frame_time )
 	while(( current_time - prev_time ) < frame_time ) do
 		current_time = GameGetRealWorldTimeSinceStarted()*1000
 	end
+end
+
+function pen.debug_lag( is_going, secs )
+	if( pen.c.debug_lag ) then
+		pen.c.debug_lag, secs = false, secs or 3 elseif( not( is_going )) then return end
+	if( InputIsKeyDown( 40 --[[Return]] )) then pen.c.debug_lag = true; pen.lag_me( 1000*( secs or 0.1 )) end
 end
 
 function pen.get_hotspot_pos( entity_id, tag )
@@ -2411,6 +2415,7 @@ function pen.gunshot( shot_func, eject_func )
 	local hooman = gunshot_hooman_id or EntityGetRootEntity( gun_id )
 	local arm_id = gunshot_arm_id or pen.get_child( hooman, "arm_r" )
 	
+	--accuracy is affected by stress, low values have no effect, medium values increase, high values decrease
 	--add clanking sound for the last 25% of shots from the mag (capped at 10 shots max and 1 shot min, is ignored for mags with less than 3 shots)
 	--play trigger click only once per empty mag, set "locked_and_unloaded" gun_id varstorage to true after that
 	--play ejection/feeding sound
@@ -2566,6 +2571,145 @@ function pen.bladesim( sword_id, data )
 	return anim_done
 end
 
+function pen.ricochet( v, p_angle, n_angle, r_angles )
+	local angle = math.abs( math.deg( n_angle - p_angle ))%90
+	local min_rico, max_rico = unpack( r_angles or { 65, 85 })
+
+	local will_rico = angle > max_rico
+	if( not( will_rico ) and angle > min_rico ) then
+		will_rico = math.random() < ( angle - min_rico )/( max_rico - min_rico )
+	end
+
+	if( not( will_rico )) then return end
+	local r_angle = p_angle + 2*( n_angle - p_angle )
+	return -v*math.cos( r_angle ), -v*math.sin( r_angle )
+end
+
+function pen.armorsim( entity_id, data )
+	data = data or {}
+	data.radius = data.radius or 50
+	data.buffer = data.buffer or 1.5
+
+	local hooman = EntityGetRootEntity( entity_id )
+	data.pos = data.pos or { EntityGetTransform( entity_id )}
+
+	--should integrate with pen.raytrace_entities (literally bend the raycast)
+	--if data.dims is a number then do in radius mode
+	if( not( pen.vld( data.dims ))) then
+		local box = EntityGetFirstComponentIncludingDisabled( entity_id, "HitboxComponent" )
+		if( not( pen.vld( box, true ))) then return end
+		data.dims = {
+			ComponentGetValue2( box, "aabb_min_x" ) - 1, ComponentGetValue2( box, "aabb_max_x" ) + 1,
+			ComponentGetValue2( box, "aabb_min_y" ) - 0.5, ComponentGetValue2( box, "aabb_max_y" ) + 0.5,
+		}
+	end
+
+	data.bounce = data.bounce or 0.75
+	data.rating = ( data.rating or 0.02 )/25
+	data.func = data.func or function( entity_id, proj_id, x, y, data )
+		if( data.dmg > data.rating ) then
+			local min_rico, max_rico = 65, 85
+			local will_rico = data.d_angle > max_rico
+			if( not( will_rico ) and data.d_angle > min_rico ) then
+				will_rico = math.random() < ( data.d_angle - min_rico )/( max_rico - min_rico )
+			end
+			if( not( will_rico )) then return true end
+		end
+
+		--speed increases the damage, compare it against data.rating
+
+		pen.magic_particles( x, y, math.rad( 180 ) + data.p_angle, {
+			fading = 7, lifetime = 2,
+			additive = true, emissive = true, count = { 2, 3 },
+			
+			alpha = 0.9, alpha_end = 0.1,
+			color = { 237, 141, 45 },
+			
+			v_range = { 0, -50, 200, 50 }, slowdown = { -20, 0, 1 },
+		})
+		GamePlaySound( "data/audio/Desktop/animals.bank", "animals/robot/damage/melee", x, y )
+	end
+
+	local char_comp = EntityGetFirstComponentIncludingDisabled( hooman, "CharacterDataComponent" )
+	if( not( pen.vld( char_comp, true ))) then return end
+	local char_v_x, char_v_y = ComponentGetValue2( char_comp, "mVelocity" )
+	char_v_x, char_v_y = math.abs( char_v_x ), math.abs( char_v_y )
+
+	if( data.pos[4] < 0 ) then
+		local temp = data.dims[1]
+		data.dims[1], data.dims[2] = -data.dims[2], -temp
+	end
+
+	local size = {
+		math.min( data.dims[1] - char_v_x/60, data.dims[1]),
+		math.max( data.dims[2] + char_v_x/60, data.dims[2]),
+		math.min( data.dims[3] - char_v_y/60, data.dims[3]),
+		math.max( data.dims[4] + char_v_y/60, data.dims[4]),
+	}
+
+	local was_deflected = false
+	local projs = EntityGetInRadiusWithTag( data.pos[1], data.pos[2], data.radius, "projectile" )
+	pen.t.loop( projs, function( i, proj_id )
+		local proj_comp = EntityGetFirstComponentIncludingDisabled( proj_id, "ProjectileComponent" )
+		local vel_comp = EntityGetFirstComponentIncludingDisabled( proj_id, "VelocityComponent" )
+		if( not( pen.vld( proj_comp, true ) and pen.vld( vel_comp, true ))) then return end
+		if( hooman == ComponentGetValue2( proj_comp, "mWhoShot" )) then return end
+		--check herd-based friendly fire
+
+		data.dmg = ComponentGetValue2( proj_comp, "damage" ) --physics_hit has x5 AP rating
+		ComponentSetValue2( proj_comp, "damage", math.max( data.dmg - data.rating/2, 0 ))
+
+		local x, y = EntityGetTransform( proj_id )
+		local v_x, v_y = ComponentGetValue2( vel_comp, "mVelocity" )
+		if( math.abs( v_x ) < 5 or math.abs( v_y ) < 5 ) then return end
+		-- if( not( pen.check_bounds({ x + v_x/60, y + v_y/60 }, size, data.pos ))) then return end
+		
+		local is_hor = false
+		local is_left, is_top = v_x > 0, v_y > 0
+		local arrow = {{ x, y }, { x + data.buffer*v_x/60, y + data.buffer*v_y/60 }}
+		local dot_tl = { data.pos[1] + size[1], data.pos[2] + size[3]}
+		local dot_tr = { data.pos[1] + size[2], data.pos[2] + size[3]}
+		local dot_bl = { data.pos[1] + size[1], data.pos[2] + size[4]}
+		local dot_br = { data.pos[1] + size[2], data.pos[2] + size[4]}
+		local is_hit_hor, hor_x, hor_y = pen.check_point(
+			arrow, is_left and { dot_tl, dot_bl } or { dot_tr, dot_br })
+		local is_hit_ver, ver_x, ver_y = pen.check_point(
+			arrow, is_top and { dot_tl, dot_tr } or { dot_bl, dot_br })
+		if( is_hit_hor or is_hit_ver ) then
+			if( is_hit_hor and is_hit_ver ) then
+				local hor_d = ( hor_x - x )^2 + ( hor_y - y )^2
+				local ver_d = ( ver_x - x )^2 + ( ver_y - y )^2
+				is_hor = hor_d < ver_d
+			else is_hor = is_hit_hor end
+
+			x, y = is_hor and hor_x or ver_x, is_hor and hor_y or ver_y
+			local min_x, max_x = math.min( arrow[1][1], arrow[2][1]), math.max( arrow[1][1], arrow[2][1])
+			local min_y, max_y = math.min( arrow[1][2], arrow[2][2]), math.max( arrow[1][2], arrow[2][2])
+			if( not(( x >= min_x and x <= max_x ) and ( y >= min_y and y <= max_y ))) then return end
+		else return end
+		
+		data.v = math.sqrt( v_x^2 + v_y^2 )
+		data.p_angle = math.atan2( v_y, v_x )
+		data.n_angle = math.rad( is_hor and ( is_left and -1 or -179 ) or ( is_top and 89 or -91 ))
+		data.d_angle = math.abs( math.deg( data.n_angle - data.p_angle ))%90
+		if( data.func( entity_id, proj_id, x, y, data )) then return end
+		
+		was_deflected = true
+		EntitySetTransform( proj_id, x, y, data.d_angle )
+		local angle = data.p_angle + 2*( data.n_angle - data.p_angle )
+		v_x, v_y = -data.v*math.cos( angle ), -data.v*math.sin( angle )
+		ComponentSetValue2( vel_comp, "mVelocity", data.bounce*v_x, data.bounce*v_y )
+		ComponentSetValue2( proj_comp, "lifetime", ComponentGetValue2( proj_comp, "lifetime" )/2 )
+
+		ComponentSetValue2( proj_comp, "mWhoShot", hooman )
+		local gene_comp = EntityGetFirstComponentIncludingDisabled( hooman, "GenomeDataComponent" )
+		if( not( pen.vld( gene_comp, true ))) then return end
+		ComponentSetValue2( proj_comp, "mShooterHerdId", ComponentGetValue2( gene_comp, "herd_id" ))
+	end)
+
+	return was_deflected
+end
+
 function pen.magic_shooter( who_shot, path, x, y, v_x, v_y, do_it, proj_mods, custom_values )
 	who_shot = pen.get_hybrid_table( who_shot )
 	pen.magic_comp( who_shot[1], "ProjectileComponent", function( comp_id, v, is_enabled )
@@ -2631,6 +2775,22 @@ function pen.check_bounds( dot, box, off, distance_func )
 	local p = is_fancy and box or pen.V.new( box[1], box[2])/2
 	if( not( is_fancy )) then d = d + pen.V.new( pen.rotate_offset( p.x, p.y, off[3] or 0 )) end
 	return ( distance_func or pen.SDF.BOX )( pen.V.rot( d, off[3] or 0 ), p ) <= 0
+end
+
+function pen.check_point( arrow, barrier )
+	local x1, y1 = unpack( arrow[1])
+	local x2, y2 = unpack( arrow[2])
+	local x3, y3 = unpack( barrier[1])
+	local x4, y4 = unpack( barrier[2])
+
+	local x = ( x1*y2 - y1*x2 )*( x3 - x4 ) - ( x1 - x2 )*( x3*y4 - y3*x4 )
+	local y = ( x1*y2 - y1*x2 )*( y3 - y4 ) - ( y1 - y2 )*( x3*y4 - y3*x4 )
+	local z = ( x1 - x2 )*( y3 - y4 ) - ( y1 - y2 )*( x3 - x4 )
+	if( z == 0 ) then return else x, y = x/z, y/z end
+
+	local valid_x = x >= math.min( x3, x4 ) and x <= math.max( x3, x4 )
+	local valid_y = y >= math.min( y3, y4 ) and y <= math.max( y3, y4 )
+	return valid_x and valid_y, x, y
 end
 
 function pen.scale_emitter( entity_id, emit_comp )
@@ -2899,6 +3059,7 @@ function pen.rate_creature( entity_id, hooman, data )--hamis at 20m is 1
 	end
 	
 	--add projectile rater by getting xml
+	--check blood matter damage to char for threat level
 
 	local overall_speed = 0
 	local plat_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "CharacterPlatformingComponent" )

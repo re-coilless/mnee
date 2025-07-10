@@ -2571,6 +2571,16 @@ function pen.bladesim( sword_id, data )
 	return anim_done
 end
 
+function pen.get_delta_time( id )
+	pen.c.delta_time_memo = pen.c.delta_time_memo or {}
+
+    local last_time = pen.c.delta_time_memo[ id ] or 0
+    local this_time = GameGetRealWorldTimeSinceStarted()*1000
+    pen.c.delta_time_memo[ id ] = this_time
+
+    return ( this_time - last_time )/( 1000/60 )
+end
+
 function pen.ricochet( v, p_angle, n_angle, r_angles )
 	local angle = math.abs( math.deg( n_angle - p_angle ))%90
 	local min_rico, max_rico = unpack( r_angles or { 65, 85 })
@@ -2618,6 +2628,7 @@ function pen.armorsim( entity_id, data )
 
 		--speed increases the damage, compare it against data.rating
 
+		pen.play_sound({ "data/audio/Desktop/animals.bank", "animals/robot/damage/melee" }, x, y )
 		pen.magic_particles( x, y, math.rad( 180 ) + data.p_angle, {
 			fading = 7, lifetime = 2,
 			additive = true, emissive = true, count = { 2, 3 },
@@ -2627,7 +2638,6 @@ function pen.armorsim( entity_id, data )
 			
 			v_range = { 0, -50, 200, 50 }, slowdown = { -20, 0, 1 },
 		})
-		GamePlaySound( "data/audio/Desktop/animals.bank", "animals/robot/damage/melee", x, y )
 	end
 
 	local char_comp = EntityGetFirstComponentIncludingDisabled( hooman, "CharacterDataComponent" )

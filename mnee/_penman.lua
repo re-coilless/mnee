@@ -1352,7 +1352,8 @@ end
 
 function pen.magic_storage( entity_id, name, field, value, default )
 	if( default == nil ) then default = value ~= nil end
-	local out = pen.t.loop( EntityGetComponentIncludingDisabled( entity_id, "VariableStorageComponent" ), function( i, comp )
+	local storages = EntityGetComponentIncludingDisabled( entity_id, "VariableStorageComponent" )
+	local out = pen.t.loop( storages, function( i, comp )
 		if( ComponentGetValue2( comp, "name" ) == name ) then return comp end
 	end)
 
@@ -2363,7 +2364,7 @@ end
 function pen.life_support( memo, id, path, x, y, r, s_x, s_y )
 	local entity_id = memo[ id ] or 0
 	if( not( EntityGetIsAlive( entity_id ))) then
-		entity_id = pen.vld( path ) and EntityLoad( path, x, y ) or EntityCreateNew( "loop" ) end
+		entity_id = pen.vld( path ) and EntityLoad( path, x, y ) or EntityCreateNew( "dummy" ) end
 	EntitySetTransform( entity_id, x, y, r or 0, s_x or 1, s_y or 1 )
 	memo[ id ] = entity_id
 	
@@ -2397,7 +2398,7 @@ function pen.new_projectile( ids, action, path )
 	end)
 	
 	pen.life_support( pen.c.beam_ids, gun_id, beam_path, beam_x, beam_y, r )
-	pen.raytrace_entities( beam_x, beam_y, r, length, function( hit_id, k, hit_x, hit_y, dmg_mult )
+	pen.raytrace_entities( beam_x, beam_y, r, length, function( hit_id, hit_x, hit_y, dmg_mult, k )
 		if( pen.vld( data.f )) then data.f( hit_id, hit_x, hit_y ) end
 		EntityInflictDamage( hit_id, dmg_mult*( data.dmg or 0.02 ), data.dmg_type or "DAMAGE_MATERIAL",
 			data.dmg_msg or "beam", data.dmg_effect or "NORMAL", 0, 0, hooman, hit_x, hit_y, 0 )
@@ -2560,12 +2561,11 @@ function pen.bladesim( sword_id, data )
 	if( data.active ) then
 		local blade_x, blade_y = pen.get_hotspot_pos( sword_id, "shoot_pos" )
 		local length = pen.magic_storage( sword_id, "blade_length", "value_float" )
-		local hit_action = function( hit_id, k, hit_x, hit_y, dmg_mult, is_final )
+		pen.raytrace_entities( blade_x, blade_y, d_r, length, function( hit_id, hit_x, hit_y, dmg_mult, k )
+			if( pen.vld( data.f )) then data.f( hit_id, hit_x, hit_y ) end
 			EntityInflictDamage( hit_id, dmg_mult*( data.dmg or 0.02 ), data.dmg_type or "DAMAGE_DRILL",
 				data.dmg_msg or "slash", data.dmg_effect or "NORMAL", 0, 0, data.shooter, hit_x, hit_y, 0 )
-		end
-		
-		pen.raytrace_entities( blade_x, blade_y, d_r, length, hit_action, data )
+		end, data )
 	end
 
 	return anim_done
@@ -3182,6 +3182,55 @@ function pen.magic_particles( x, y, r, data )
 	-- randomize_alpha
 end
 
+function pen.magic_explosion( x, y, data )
+	data = data or {}
+	if( not( ModDoesFileExist( pen.FILE_MAGIC_EXPLOSION ))) then
+		if( pen.magic_write and not( pen.c.magic_explosion_file )) then
+			pen.c.magic_explosion_file = true
+			pen.magic_write( pen.FILE_MAGIC_EXPLOSION, pen.FILE_XML_EXPLOSION )
+		else return end
+	end
+
+	local explosion = EntityLoad( pen.FILE_MAGIC_EXPLOSION, x, y )
+	local life_comp = EntityGetFirstComponentIncludingDisabled( explosion, "LifetimeComponent" )
+	ComponentSetValue2( life_comp, "kill_frame", GameGetFrameNum() + 1 )
+	local exp_comp = EntityGetFirstComponentIncludingDisabled( explosion, "ExplosionComponent" )
+	
+	ComponentObjectSetValue2( exp_comp, "config_explosion", "explosion_radius", data.radius or 5 )
+	ComponentObjectSetValue2( exp_comp, "config_explosion", "who_is_responsible", data.shooter or 0 )
+	ComponentObjectSetValue2( exp_comp, "config_explosion", "dont_damage_this", data.ignore or data.shooter or 0 )
+
+	ComponentObjectSetValue2( exp_comp, "config_explosion", "damage", data.damage or 0 )
+	ComponentObjectSetValue2( exp_comp, "config_explosion", "ray_energy", data.energy or 0 )
+	ComponentObjectSetValue2( exp_comp, "config_explosion", "max_durability_to_destroy", data.impact or 0 )
+	ComponentObjectSetValue2( exp_comp, "config_explosion", "hole_destroy_liquid", data.evaporate or false )
+
+	data.force = data.force or { 0, 0 }
+	ComponentObjectSetValue2( exp_comp, "config_explosion", "knockback_force", data.knockback or 1 )
+	ComponentObjectSetValue2( exp_comp, "config_explosion", "physics_explosion_power", data.force[1], data.force[2])
+
+	ComponentObjectSetValue2( exp_comp, "config_explosion", "camera_shake", data.shake or 0 )
+
+	ComponentObjectSetValue2( exp_comp, "config_explosion", "stains_enabled", data.stains ~= nil )
+	ComponentObjectSetValue2( exp_comp, "config_explosion", "stains_radius", data.stains or 0 )
+	
+	data.sparks = data.sparks or {}
+	ComponentObjectSetValue2( exp_comp, "config_explosion", "sparks_enabled", data.sparks[1] ~= nil )
+	ComponentObjectSetValue2( exp_comp, "config_explosion", "sparks_count_min", data.sparks[1] or 0 )
+	ComponentObjectSetValue2( exp_comp, "config_explosion", "sparks_count_max", data.sparks[2] or 0 )
+
+	data.cells = pen.get_hybrid_table( data.cells or {})
+	ComponentObjectSetValue2( exp_comp, "config_explosion", "create_cell_probability", data.cells[1] or 0 )
+	ComponentObjectSetValue2( exp_comp, "config_explosion", "create_cell_material", data.cells[2] or "fire" )
+	
+	data.light = pen.get_hybrid_table( data.light or {})
+	ComponentObjectSetValue2( exp_comp, "config_explosion", "light_enabled", data.light[1] ~= nil )
+	ComponentObjectSetValue2( exp_comp, "config_explosion", "light_fade_time", data.light[1] or 0.1 )
+	ComponentObjectSetValue2( exp_comp, "config_explosion", "light_r", data.light[2] or 255 )
+	ComponentObjectSetValue2( exp_comp, "config_explosion", "light_g", data.light[3] or 255 )
+	ComponentObjectSetValue2( exp_comp, "config_explosion", "light_b", data.light[4] or 178 )
+end
+
 --[INTERFACE]
 function pen.gui_builder( gui )
 	local iuid = 69
@@ -3486,9 +3535,10 @@ function pen.colourer( gui, c, alpha )
 end
 
 function pen.play_sound( sfx, x, y, no_bullshit )
+	local sfx_id = table.concat({ sfx[1], sfx[2]})
+
 	if( not( no_bullshit )) then
 		local frame_num = GameGetFrameNum()
-		local sfx_id = table.concat({ sfx[1], sfx[2]})
 		pen.c.play_sound_memo = pen.c.play_sound_memo or {}
 		if( pen.c.play_sound_memo[ sfx_id ] == frame_num ) then return end
 		pen.c.play_sound_memo[ sfx_id ] = frame_num
@@ -3497,10 +3547,9 @@ function pen.play_sound( sfx, x, y, no_bullshit )
 	if( x == nil ) then x, y = GameGetCameraPos() end
 	
 	if( sfx[3]) then
-		local lid = sfx[1]..sfx[2]
 		pen.c.looped_sfxes = pen.c.looped_sfxes or {}
-		local is_new = EntityGetIsAlive( pen.c.looped_sfxes[ lid ] or 0 )
-		local loop_id = pen.life_support( pen.c.looped_sfxes, lid, nil, x, y )
+		local is_new = EntityGetIsAlive( pen.c.looped_sfxes[ sfx_id ] or 0 )
+		local loop_id = pen.life_support( pen.c.looped_sfxes, sfx_id, nil, x, y )
 		if( is_new ) then
 			EntityAddComponent2( loop_id, "AudioLoopComponent", {
 				_tags = "loop",
@@ -3508,7 +3557,7 @@ function pen.play_sound( sfx, x, y, no_bullshit )
 				volume_autofade_speed = tonumber( sfx[3]) or 0.25,
 			})
 		end
-		GameEntityPlaySoundLoop( pen.c.looped_sfxes[ lid ], "loop", 1.0 )
+		GameEntityPlaySoundLoop( pen.c.looped_sfxes[ sfx_id ], "loop", 1.0 )
 	else GamePlaySound( sfx[1], sfx[2], x, y ) end
 end
 
@@ -4642,6 +4691,7 @@ pen.FILE_PIC_NUL = "data/ui_gfx/empty_white.png"
 pen.FILE_MATTER = "data/debug/matter_test.xml"
 pen.FILE_MATTER_COLOR = "data/debug/matter_color.xml"
 pen.FILE_MAGIC_EMITTER = "data/debug/magic_emitter.xml"
+pen.FILE_MAGIC_EXPLOSION = "data/debug/magic_explosion.xml"
 pen.FILE_T2F = "data/debug/vpn"
 
 pen.SETTING_PPB = "PENMAN.SETTING_PPB"
@@ -5076,8 +5126,10 @@ pen.PALETTE = {
 		GREEN = {157,245,132}, _="ff9df584",
 		PURPLE = {179,141,232}, _="ffb38de8",
 	},
-	N40 = {
-
+	N40 = { --ammo types, classes, misc colors
+		HOLO_1 = {82,213,60}, _="ffb6d53c",
+		HOLO_2 = {113,170,52}, _="ff71aa34",
+		HOLO_3 = {57,123,68}, _="ff397b44",
 	},
 	NCRS = {
 		GREY_1 = {21,29,40}, _="ff151d28",
@@ -5128,8 +5180,6 @@ pen.PALETTE = {
 		CORE_6 = {238,121,150}, _="ffee7996",
 		CORE_7 = {230,154,167}, _="ffe69aa7",
 	},
-	
-	--N40K: ammo types, classes, misc colors
 }
 
 pen.TUNES = {
@@ -7002,6 +7052,140 @@ pen.FILE_XML_EMITTER = [[
 		randomize_velocity.min_y="-1"
 		randomize_velocity.max_y="1"
 	></SpriteParticleEmitterComponent>
+</Entity>
+]]
+
+pen.FILE_XML_EXPLOSION = [[
+<Entity serialize="0" >
+	<LifetimeComponent lifetime="5" />
+
+	<ExplosionComponent
+		trigger="ON_DEATH"
+		><config_explosion
+			audio_enabled="0"
+			never_cache="1"
+			damage="0"
+			ray_energy="0"
+			max_durability_to_destroy="0"
+			camera_shake="0"
+			shake_vegetation="1"
+			physics_throw_enabled="1"
+			physics_explosion_power.min="0"
+			physics_explosion_power.max="0"
+			explosion_radius="0"
+			explosion_sprite_lifetime="0"
+			explosion_sprite=""
+			load_this_entity=""
+			hole_enabled="1"
+			hole_destroy_liquid="0"
+			sparks_enabled="0"
+			sparks_count_min="0"
+			sparks_count_max="0"
+			material_sparks_enabled="0"
+			material_sparks_count_min="0"
+			material_sparks_count_max="0"
+			stains_enabled="0"
+			stains_radius="0"
+			light_enabled="0"
+			light_radius_coeff="1"
+			particle_effect="0"
+			knockback_force="1"
+			create_cell_probability="0"
+		></config_explosion>
+	</ExplosionComponent>
+</Entity>
+]]
+
+pen.FILE_XML_PROJECTILE = [[
+<Entity serialize="0" >
+	<LifetimeComponent lifetime="5" />
+
+	<ProjectileComponent
+		collide_with_world="0"
+		speed_min="0"
+		speed_max="0"
+		friction="99999"
+		lob_min="0"
+		lob_max="0"
+		camera_shake_when_shot="0"
+		shoot_light_flash_radius="0"
+		velocity_sets_rotation="0"
+		do_moveto_update="0"
+		on_death_gfx_leave_sprite="0"
+		ground_collision_fx="0"
+		on_collision_die="0"
+		on_collision_spawn_entity="0"
+		physics_impulse_coeff="0"
+		collide_with_entities="0"
+		collide_with_tag=""
+		damage="0"
+		ragdoll_force_multiplier="0"
+		hit_particle_force_multiplier="0"
+		blood_count_multiplier="0"
+		play_damage_sounds="0"
+		ragdoll_fx_on_collision="NONE"
+		on_death_explode="1"
+		on_lifetime_out_explode="1"
+		><config_explosion
+			audio_enabled="0"
+			never_cache="1"
+			damage="0"
+			ray_energy="0"
+			max_durability_to_destroy="0"
+			camera_shake="0"
+			shake_vegetation="1"
+			physics_throw_enabled="1"
+			physics_explosion_power.min="0"
+			physics_explosion_power.max="0"
+			explosion_radius="0"
+			explosion_sprite_lifetime="0"
+			explosion_sprite=""
+			load_this_entity=""
+			hole_enabled="1"
+			hole_destroy_liquid="0"
+			sparks_enabled="0"
+			sparks_count_min="0"
+			sparks_count_max="0"
+			material_sparks_enabled="0"
+			material_sparks_count_min="0"
+			material_sparks_count_max="0"
+			stains_enabled="0"
+			stains_radius="0"
+			light_enabled="0"
+			light_radius_coeff="1"
+			particle_effect="0"
+			knockback_force="1"
+			create_cell_probability="0"
+		></config_explosion>
+		<config
+			speed_multiplier="0"
+			child_speed_multiplier="0"
+			action_mana_drain="0"
+			dampening="0"
+			blood_count_multiplier="0"
+		></config>
+		<damage_by_type
+			melee="0"
+			projectile="0"
+			explosion="0"
+			electricity="0"
+			fire="0"
+			drill="0"
+			slice="0"
+			ice="0"
+			healing="0"
+			physics_hit="0"
+			radioactive="0"
+			poison="0"
+			overeating="0"
+			curse="0"
+			holy="0"
+		></damage_by_type>
+		<damage_critical
+			chance="0"
+			damage_multiplier="0"
+		></damage_critical>
+	</ProjectileComponent>
 </Entity>
 ]]
 

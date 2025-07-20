@@ -714,7 +714,7 @@ end
 ---@param entity_id? entity_id Will default to mnee.get_ctrl() if left empty. 
 ---@return boolean is_down, boolean is_just_down
 function mnee.vanilla_input( button, entity_id )
-	local ctrl_comp = EntityGetFirstComponent( entity_id or mnee.get_ctrl(), "ControlsComponent" )
+	local ctrl_comp = EntityGetFirstComponentIncludingDisabled( entity_id or mnee.get_ctrl(), "ControlsComponent" )
 	if( not( pen.vld( ctrl_comp, true ))) then return false, false end
 	return ComponentGetValue2( ctrl_comp, "mButtonDown"..button ), ComponentGetValue2( ctrl_comp, "mButtonFrame"..button ) == GameGetFrameNum()
 end
@@ -1003,6 +1003,7 @@ mnee.INMODES = {
 		local vals = {
 			{ "mButtonDownLeftClick", "mouse_left", "mouse_left_gui" },
 			{ "mButtonDownRightClick", "mouse_right", "mouse_right_gui" },
+			{},
 			{ "mButtonDownChangeItemL", "mouse_wheel_up", "mouse_wheel_up_gui" },
 			{ "mButtonDownChangeItemR", "mouse_wheel_down", "mouse_wheel_down_gui" },
 		}

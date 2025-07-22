@@ -4,8 +4,10 @@ pen.t = pen.t or {} -- table funcs
 pen.c = pen.c or {} -- cache table
 pen.c.ttips = pen.c.ttips or {} --tip data
 if( GameGetWorldStateEntity() > 0 ) then
-	GlobalsSetValue( "PROSPERO_IS_REAL", "1" )
+	GlobalsSetValue( "HERMES_IS_REAL", "1" )
 end
+
+pen._VERSION_ = "[VERSION_GOES_HERE]" --[COMMIT_GOES_HERE]
 
 --[CLASSES]
 pen.V = { --https://github.com/Wiseluster/lua-vector/blob/master/vector.lua
@@ -1823,7 +1825,7 @@ function pen.raytrace_entities( x, y, r, l, hit_action, data )
 	local ma = math.max( ma_l, ma_x, ma_y, ma_r, 1 )
 	local ms_l, ms_x, ms_y, ms_r = md_l/ma, md_x/ma, md_y/ma, md_r/ma
 	
-	local dots = {}
+	local dots, buff = {}, {}
 	for mk = ma,1,-1 do
 		local root_l = last_l + ms_l*mk
 		local root_x = last_x + ms_x*mk
@@ -1837,14 +1839,13 @@ function pen.raytrace_entities( x, y, r, l, hit_action, data )
 
 		for k = 0,amount do
 			local dot_x, dot_y = x + step_x*k, y + step_y*k
-			local dot_x_, dot_y_ = x + step_x_*k, y + step_y_*k
-
-			local x_valid = math.abs( dot_x - dot_x_ ) > res
-			local y_valid = math.abs( dot_y - dot_y_ ) > res
+			local dot_x_, dot_y_ = unpack( buff[k] or { dot_x - 2*res, dot_y - 2*res })
+			local x_valid, y_valid = math.abs( dot_x - dot_x_ ) > res, math.abs( dot_y - dot_y_ ) > res
 			local will_do = ( mk == ma ) or ( x_valid or y_valid )
 
 			if( will_do ) then
 				dots[k] = dots[k] or {}
+				buff[k] = { dot_x, dot_y }
 				table.insert( dots[k], { dot_x, dot_y })
 				local do_action = data.always_action or ( pen.vld( data.point_action ) and ( mk == ma ))
 				if( do_action ) then data.point_action( data, dot_x, dot_y, k, k == amount ) end
@@ -2374,7 +2375,7 @@ end
 function pen.debug_dot( x, y, data )
 	if( type( data or {}) == "number" ) then
 		GameCreateSpriteForXFrames( pen.FILE_PIC_NUL, x, y, true, 0, 0, frames or 1, true )
-	else x, y = pen.world2gui( x, y ); pen.new_pixel( x - 0.5, y - 0.5, nil, data ) end
+	else x, y = pen.world2gui( x, y ); pen.new_pixel( x - 0.5, y - 0.5, 10*pen.LAYERS.TIPS_FRONT, data ) end
 end
 
 function pen.lag_me( frame_time )
@@ -2416,36 +2417,6 @@ function pen.life_support( memo, id, path, x, y, r, s_x, s_y )
 	return entity_id, is_new
 end
 
-function pen.new_projectile( ids, action, path )
-	local hooman, arm_id, gun_id, card_id = unpack( ids )
-	if( pen.vld( path )) then return add_projectile( path ) end
-
-	local data = action.beam
-	data.shooter = hooman
-	data.card = card_id
-	data.gun = gun_id
-	data.uid = gun_id
-	
-	local x, y, r = EntityGetTransform( gun_id )
-	local beam_x, beam_y = pen.get_hotspot_pos( gun_id, "shoot_pos" )
-	local beam_path = pen.magic_storage( gun_id, "beam", "value_string" )
-	local length = pen.magic_storage( gun_id, "beam_length", "value_float" )
-	
-	pen.c.beam_ids = pen.c.beam_ids or {}
-	pen.child_play( pen.c.beam_ids[ gun_id ], function( parent, child, i )
-		pen.t.loop( EntityGetComponentIncludingDisabled( child, "LaserEmitterComponent" ), function( i, comp )
-			ComponentSetValue2( comp, "is_emitting", true )
-		end)
-	end)
-	
-	pen.life_support( pen.c.beam_ids, gun_id, beam_path, beam_x, beam_y, r )
-	pen.raytrace_entities( beam_x, beam_y, r, length, function( hit_id, hit_x, hit_y, dmg_mult, k )
-		if( pen.vld( data.f )) then data.f( hit_id, hit_x, hit_y ) end
-		EntityInflictDamage( hit_id, dmg_mult*( data.dmg or 0.02 ), data.dmg_type or "DAMAGE_MATERIAL",
-			data.dmg_msg or "beam", data.dmg_effect or "NORMAL", 0, 0, hooman, hit_x, hit_y, 0 )
-	end, data )
-end
-
 function pen.gunshot( shot_func, eject_func )
 	local card_id = gunshot_card_id or pen.get_card_id()
 	if( not( pen.vld( card_id, true ))) then return end
@@ -2457,14 +2428,14 @@ function pen.gunshot( shot_func, eject_func )
 	local hooman = gunshot_hooman_id or EntityGetRootEntity( gun_id )
 	local arm_id = gunshot_arm_id or pen.get_child( hooman, "arm_r" )
 	
+	--degrate firerate (for full auto) and lower accuracy (for all) at heat over 50%
 	--accuracy is affected by stress, low values have no effect, medium values increase, high values decrease
 	--add clanking sound for the last 25% of shots from the mag (capped at 10 shots max and 1 shot min, is ignored for mags with less than 3 shots)
-	--play trigger click only once per empty mag, set "locked_and_unloaded" gun_id varstorage to true after that
-	--play ejection/feeding sound
 
 	local locked_frame = pen.magic_storage( gun_id, "cycling_frame", "value_int" )
 	if(( locked_frame or frame_num ) > frame_num ) then return end
-
+	--play feeding sound
+	
 	local is_holding = ( frame_num - ( locked_frame or 0 )) < 3
 	local recoil = pen.magic_storage( gun_id, "recoil", "value_float" ) or 0
 	local bolt_delay = pen.magic_storage( gun_id, "cycling", "value_int" ) or 0
@@ -2479,37 +2450,23 @@ function pen.gunshot( shot_func, eject_func )
 	local ammo = pen.magic_storage( card_id, "ammo", "value_int", nil, max_ammo )
 	if( ammo == 0 ) then return end
 
-	local x, y, r, s_x, s_y = EntityGetTransform( gun_id )
-	local shot_x, shot_y = pen.get_hotspot_pos( gun_id, "shoot_pos" )
-	pen.play_sound({ action.sfx[1], action.sfx[2].."/shoot", action.sfx[3]}, shot_x, shot_y )
-
-	local count, heat = 0, 0
-	local ids = { hooman, arm_id, gun_id, card_id }
-	for i,v in ipairs( action.projectiles ) do
-		for e = 1,( v.c or 1 ) do
-			pen.new_projectile( ids, action, v.p )
-			heat = heat + ( v.h or 0 )
-			count = count + ( v.s or 1 )
-			recoil = recoil + ( v.r or 0 )
-		end
-	end
-
 	local max_heat = pen.magic_storage( gun_id, "heat_max", "value_float" ) or -1
-	if( max_heat > 0 ) then
-		local total_heat = pen.magic_storage( gun_id, "heat", "value_float", nil, true ) + heat
-		-- semi auto overheating penalty should be misfire
-		-- energy overheating penalty should be waiting until total heat drop to half of max
-		pen.magic_storage( gun_id, "heat", "value_float", total_heat )
+	local total_heat = pen.magic_storage( gun_id, "heat", "value_float", nil, true )
+	local is_cooked = max_heat > 0 and max_heat < total_heat
+	local is_beam = pen.vld( action.beam )
+
+	if(( pen.magic_storage( gun_id, "heat_cutoff", "value_float" ) or -1 ) > 0 ) then return end
+
+	if( is_beam and is_cooked ) then
+		pen.play_sound({ action.sfx[1], action.sfx[4]}, x, y )
+		pen.magic_storage( gun_id, "heat_cutoff", "value_float", 0.5 )
 	end
 
-	local is_advanced = not( pen.magic_storage( hooman, "vector_no_handling", "value_bool" ))
-	recoil = ( recoil^2 )/( 10*pen.get_mass( gun_id )) -- 1 unit of recoil is 4kg
-	if( EntityHasTag( hooman, "vector_ctrl" ) and is_advanced ) then
-		local v = pen.magic_storage( gun_id, "recoil", "value_float", nil, true )
-		pen.magic_storage( gun_id, "recoil", "value_float", v + recoil )
-	else shot_effects.recoil_knockback = shot_effects.recoil_knockback + 3*recoil end
-	if( ammo > 0 ) then pen.magic_storage( card_id, "ammo", "value_int", ammo - 1 ) end
-	
+	local efficiency = pen.magic_storage( gun_id, "ammo_efficiency", "value_float" ) or -1
+	local cost = efficiency > 0 and efficiency*( 1 + total_heat/max_heat ) or 1
+	if( ammo > 0 ) then pen.magic_storage( card_id, "ammo", "value_int", math.max( ammo - cost, 0 )) end
+
+	local x, y, r, s_x, s_y = EntityGetTransform( gun_id )
 	if( pen.vld( action.shells )) then
 		local eject_force = 300
 		local eject_angle = r - pen.get_sign( s_y )*math.rad( 135 )
@@ -2520,16 +2477,45 @@ function pen.gunshot( shot_func, eject_func )
 			local v_x = eject_force_x - pen.get_sign( eject_force_x )*math.random( 50, 100 )
 			local v_y = eject_force_y + pen.get_sign( eject_force_y )*math.random( 10, 75 )
 			pen.magic_shooter( gun_id, v, eject_x, eject_y, v_x, v_y )
+			--play ejection sound
 		end
 	end
 
+	if( not( is_beam ) and is_cooked ) then
+		if( bolt_delay < 0 and math.random() < total_heat/( 2*max_heat )) then
+			return pen.play_sound({ action.sfx[1], "items/guns/dryfire", action.sfx[3]}, x, y ) end
+		--full-auto guns have a chance to trigger runaway detonation in the form of uncontrolled fast firing magdump with randomized intervals and insanely low accuracy (prevent switching guns while this happens)
+	end
+
+	local shot_x, shot_y = pen.get_hotspot_pos( gun_id, "shoot_pos" )
+	pen.play_sound({ action.sfx[1], action.sfx[2].."/shoot", action.sfx[3]}, shot_x, shot_y )
+
+	local heat = 0
+	local ids = { hooman, arm_id, gun_id, card_id }
+	pen.t.loop( action.projectiles, function( i, v )
+		for e = 1,( v.c or 1 ) do
+			if( pen.vld( v.p )) then
+				add_projectile( v.p ) end
+			heat = heat + ( v.h or 0 )
+			recoil = recoil + ( v.r or 0 )
+		end
+	end)
+	
+	if( max_heat > 0 ) then pen.magic_storage( gun_id, "heat", "value_float", total_heat + heat ) end
+
+	local is_advanced = not( pen.magic_storage( hooman, "vector_no_handling", "value_bool" ))
+	recoil = ( recoil^2 )/( 10*pen.get_mass( gun_id )) -- 1 unit of recoil is 4kg
+	if( EntityHasTag( hooman, "vector_ctrl" ) and is_advanced ) then
+		local v = pen.magic_storage( gun_id, "recoil", "value_float", nil, true )
+		pen.magic_storage( gun_id, "recoil", "value_float", v + recoil )
+	else shot_effects.recoil_knockback = shot_effects.recoil_knockback + 3*recoil end
+
 	if( eject_func ~= true ) then
-		--at high diversion angles, apply pattern-based angle redictection with phantom projectile (this will have to be done as the first spell in the wand)
 		local trans_comp = EntityGetFirstComponentIncludingDisabled( arm_id, "InheritTransformComponent" )
 		local rx, ry = ComponentGetValue2( trans_comp, "Transform" )
 		local abil_comp = EntityGetFirstComponentIncludingDisabled( gun_id, "AbilityComponent" )
 		local rr = ComponentGetValue2( abil_comp, "item_recoil_rotation_coeff" ) --tilt should be penalized with accuracy loss much more
-		c.spread_degrees = c.spread_degrees + math.abs( rx ) + math.abs( ry ) + math.abs( rr )
+		c.spread_degrees = c.spread_degrees + math.abs( rx ) + math.abs( ry ) + math.min( 2*rr^2, 60 )
 	end
 
 	if( eject_func ~= true and pen.vld( eject_func )) then
@@ -2599,6 +2585,7 @@ function pen.bladesim( sword_id, data )
 	
 	--apply momentum directly from the mouse delta and try to aim for the mouse only when the delta is below a threshold
 	--simulated mode
+	--having heat over 80% adds additional fire damage
 
 	if( data.active ) then
 		local blade_x, blade_y = pen.get_hotspot_pos( sword_id, "shoot_pos" )
@@ -2626,7 +2613,7 @@ function pen.get_delta_time( id )
 end
 
 function pen.ricochet( v, p_angle, n_angle, r_angles )
-	local angle = math.abs( math.deg( n_angle - p_angle ))%90
+	local angle = math.abs( math.deg( pen.get_angular_delta( n_angle, p_angle )))%90
 	local min_rico, max_rico = unpack( r_angles or { 65, 85 })
 
 	local will_rico = angle > max_rico

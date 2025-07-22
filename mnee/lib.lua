@@ -996,14 +996,15 @@ mnee.BANNED_KEYS = pen.t.unarray({
 mnee.INMODES = {
 	guied = function( ctrl_body, active )
 		mnee.G.mb_memo = mnee.G.mb_memo or {}
-		local gotta_go = mnee.G.mb_memo[1] or mnee.G.mb_memo[2]
+		local gotta_go = mnee.G.mb_memo[1] or
+			mnee.G.mb_memo[2] or mnee.G.mb_memo[4] or mnee.G.mb_memo[5]
 		if( not( gotta_go or pen.vld( active ))) then mnee.G.mb_memo = nil; return active end
 		local ctrl_comp = EntityGetFirstComponentIncludingDisabled( ctrl_body, "ControlsComponent" )
 		
 		local vals = {
 			{ "mButtonDownLeftClick", "mouse_left", "mouse_left_gui" },
 			{ "mButtonDownRightClick", "mouse_right", "mouse_right_gui" },
-			{},
+			{}, --scrolling is fucked because of the inherent delay of this implementation
 			{ "mButtonDownChangeItemL", "mouse_wheel_up", "mouse_wheel_up_gui" },
 			{ "mButtonDownChangeItemR", "mouse_wheel_down", "mouse_wheel_down_gui" },
 		}

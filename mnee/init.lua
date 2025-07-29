@@ -18,7 +18,8 @@ function OnModInit()
 			end
 		end,
 	})
-
+	
+	-- add an option to merge numpad and main keyboard on per-bind basis
 	-- make procedural pause screen keyboard that highlights all the bind's keys on hover of one of them (only if the moddev marked the binding as show_on_pause)
 	-- make mnee the main propero mod (p2k must pull all the sounds and such from it, window context is run from within mnee's init)
 	--add vertical window resizing that snaps to always have whol enumber of buttons shown

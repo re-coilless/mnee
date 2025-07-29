@@ -2378,6 +2378,60 @@ function pen.debug_dot( x, y, data )
 	else x, y = pen.world2gui( x, y ); pen.new_pixel( x - 0.5, y - 0.5, 10*pen.LAYERS.TIPS_FRONT, data ) end
 end
 
+function pen.debug_vector( x, y, l, r, is_line )
+	local b_x, b_y = l, r
+	if( not( is_line )) then
+		b_x = x + l*math.cos( r )
+		b_y = y + l*math.sin( r )
+	end
+
+	x, y = pen.world2gui( x, y )
+	b_x, b_y = pen.world2gui( b_x, b_y )
+
+	local d_x = b_x - x
+	local d_y = b_y - y
+	if( is_line ) then
+		l = math.sqrt( d_x^2 + d_y^2 )
+		r = math.atan2( d_y, d_x )
+	end
+
+	local c0 = pen.magic_rgb( pen.PALETTE.VNL.WARNING, false, "hsv" )[1]
+	local c1, c2, c3 = unpack( pen.magic_rgb( pen.PALETTE.VNL.RUNIC, false, "hsv" ))
+	
+	local amount = math.abs( l )
+	local d_c = ( c0 - c1 )/amount
+	d_x, d_y = d_x/amount, d_y/amount
+
+	for i = 0,( amount - 1 ) do
+		local off_x, off_y = pen.rotate_offset( -0.5, -0.5, r )
+		local pic_x, pic_y = x + i*d_x + off_x, y + i*d_y + off_y
+		local pic_c = pen.magic_rgb({ d_c*i + c1, c2, c3 }, true, "hsv" )
+		pen.new_pixel( pic_x, pic_y, 10*pen.LAYERS.TIPS_FRONT, pic_c, nil, nil, 1, r )
+	end
+end
+
+function pen.debug_print( text, x, y, color )
+	if( pen.vld( x ) and pen.vld( y )) then
+		local pic_x, pic_y = pen.world2gui( x, y )
+		pen.new_shadowed_text( pic_x, pic_y, 100*pen.LAYERS.WORLD_FRONT, text, {
+			alpha = 0.5, is_centered_x = true, is_centered_y = true, color = color })
+	else --stolen from fairmod + thanks Nathan
+		color = color or pen.PALETTE.VNL.WARNING
+		if( ModIsEnabled( "index_core" )) then
+			local log = GlobalsGetValue( "INDEX_GLOBAL_CUSTOM_LOG", "" )
+			local c = "{-}|"..color[1].."|"..color[2].."|"..color[3].."|"..( color[4] or 1 ).."|{-}"
+			GlobalsSetValue( "INDEX_GLOBAL_CUSTOM_LOG", log.."{>color>{"..c..text.."}<color<}"..pen.DIV_0 )
+		end
+		print( "\27[5D\27[38;2;"..color[1]..";"..color[2]..";"..color[3].."m"..text.."\27[0m     " )
+	end
+end
+
+function pen.get_line_num( _, log )
+	local _,_,num = string.find( log, ":(%d-):" )
+	pen.debug_print( "Logging from Line #"..num )
+	--use "pen.get_line_num( pcall( function( x ) return x + nil end, 69 ))"
+end
+
 function pen.lag_me( frame_time )
 	local current_time = GameGetRealWorldTimeSinceStarted()*1000
 	local prev_time = current_time
@@ -2389,7 +2443,7 @@ end
 function pen.debug_lag( is_going, secs )
 	if( pen.c.debug_lag ) then
 		pen.c.debug_lag, secs = false, secs or 3 elseif( not( is_going )) then return end
-	if( InputIsKeyDown( 40 --[[Return]] )) then pen.c.debug_lag = true; pen.lag_me( 1000*( secs or 0.1 )) end
+	if( InputIsKeyDown( 40 --[[Return]] )) then pen.c.debug_lag = true; pen.lag_me( 1000*( secs or 1 )) end
 end
 
 function pen.get_hotspot_pos( entity_id, tag )
@@ -2404,8 +2458,8 @@ function pen.life_support( memo, id, path, x, y, r, s_x, s_y )
 	local entity_id = memo[ id ] or 0
 	if( not( EntityGetIsAlive( entity_id ))) then
 		is_new = true
-		entity_id = pen.vld( path ) and EntityLoad( path, x, y ) or EntityCreateNew( "dummy" ) end
-	EntitySetTransform( entity_id, x, y, r or 0, s_x or 1, s_y or 1 )
+		entity_id = pen.vld( path ) and EntityLoad( path, x or 0, y or 0 ) or EntityCreateNew( "dummy" ) end
+	if( x ~= nil ) then EntitySetTransform( entity_id, x, y, r or 0, s_x or 1, s_y or 1 ) end
 	memo[ id ] = entity_id
 	
 	local life_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "LifetimeComponent" )
@@ -2520,9 +2574,7 @@ function pen.gunshot( shot_func, eject_func )
 
 	if( eject_func ~= true and pen.vld( eject_func )) then
 		eject_func( eject_x, eject_y, eject_angle, s_x, s_y, gun_id, card_id, action ) end
-	if( pen.vld( shot_func )) then
-		local muzzle_x, muzzle_y = pen.get_hotspot_pos( gun_id, "shoot_pos" )
-		shot_func( muzzle_x, muzzle_y, r, s_x, s_y, gun_id, card_id, action ) end	
+	if( pen.vld( shot_func )) then shot_func( shot_x, shot_y, r, s_x, s_y, gun_id, card_id, action ) end	
 	return gun_id, card_id, action
 end
 
@@ -3951,30 +4003,30 @@ function pen.new_image( pic_x, pic_y, pic_z, pic, data )
 		if( not( pen.check_bounds({ real_x, real_y }, pen.c.cutter_dims.wh, pen.c.cutter_dims.xy ))) then return end
 	end
 	
-	local uid = data.auid
-	local gui = pen.c.anim_guis[ uid ]
-	local will_anim = is_anim and uid
+	local auid = data.auid
+	local gui = pen.c.anim_guis[ auid ]
+	local will_anim = is_anim and auid
 	if( not( will_anim ) and gui ) then
-		GuiDestroy( gui ); pen.c.anim_guis[ uid ] = nil
+		GuiDestroy( gui ); pen.c.anim_guis[ auid ] = nil
 	end
 
 	if( will_anim ) then
 		gui = gui or GuiCreate()
-		pen.c.anim_guis[ uid ] = gui
-		GuiStartFrame( gui ); uid = 1
-	else gui, uid = pen.gui_builder() end
+		pen.c.anim_guis[ auid ] = gui
+		GuiStartFrame( gui ); auid = 1
+	else gui, auid = pen.gui_builder() end
 	
 	pen.colourer( gui, data.color )
 	GuiZSetForNextWidget( gui, pic_z )
 	GuiOptionsAddForNextWidget( gui, 2 ) --NonInteractive
-	GuiImage( gui, uid, pic_x + s_x*off_x, pic_y + s_y*off_y, pic,
+	GuiImage( gui, auid, pic_x + s_x*off_x, pic_y + s_y*off_y, pic,
 		data.alpha or 1, s_x, s_y, angle, data.anim_type or 2, data.anim or "" )
 	if( data.has_shadow ) then
 		local ss_x, ss_y = 1/w + 1, 1/h + 1
 		pen.colourer( gui, pen.PALETTE.SHADOW )
 		GuiZSetForNextWidget( gui, pic_z + 0.001 )
 		GuiOptionsAddForNextWidget( gui, 2 ) --NonInteractive
-		GuiImage( gui, uid, pic_x - 0.5, pic_y - 0.5, pic,
+		GuiImage( gui, auid, pic_x - 0.5, pic_y - 0.5, pic,
 			math.max( 0.1*( data.alpha or 1 ), 0.05 ), ss_x, ss_y, data.angle or 0, data.anim_type or 2, data.anim or "" )
 	end
 
@@ -4253,23 +4305,20 @@ end
 function pen.new_text( pic_x, pic_y, pic_z, text, data )
 	data = data or {}
 	data.alpha = data.alpha or 1
-	data.scale, data.font_mods = 1, data.font_mods or {}
+	data.scale = data.scale or 1
+	data.font_mods = data.font_mods or {}
 	local dims, is_pixel_font, new_line = {}, false, 9
 	data.font, is_pixel_font = pen.font_cancer( data.font, data.is_huge )
 	
 	if( pen.vld( data.dims )) then
-		data.dims = pen.get_hybrid_table( data.dims ); data.dims[2] = data.dims[2] or -1
-		text, dims, new_line = pen.liner( text, data.dims[1]/data.scale, data.dims[2]/data.scale, data.font, {
-			nil_val = data.nil_val,
-			aggressive = data.aggressive,
-			line_offset = data.line_offset,
+		dims = pen.get_hybrid_table( data.dims ); dims[2] = dims[2] or -1
+		text, dims, new_line = pen.liner( text, dims[1]/data.scale, dims[2]/data.scale, data.font, {
+			nil_val = data.nil_val, aggressive = data.aggressive, line_offset = data.line_offset,
 		})
 	else
 		text, dims, new_line = pen.liner( text, nil, nil, data.font, {
-			nil_val = data.nil_val,
-			line_offset = data.line_offset,
+			nil_val = data.nil_val, line_offset = data.line_offset,
 		})
-		data.dims = dims
 	end
 	
 	local gui = pen.gui_builder()
@@ -4280,12 +4329,12 @@ function pen.new_text( pic_x, pic_y, pic_z, text, data )
 		GuiText( gui, pic_x, pic_y, txt, scale, font, is_pixel )
 		if( not( has_shadow )) then return end
 		GuiZSetForNextWidget( gui, pic_z + 0.001 )
-		pen.colourer( gui, pen.PALETTE.SHADOW, math.max( 0.1*alpha, 0.05 ))
+		pen.colourer( gui, data.color_shadow or pen.PALETTE.SHADOW, math.max( 0.1*alpha, 0.05 ))
 		GuiText( gui, pic_x + scale/2, pic_y + scale/2, txt, scale, font, is_pixel )
 	end
 	
-	local off_x = 0 --( data.is_centered_x or false ) and -math.abs( data.dims[1])/2 or 0
-	local off_y = ( data.is_centered_y or false ) and -math.max( data.dims[2], dims[2])/2 or 0
+	local off_x = 0 --( data.is_centered_x or false ) and -math.abs( dims[1])/2 or 0
+	local off_y = ( data.is_centered_y or false ) and -math.max( dims[2], dims[2])/2 or 0
 	if( not( data.fully_featured )) then
 		if( data.is_centered_x or data.is_right_x ) then pic_x = pic_x - dims[1]/( data.is_right_x and 1 or 2 ) end
 		for i,t in ipairs( text ) do
@@ -4297,7 +4346,7 @@ function pen.new_text( pic_x, pic_y, pic_z, text, data )
 	
 	local structure = pen.cache({ "metafont",
 		pen.b2n( data.is_centered_x ), pen.b2n( data.is_right_x ),
-		data.dims[1], data.dims[2], table.concat( text, "|" ), data.font,
+		dims[1], dims[2], table.concat( text, "|" ), data.font,
 	}, function()
 		local out = {}
 		
@@ -4441,11 +4490,20 @@ function pen.new_text( pic_x, pic_y, pic_z, text, data )
 end
 
 function pen.new_shadowed_text( pic_x, pic_y, pic_z, text, data )
+	data = data or {}
 	local _,is_pixel = pen.font_cancer()
-	data = data or {}; data.has_shadow = not( is_pixel )
+	data.has_shadow = not( is_pixel or pen.vld( data.color_shadow ))
 	if( is_pixel ) then
-		data.font = "data/fonts/font_pixel.xml"
-		data.font = ( pen.t.unarray( pen.t.pack( GlobalsGetValue( pen.GLOBAL_FONT_REMAP, "" ))) or {})[ data.font ] or data.font
+		if( pen.vld( data.color_shadow )) then
+			local color = data.color
+			data.color = data.color_shadow
+			pen.new_text( pic_x, pic_y + 1, pic_z + 0.01, text, data )
+			data.color = color
+		else
+			data.font = "data/fonts/font_pixel.xml"
+			data.font = ( pen.t.unarray( pen.t.pack(
+				GlobalsGetValue( pen.GLOBAL_FONT_REMAP, "" ))) or {})[ data.font ] or data.font
+		end
 	end
 	return pen.new_text( pic_x, pic_y, pic_z, text, data )
 end
@@ -4737,6 +4795,7 @@ pen.GLOBAL_INTERFACE_SAFETY_LR = "PENMAN_INTERFACE_SAFETY_LR"
 pen.GLOBAL_INTERFACE_SAFETY_TR = "PENMAN_INTERFACE_SAFETY_TR"
 pen.GLOBAL_SETTINGS_CACHE = "PENMAN_SETTINGS_CACHE"
 pen.GLOBAL_FONT_REMAP = "PENMAN_FONT_REMAP"
+pen.GLOBAL_WHO_SHOT = "PENMAN_WHO_SHOT"
 
 pen.MARKER_TAB = "\\_"
 pen.MARKER_FANCY_TEXT = { "{>%S->{", "}<%S-<}", "{%-}%S-{%-}" }
@@ -5183,9 +5242,12 @@ pen.PALETTE = {
 		PURPLE = {179,141,232}, _="ffb38de8",
 	},
 	N40 = { --ammo types, classes, misc colors
-		HOLO_1 = {82,213,60}, _="ffb6d53c",
-		HOLO_2 = {113,170,52}, _="ff71aa34",
-		HOLO_3 = {57,123,68}, _="ff397b44",
+		HOLO_1 = {182,213,60}, _="ffb6d53c",
+		HOLO_2 = {144,168,49}, _="ff90a831",
+		HOLO_3 = {121,140,42}, _="ff798c2a",
+		HOLO_RED_1 = {195,3,3}, _="ffc30303",
+		HOLO_RED_2 = {136,0,21}, _="ff880015",
+		HOLO_RED_3 = {62,0,10}, _="ff3e000a",
 	},
 	NCRS = {
 		GREY_1 = {21,29,40}, _="ff151d28",
@@ -5296,6 +5358,712 @@ pen.INIT_THREADS = {
 	-- 		penman_d( request, tonumber( string.sub( value, 1, 4 )), tonumber( string.sub( value, 5, -1 )))
 	-- 	end,
 	-- },
+}
+
+pen.MATTER_EXPOSURES = {
+	air = { wetting = 1, breathing = 1 },
+
+	fire = { contact = 1, burn = 1, light = 0.25, dmg = 30 },
+	fire_blue = { "fire", 2 },
+	flame = "fire",
+	liquid_fire = { "fire", 3 },
+	liquid_fire_weak = { "fire", 0.5 },
+	
+	lava = { wetting = 1, burn = 1, light = 0.1, dmg = 350 },
+	gold_molten = "lava",
+	steel_static_molten = "lava",
+	steelmoss_slanted_molten = "lava",
+	steelmoss_static_molten = "lava",
+	steelsmoke_static_molten = "lava",
+	metal_sand_molten = "lava",
+	metal_molten = "lava",
+	metal_rust_molten = "lava",
+	metal_nohit_molten = "lava",
+	aluminium_molten = "lava",
+	aluminium_robot_molten = "lava",
+	metal_prop_molten = "lava",
+	steel_rust_molten = "lava",
+	aluminium_oxide_molten = "lava",
+	copper_molten = "lava",
+	brass_molten = "lava",
+	glass_molten = "lava",
+	glass_broken_molten = "lava",
+	steel_molten = "lava",
+	silver_molten = { wetting = 1, burn = 1, light = 0.1, magic = 0.1, purification = 0.1, dmg = 350 },
+
+	plasma_fading = { effect = 1, wetting = 1, burn = 0.5, light = 0.5, dmg = 350 },
+	plasma_fading_bright = "plasma_fading",
+	plasma_fading_green = "plasma_fading",
+	plasma_fading_pink = "plasma_fading",
+	rocket_particles = "plasma_fading",
+
+	spark = { effect = 1, wetting = 1, heat = 1, light = 0.25, dmg = 30 },
+	spark_green = "spark",
+	spark_green_bright = "spark",
+	spark_blue = "spark",
+	spark_blue_dark = "spark",
+	spark_red = "spark",
+	spark_red_bright = "spark",
+	spark_white = "spark",
+	spark_white_bright = "spark",
+	spark_yellow = "spark",
+	spark_purple = "spark",
+	spark_purple_bright = "spark",
+	spark_player = "spark",
+	spark_teal = "spark",
+	spark_electric = "spark",
+
+	lavasand = { contact = 1, heat = 1, dmg = 30 },
+	meat_warm = "lavasand",
+	meat_hot = "lavasand",
+	meat_done = "lavasand",
+	meat_burned = "lavasand",
+	lavarock_static = "lavasand",
+	nest_firebug_box2d = "lavasand",
+	meteorite = "lavasand",
+	meteorite_static = "lavasand",
+	meteorite_test = "lavasand",
+	meteorite_crackable = "lavasand",
+	meteorite_green = "lavasand",
+	wax_molten = { wetting = 1, heat = 1, dmg = 100 },
+
+	glowstone = { contact = 1, light = 1, dmg = 25 },
+	glowstone_altar = "glowstone",
+	glowstone_altar_hdr = "glowstone",
+	glowstone_potion = "glowstone",
+	rock_static_glow = "glowstone",
+	tubematerial = "glowstone",
+	tube_physics = "glowstone",
+	glowshroom = "glowstone",
+	fuse_bright = "glowstone",
+	crystal = "glowstone",
+	crystal_purple = "glowstone",
+	crystal_solid = "glowstone",
+	crystal_magic = "glowstone",
+	neon_tube_purple = "glowstone",
+	neon_tube_cyan = "glowstone",
+	neon_tube_blood_red = "glowstone",
+	material_rainbow = { wetting = 1, light = 1, dmg = 50 },
+
+	corruption_static = { contact = 1, curse = 1, dmg = 500 },
+	rock_static_cursed = "corruption_static",
+	rock_static_cursed_green = "corruption_static",
+	meat_cursed = { "corruption_static", 0.25 },
+	meat_cursed_dry = { "corruption_static", 0.25 },
+	meat_slime_cursed = { "corruption_static", 0.25 },
+	cursed_liquid = { wetting = 1, curse = 1, dmg = 75 },
+	material_darkness = { "cursed_liquid", 5 },
+
+	gold_radioactive = { contact = 1, radiation = 1, dmg = 25 },
+	rock_static_radioactive = "gold_radioactive",
+	gold_static_radioactive = "gold_radioactive",
+	rotten_meat_radioactive = { "gold_radioactive", 0.5 },
+	ice_radioactive_static = { contact = 1, radiation = 1, cold = 1, dmg = 30 },
+	ice_radioactive_glass = "ice_radioactive_static",
+	radioactive_liquid = { wetting = 1, radiation = 1, dissolution = 5, dmg = 5 },
+	radioactive_liquid_fading = "radioactive_liquid",
+	radioactive_liquid_yellow = { wetting = 1, radiation = 2, dissolution = 5, dmg = 5 },
+	radioactive_gas = { wetting = 0.5, breathing = 1, radiation = 1, dmg = 100 },
+	radioactive_gas_static = "radioactive_gas",
+	cloud_radioactive = "radioactive_gas",
+
+	ice_acid_static = { contact = 1, corrosion = 1, cold = 0.3, dmg = 100 },
+	ice_acid_glass = "ice_acid_static",
+	acid = { wetting = 1, corrosion = 1, dmg = 500 },
+	acid_gas = { wetting = 1, breathing = 2, corrosion = 1, dmg = 50 },
+	acid_gas_static = "acid_gas",
+
+	rock_static_poison = { contact = 1, poison = 1, dmg = 50 },
+	ice_poison_static = { contact = 1, poison = 1, cold = 0.6, dmg = 50 },
+	ice_poison_glass = "ice_poison_static",
+	poison_gas = { breathing = 1, poison = 1, dmg = 25 },
+	poison = { wetting = 1, poison = 1, dmg = 100 },
+	pus = "poison",
+
+	cactus = { contact = 1, piercing = 1, dmg = 5 },
+	glass_broken = "cactus",
+	glass_brittle = "cactus",
+
+	wizardstone = { contact = 1, magic = 1, light = 0.5, purification = 0.1, dmg = 50 },
+	static_magic_material = "wizardstone",
+	rock_magic_gate = "wizardstone",
+	rock_magic_bottom = "wizardstone",
+	meat_teleport = "wizardstone",
+	meat_fast = "wizardstone",
+	meat_polymorph = "wizardstone",
+	meat_polymorph_protection = "wizardstone",
+	meat_confusion = "wizardstone",
+	magic_crystal = "wizardstone",
+	magic_crystal_green = "wizardstone",
+	magic_liquid = { wetting = 1, magic = 4, light = 1, dissolution = 1, dmg = 25 },
+	void_liquid = "magic_liquid",
+	mimic_liquid = "magic_liquid",
+	just_death = "magic_liquid",
+	midas_precursor = "magic_liquid",
+	midas = "magic_liquid",
+	material_confusion = "magic_liquid",
+	magic_liquid_weakness = "magic_liquid",
+	magic_liquid_movement_faster = "magic_liquid",
+	magic_liquid_faster_levitation = "magic_liquid",
+	magic_liquid_faster_levitation_and_movement = "magic_liquid",
+	magic_liquid_worm_attractor = "magic_liquid",
+	magic_liquid_protection_all = "magic_liquid",
+	magic_liquid_mana_regeneration = "magic_liquid",
+	magic_liquid_unstable_teleportation = "magic_liquid",
+	magic_liquid_teleportation = "magic_liquid",
+	magic_liquid_polymorph = "magic_liquid",
+	magic_liquid_random_polymorph = "magic_liquid",
+	magic_liquid_unstable_polymorph = "magic_liquid",
+	magic_liquid_berserk = "magic_liquid",
+	magic_liquid_charm = "magic_liquid",
+	magic_liquid_invisibility = "magic_liquid",
+	smoke_magic = { contact = 0.1, breathing = 1, magic = 1, light = 0.5, dmg = 25 },
+	magic_gas_midas = "smoke_magic",
+	magic_gas_worm_blood = "smoke_magic",
+	rainbow_gas = "smoke_magic",
+	magic_gas_polymorph = "smoke_magic",
+	magic_gas_weakness = "smoke_magic",
+	magic_gas_teleport = "smoke_magic",
+	magic_gas_fungus = "smoke_magic",
+	fungal_shift_particle_fx = "smoke_magic",
+
+	magic_liquid_hp_regeneration = { wetting = 1, heal = -1, magic = 0.2, light = 1/20, dmg = 500 },
+	magic_liquid_hp_regeneration_unstable = { "magic_liquid_hp_regeneration", 2 },
+	magic_gas_hp_regeneration = { contact = 0.1, breathing = 1, heal = -1, magic = 0.2, light = 1/40, dmg = 500 },
+
+	templerock = { contact = 1, magic = 0.1, purification = 1, dmg = 50 },
+	templerock_static = "templerock",
+	templebrick_static = "templerock",
+	templebrick_static_broken = "templerock",
+	templebrick_static_soft = "templerock",
+	templebrick_noedge_static = "templerock",
+	templerock_soft = "templerock",
+	templebrick_thick_static = "templerock",
+	templebrick_thick_static_noedge = "templerock",
+	templeslab_static = "templerock",
+	templeslab_crumbling_static = "templerock",
+	templebrickdark_static = "templerock",
+	templebrick_golden_static = "templerock",
+	templebrick_static_ruined = "templerock",
+	templebrick_red = "templerock",
+	templebrick_moss_static = "templerock",
+	templebrick_box2d = "templerock",
+	templebrick_box2d_edgetiles = "templerock",
+	silver = { contact = 1, magic = 0.25, light = 0.1, purification = 1, dmg = 50 },
+	templebrick_diamond_static = "silver",
+	purifying_powder = "silver",
+	grass_holy = "silver",
+	fuse_holy = "silver",
+	gem_box2d = "silver",
+	gem_box2d_yellow_sun = "silver",
+	gem_box2d_red_float = "silver",
+	gem_box2d_yellow_sun_gravity = "silver",
+	gem_box2d_darksun = "silver",
+	gem_box2d_pink = "silver",
+	gem_box2d_red = "silver",
+	gem_box2d_turquoise = "silver",
+	gem_box2d_opal = "silver",
+	gem_box2d_white = "silver",
+	gem_box2d_green = "silver",
+	gem_box2d_orange = "silver",
+
+	snow = { contact = 1, cold = 1, dmg = 30 },
+	snow_static = "snow",
+	ice_static = "snow",
+	ice_blood_static = "snow",
+	ice_slime_static = "snow",
+	ice_meteor_static = "snow",
+	ice_glass = "snow",
+	ice_blood_glass = "snow",
+	ice_slime_glass = "snow",
+	ice_glass_b2 = "snow",
+	snowrock_static = "snow",
+	ice = "snow",
+	grass_ice = "snow",
+	ice_ceiling = "snow",
+	snow_b2 = "snow",
+	ice_melting_perf_killer = "snow",
+	ice_b2 = "snow",
+	ice_cold_static = { contact = 1, cold = 1, burn = 1, dmg = 30 },
+	ice_cold_glass = "ice_cold_static",
+	steelfrost_static = "ice_cold_static",
+	water_ice = { wetting = 1, cold = 2, dissolution = 1, dmg = 25 },
+	slush = "water_ice",
+	snow_sticky = "water_ice",
+	blood_cold = { wetting = 1, cold = 1, burn = 1, dmg = 50 },
+	blood_cold_vapour = { contact = 0.5, breathing = 1, cold = 1, burn = 1, dmg = 25 },
+	
+	waterrock = { contact = 1, dissolution = 1, dmg = 5 },
+	rock_static_wet = "waterrock",
+	wood_static_wet = "waterrock",
+	soil_lush = "waterrock",
+	soil_lush_dark = "waterrock",
+	mud = "waterrock",
+	water = { wetting = 1, dissolution = 1, dmg = 50 },
+	water_static = "water",
+	endslime_static = "water",
+	slime_static = "water",
+	water_fading = "water",
+	water_temp = "water",
+	water_swamp = "water",
+	swamp = "water",
+	blood = "water",
+	blood_fading = "water",
+	blood_fading_slow = "water",
+	blood_fungi = "water",
+	blood_worm = "water",
+	milk = "water",
+	honey = "water",
+	porridge = "water",
+	slime = "water",
+	slime_green = "water",
+	slime_yellow = "water",
+	pea_soup = "water",
+	endslime = "water",
+	endslime_blood = "water",
+	blood_thick = "water",
+	cloud = { wetting = 1, breathing = 2, dissolution = 1, dmg = 10 },
+	cloud_lighter = "cloud",
+	cloud_blood = "cloud",
+	cloud_slime = "cloud",
+	steam = { wetting = 1, breathing = 2, dissolution = 1, heat = 0.5, dmg = 50 },
+	steam_trailer = "steam",
+
+	oil = { wetting = 1, pollution = 1, dmg = 15 },
+	creepy_liquid = "oil",
+	glue = "oil",
+	poo = "oil",
+	alcohol = { wetting = 1, dissolution = 1.5, pollution = 0.4, dmg = 25 },
+	beer = "alcohol",
+	molut = "alcohol",
+	sima = "alcohol",
+	juhannussima = "alcohol",
+	water_salt = "alcohol",
+	mammi = "alcohol",
+	urine = "alcohol",
+	vomit = "alcohol",
+	smoke = { breathing = 1, pollution = 1, dmg = 25 },
+	smoke_static = "smoke",
+	smoke_explosion = "smoke",
+	poo_gas = "smoke",
+	alcohol_gas = "smoke",
+	spore = "smoke",
+	sand_herb_vapour = "smoke",
+	fungal_gas = "smoke",
+
+	rock = { contact = 1 },
+	rock_static = "rock",
+	rock_static_intro = "rock",
+	rock_static_trip_secret = "rock",
+	rock_static_trip_secret2 = "rock",
+	rock_static_purple = "rock",
+	bone_static = "rock",
+	rust_static = "rock",
+	sand_static = "rock",
+	sand_static_rainforest = "rock",
+	sand_static_rainforest_dark = "rock",
+	sand_static_bright = "rock",
+	meat_static = "rock",
+	sand_static_red = "rock",
+	nest_static = "rock",
+	bluefungi_static = "rock",
+	spore_pod_stalk = "rock",
+	rock_hard = "rock",
+	rock_static_fungal = "rock",
+	wood_tree = "rock",
+	rock_static_noedge = "rock",
+	rock_hard_border = "rock",
+	rock_eroding = "rock",
+	rock_vault = "rock",
+	coal_static = "rock",
+	rock_static_grey = "rock",
+	skullrock = "rock",
+	the_end = "rock",
+	steel_static = "rock",
+	steelmoss_static = "rock",
+	steel_rusted_no_holes = "rock",
+	steel_grey_static = "rock",
+	steelmoss_slanted = "rock",
+	steelsmoke_static = "rock",
+	steelpipe_static = "rock",
+	steel_static_strong = "rock",
+	steel_static_unmeltable = "rock",
+	rock_static_intro_breakable = "rock",
+	glass_static = "rock",
+	concrete_static = "rock",
+	wood_static = "rock",
+	cheese_static = "rock",
+	root_growth = "rock",
+	wood_burns_forever = "rock",
+	creepy_liquid_emitter = "rock",
+	gold_static = "rock",
+	gold_static_dark = "rock",
+	wood_static_vertical = "rock",
+	wood_static_gas = "rock",
+	sand = "rock",
+	cement = "rock",
+	concrete_sand = "rock",
+	sand_blue = "rock",
+	sand_surface = "rock",
+	sand_petrify = "rock",
+	bone = "rock",
+	soil = "rock",
+	soil_dead = "rock",
+	soil_dark = "rock",
+	sandstone = "rock",
+	sandstone_surface = "rock",
+	fungisoil = "rock",
+	explosion_dirt = "rock",
+	vine = "rock",
+	root = "rock",
+	rotten_meat = "rock",
+	meat_slime_sand = "rock",
+	meat_slime_green = "rock",
+	meat_slime_orange = "rock",
+	meat_worm = "rock",
+	meat_helpless = "rock",
+	meat_trippy = "rock",
+	meat_frog = "rock",
+	sand_herb = "rock",
+	wax = "rock",
+	gold = "rock",
+	steel_sand = "rock",
+	metal_sand = "rock",
+	copper = "rock",
+	brass = "rock",
+	diamond = "rock",
+	coal = "rock",
+	sulphur = "rock",
+	salt = "rock",
+	sodium = "rock",
+	burning_powder = "rock",
+	sodium_unstable = "rock",
+	gunpowder = "rock",
+	gunpowder_explosive = "rock",
+	gunpowder_tnt = "rock",
+	gunpowder_unstable = "rock",
+	gunpowder_unstable_big = "rock",
+	monster_powder_test = "rock",
+	rat_powder = "rock",
+	fungus_powder = "rock",
+	fungus_powder_bad = "rock",
+	shock_powder = "rock",
+	orb_powder = "rock",
+	gunpowder_unstable_boss_limbs = "rock",
+	plastic_red = "rock",
+	plastic_red_molten = "rock",
+	plastic_molten = "rock",
+	plastic_prop_molten = "rock",
+	grass = "rock",
+	grass_darker = "rock",
+	grass_dry = "rock",
+	fungi = "rock",
+	fungi_green = "rock",
+	fungi_yellow = "rock",
+	grass_dark = "rock",
+	fungi_creeping = "rock",
+	fungi_creeping_secret = "rock",
+	peat = "rock",
+	moss_rust = "rock",
+	moss = "rock",
+	plant_material = "rock",
+	plant_material_red = "rock",
+	plant_material_dark = "rock",
+	ceiling_plant_material = "rock",
+	mushroom_seed = "rock",
+	plant_seed = "rock",
+	mushroom = "rock",
+	mushroom_giant_red = "rock",
+	mushroom_giant_blue = "rock",
+	bush_seed = "rock",
+	wood_player = "rock",
+	wood_player_b2 = "rock",
+	wood_player_b2_vertical = "rock",
+	wood = "rock",
+	wax_b2 = "rock",
+	fuse = "rock",
+	fuse_tnt = "rock",
+	wood_trailer = "rock",
+	wood_wall = "rock",
+	grass_loose = "rock",
+	fungus_loose = "rock",
+	fungus_loose_green = "rock",
+	fungus_loose_trippy = "rock",
+	wood_prop = "rock",
+	wood_prop_noplayerhit = "rock",
+	cloth_box2d = "rock",
+	wood_prop_durable = "rock",
+	nest_box2d = "rock",
+	cocoon_box2d = "rock",
+	wood_loose = "rock",
+	rock_loose = "rock",
+	brick = "rock",
+	concrete_collapsed = "rock",
+	tnt = "rock",
+	tnt_static = "rock",
+	trailer_text = "rock",
+	sulphur_box2d = "rock",
+	steel = "rock",
+	steel_rust = "rock",
+	metal_rust_rust = "rock",
+	metal_rust_barrel_rust = "rock",
+	plastic = "rock",
+	plastic_prop = "rock",
+	aluminium = "rock",
+	aluminium_robot = "rock",
+	metal_prop = "rock",
+	metal_prop_low_restitution = "rock",
+	metal_prop_loose = "rock",
+	metal = "rock",
+	metal_hard = "rock",
+	rock_box2d = "rock",
+	rock_box2d_hard = "rock",
+	poop_box2d_hard = "rock",
+	rock_box2d_nohit = "rock",
+	rock_box2d_nohit_heavy = "rock",
+	rock_box2d_nohit_hard = "rock",
+	rock_static_box2d = "rock",
+	rock_box2d = "rock",
+	item_box2d = "rock",
+	item_box2d_glass = "rock",
+	item_box2d_meat = "rock",
+	potion_glass_box2d = "rock",
+	glass_box2d = "rock",
+	gold_box2d = "rock",
+	bloodgold_box2d = "rock",
+	metal_nohit = "rock",
+	metal_chain_nohit = "rock",
+	metal_wire_nohit = "rock",
+	metal_rust = "rock",
+	metal_rust_barrel = "rock",
+	bone_box2d = "rock",
+	gold_b2 = "rock",
+	aluminium_oxide = "rock",
+	meat = "rock",
+	meat_fruit = "rock",
+	meat_pumpkin = "rock",
+	meat_slime = "rock",
+	physics_throw_material_part2 = "rock",
+	glass_liquidcave = "rock",
+	glass = "rock",
+}
+
+pen.GENERIC_CHAR_SETUP = {
+	CharacterDataComponent = {
+		mass = 1,
+		gravity = 0,
+		ground_stickyness = 0,
+		liquid_velocity_coeff = 10,
+
+		collision_aabb_max_x = 1,
+		collision_aabb_max_y = 1,
+		collision_aabb_min_x = -1,
+		collision_aabb_min_y = -1,
+		buoyancy_check_offset_y = 0,
+
+		climb_over_y = 3,
+		check_collision_max_size_x = 3,
+		check_collision_max_size_y = 3,
+		
+		effect_hit_ground = true,
+		eff_hg_offset_y = 1.5,
+		eff_hg_position_x = 0,
+		eff_hg_position_y = 5,
+		eff_hg_size_x = 5,
+		eff_hg_size_y = 5,
+		eff_hg_damage_max = 0,
+		eff_hg_damage_min = 0,
+		eff_hg_velocity_max_x = 20,
+		eff_hg_velocity_max_y = -10,
+		eff_hg_velocity_min_x = -20,
+		eff_hg_velocity_min_y = -30,
+		eff_hg_update_box2d = true,
+		eff_hg_b2force_multiplier = 0.00001,
+
+		flying_needs_recharge = true,
+		fly_time_max = 5,
+		fly_recharge_spd = 0.5,
+		fly_recharge_spd_ground = 5,
+		flying_in_air_wait_frames = 50,
+		flying_recharge_removal_frames = 5,
+	},
+
+	CharacterPlatformingComponent = {
+		accel_x = 0.15,
+		accel_x_air = 0.05,
+		run_velocity = 100,
+		pixel_gravity = 500,
+		jump_velocity_x = 50,
+		jump_velocity_y = -100,
+
+		velocity_max_x = 500,
+		velocity_max_y = 500,
+		velocity_min_x = -500,
+		velocity_min_y = -500,
+
+		run_animation_velocity_switching_enabled = false,
+		run_animation_velocity_switching_threshold = 50,
+		turn_animation_frames_between = 0,
+		turning_buffer = 0,
+
+		fly_smooth_y = false,
+		fly_speed_change_spd = 0.5,
+		fly_speed_max_down = 50,
+		fly_speed_max_up = 100,
+		fly_speed_mult = 20,
+		fly_velocity_x = 100,
+
+		swim_drag = 0.99,
+		swim_extra_horizontal_drag = 0.9,
+		swim_up_buoyancy_coeff = 1,
+		swim_idle_buoyancy_coeff = 1.25,
+		swim_down_buoyancy_coeff = 0.25,
+	},
+
+	DamageModelComponent = {
+		hp = 1,
+		max_hp = 1,
+		ui_report_damage = false,
+		ui_force_report_damage = false,
+		minimum_knockback_force = 0,
+		critical_damage_resistance = 0,
+		
+		falling_damages = false,
+		falling_damage_damage_max = 0,
+		falling_damage_damage_min = 0,
+		falling_damage_height_max = 0,
+		falling_damage_height_min = 0,
+
+		fire_damage_amount = 0.2,
+		fire_damage_ignited_amount = 0.0005,
+		fire_how_much_fire_generates = 5,
+		fire_probability_of_ignition = 0.5,
+
+		materials_create_messages = false,
+		materials_that_create_messages = "",
+		wet_status_effect_damage = 0,
+		materials_damage = true,
+		materials_damage_proportional_to_maxhp = false,
+		material_damage_min_cell_count = 5,
+		materials_how_much_damage = "",
+		materials_that_damage = "",
+		
+		air_needed = true,
+		air_in_lungs_max = 10,
+		air_lack_of_damage = 0.5,
+		
+		blood_material = "blood_fading",
+		blood_multiplier = 1,
+		blood_spray_create_some_cosmetic = true,
+		blood_spray_material = "blood",
+		blood_sprite_directional = "",
+		blood_sprite_large = "",
+		
+		create_ragdoll = true,
+		ragdoll_offset_x = 0,
+		ragdoll_offset_y = 0,
+		ragdoll_filenames_file = "",
+		ragdoll_fx_forced = "NONE",
+		ragdoll_material = "meat",
+		ragdoll_blood_amount_absolute = -1,
+		ragdollify_child_entity_sprites = true,
+		ragdollify_disintegrate_nonroot = false,
+		ragdollify_root_angular_damping = 0,
+
+		drop_items_on_death = false,
+		physics_objects_damage = false,
+		wait_for_kill_flag_on_death = false,
+		in_liquid_shooting_electrify_prob = 0,
+
+		[{ "damage_multipliers", "curse" }] = 1,
+		[{ "damage_multipliers", "drill" }] = 1,
+		[{ "damage_multipliers", "electricity" }] = 1,
+		[{ "damage_multipliers", "explosion" }] = 1,
+		[{ "damage_multipliers", "fire" }] = 1,
+		[{ "damage_multipliers", "healing" }] = 1,
+		[{ "damage_multipliers", "ice" }] = 1,
+		[{ "damage_multipliers", "melee" }] = 1,
+		[{ "damage_multipliers", "overeating" }] = 1,
+		[{ "damage_multipliers", "physics_hit" }] = 1,
+		[{ "damage_multipliers", "poison" }] = 1,
+		[{ "damage_multipliers", "projectile" }] = 1,
+		[{ "damage_multipliers", "radioactive" }] = 1,
+		[{ "damage_multipliers", "slice" }] = 1,
+	},
+
+	IngestionComponent = {
+		ingestion_capacity = 5000,
+		ingestion_cooldown_delay_frames = 500,
+		ingestion_reduce_every_n_frame = 5,
+		overingestion_damage = 0.001,
+		blood_healing_speed = 0.0005,
+	},
+	
+	ItemPickUpperComponent = {
+		drop_items_on_death = false,
+		is_immune_to_kicks = true,
+		is_in_npc = false,
+	},
+
+	KickComponent = {
+		can_kick = true,
+		kick_damage = 0.05,
+		kick_knockback = 1,
+		kick_radius = 5,
+		max_force = 1,
+		player_kickforce = 1,
+		telekinesis_throw_speed = 0,
+	},
+
+	LiquidDisplacerComponent = {
+		radius = 5,
+		velocity_x = 50,
+		velocity_y = 50,
+	},
+	
+	MaterialSuckerComponent = {
+		suck_gold = true,
+		suck_health = true,
+		barrel_size = 100,
+		num_cells_sucked_per_frame = 10,
+	},
+
+	PlatformShooterPlayerComponent = {
+		move_camera_with_aim = true,
+		center_camera_on_this_entity = true,
+		camera_max_distance_from_character = 50,
+		aiming_reticle_distance_from_character = 50,
+
+		alcohol_drunken_speed = 0.1,
+		blood_fungi_drunken_speed = 0.1,
+		blood_worm_drunken_speed = 0.1,
+		stoned_speed = 0.1,
+
+		eating_area_max = { 5, 5 },
+		eating_area_min = { -5, -5 },
+		eating_cells_per_frame = 1,
+		eating_delay_frames = 30,
+		eating_probability = 5,
+	},
+
+	PlayerCollisionComponent = {
+		getting_crushed_threshold = 5,
+		moving_up_before_getting_crushed_threshold = 5,
+	},
+
+	LuaComponent = true,
+	SpriteComponent = true,
+	HotspotComponent = true,
+	HitboxComponent = true,
+	VariableStorageComponent = true,
+	
+	ParticleEmitterComponent = true,
+	SpriteParticleEmitterComponent = true,
+	PhysicsPickUpComponent = true,
+	GameLogComponent = true,
+	GameStatsComponent = true,
+	LightComponent = true,
+	WalletComponent = true,
 }
 
 pen.CANCER_COMPS = {

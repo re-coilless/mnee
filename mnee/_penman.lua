@@ -299,9 +299,7 @@ end
 
 function pen.get_hybrid_function( func, input )
 	if( not( pen.vld( func ))) then return end
-	if( type( func ) == "function" ) then
-		return pen.catch( func, input, nil, pen.t.is_unarray( input ))
-	else return func end
+	if( type( func ) == "function" ) then return pen.try( func, input ) else return func end
 end
 
 function pen.v2s( value, is_pretty, full_precision, unquote )
@@ -340,19 +338,24 @@ end
 function pen.t.loop( tbl, func, return_tbl )
 	if( not( pen.vld( tbl ))) then return end
 
+	local function iter( i, v )
+		local is_fine, out = pcall( func, i, v )
+		if( not( is_fine )) then error( "[LOOP="..tostring( i ).."; "..tostring( v ).."]\n"..out ) else return out end
+	end
+
 	local sorter = false
 	local is_unarray = pen.t.is_unarray( tbl )
 	if( type( tbl ) == "function" ) then
 		for i,v in tbl do
-			local value = func( i, v )
+			local value = iter( i, v )
 			if( value ~= nil ) then return value end
 		end
 		
 		return
-	elseif( type( tbl ) ~= "table" ) then return func( 0, tbl ) end
+	elseif( type( tbl ) ~= "table" ) then return iter( 0, tbl ) end
 
 	for i,v in ( is_unarray and pairs or ipairs )( tbl ) do
-		local value = func( i, v )
+		local value = iter( i, v )
 		if( value ~= nil ) then return value end
 	end
 
@@ -624,7 +627,7 @@ function pen.t.order( tbl, func )
     end
 end
 
-function pen.t.print( tbl )
+function pen.t.print( tbl ) --just override normal print func to automatically check for all the types and stuff
 	print( pen.t.parse( tbl, true ))
 end
 
@@ -632,14 +635,12 @@ function pen.hallway( func )
 	return func()
 end
 
-function pen.catch( func, input, fallback, no_unpack )
-	local out = nil
-	if( not( no_unpack )) then
-		out = { pcall( func, unpack( input or {}))}
-	else out = { pcall( func, input )} end
+function pen.try( func, input, catch )
+	input = pen.get_hybrid_table( input or {})
+	local out = { pcall( func, unpack( input ))}
 	if( out[1]) then table.remove( out, 1 ); return unpack( out ) end
-	if( not( pen.c.silent_catch )) then print( out[2]) end
-	if( pen.vld( fallback )) then return unpack( fallback ) end
+	if( not( pen.vld( catch ))) then return print( out[2]) end
+	return catch( out[2], unpack( input ))
 end
 
 function pen.cache( structure, update_func, data )
@@ -1172,14 +1173,15 @@ function pen.add_herds( new_file, default, overrides )
 	return herd
 end
 
-function pen.add_shaders( shader_path )
+function pen.add_shaders( shader_path ) --this should be much more flexible
 	local shader_old = "data/shaders/post_final.frag"
 	local file_old = pen.magic_read( shader_old )
 	local markers_old = {
-		--[[ ******[UNIFORMS]****** ]]"// %-*\r\n// utilities",
-		--[[ ******[FUNCTIONS]****** ]]"// trip \"fractals\" effect. this is based on some code from ShaderToy, which I can't find anymore.",
-		--[[ ******[WORLD]****** ]]"#ifdef TRIPPY\r\n	// drunk doublevision",
-		--[[ ******[OVERLAY]****** ]]"// ============================================================================================================\r\n// additive overlay ===========================================================================================",
+		--[[UNIFORMS]]"// %-*\r\n// utilities",
+		--[[FUNCTIONS]]"// trip \"fractals\" effect. this is based on some code from ShaderToy, which I can't find anymore.",
+		--[[WORLD]]"#ifdef TRIPPY\r\n	// drunk doublevision",
+		--[[OVERLAY]]"// ============================================================================================================\r\n// additive overlay ===========================================================================================",
+		--[[OUTPUT]]"// ============================================================================================================\r\n// output =====================================================================================================\r\n\r\n//color%.r = tex_coord_warped_lerp;\r\ngl_FragColor%.rgb  = color;\r\ngl_FragColor%.a = 1%.0;"
 	}
 
 	local file_new = pen.magic_read( shader_path ).."\n\n******[EOF]******\n"
@@ -1280,7 +1282,7 @@ function pen.catch_comp( comp_name, field_name, index, func, args, forced )
 	if( not( pen.vld( v ))) then
 		pen.c.silent_catch = true
 		
-		out = { pen.catch( func, args )}
+		out = { pen.try( func, args )}
 		v = out[1] ~= nil --cannot check write
 		table.insert( out, 1, v )
 
@@ -1470,7 +1472,7 @@ function pen.clone_entity( entity_id, x, y, mutators )
 	end
 	pen.t.loop( EntityGetAllComponents( entity_id ), function( i, comp )
 		local v = mutators[ entity_id ][ comp ] or mutators[ entity_id ][ ComponentGetTypeName( comp )]
-		pen.catch( pen.clone_comp, { new_id, comp, v })
+		pen.try( pen.clone_comp, { new_id, comp, v })
 	end)
 	pen.child_play( entity_id, function( parent, child )
 		EntityAddChild( new_id, clone_entity( child, x, y, mutators ))
@@ -1689,11 +1691,11 @@ function pen.is_game_restarted( is_local )
 end
 
 function pen.is_inv_active( hooman )
-	local is_going = false
-	pen.magic_comp( hooman or pen.get_hooman(), "InventoryGuiComponent", function( comp_id, v, is_enabled )
-		is_going = ComponentGetValue2( comp_id, "mActive" )
-	end)
-	return is_going
+	hooman = hooman or pen.get_hooman()
+	if( not( pen.vld( hooman, true ))) then return end
+	local inv_comp = EntityGetFirstComponentIncludingDisabled( hooman, "InventoryGuiComponent" )
+	if( not( pen.vld( inv_comp, true ))) then return end
+	return ComponentGetValue2( inv_comp, "mActive" )
 end
 
 function pen.is_entity_sapient( entity_id )
@@ -2375,7 +2377,7 @@ end
 function pen.debug_dot( x, y, data )
 	if( type( data or {}) == "number" ) then
 		GameCreateSpriteForXFrames( pen.FILE_PIC_NUL, x, y, true, 0, 0, frames or 1, true )
-	else x, y = pen.world2gui( x, y ); pen.new_pixel( x - 0.5, y - 0.5, 10*pen.LAYERS.TIPS_FRONT, data ) end
+	else x, y = pen.world2gui( x, y ); pen.new_pixel( x - 0.5, y - 0.5, pen.LAYERS.DEBUG, data ) end
 end
 
 function pen.debug_vector( x, y, l, r, is_line )
@@ -2406,14 +2408,14 @@ function pen.debug_vector( x, y, l, r, is_line )
 		local off_x, off_y = pen.rotate_offset( -0.5, -0.5, r )
 		local pic_x, pic_y = x + i*d_x + off_x, y + i*d_y + off_y
 		local pic_c = pen.magic_rgb({ d_c*i + c1, c2, c3 }, true, "hsv" )
-		pen.new_pixel( pic_x, pic_y, 10*pen.LAYERS.TIPS_FRONT, pic_c, nil, nil, 1, r )
+		pen.new_pixel( pic_x, pic_y, pen.LAYERS.DEBUG, pic_c, nil, nil, 1, r )
 	end
 end
 
 function pen.debug_print( text, x, y, color )
 	if( pen.vld( x ) and pen.vld( y )) then
 		local pic_x, pic_y = pen.world2gui( x, y )
-		pen.new_shadowed_text( pic_x, pic_y, 100*pen.LAYERS.WORLD_FRONT, text, {
+		pen.new_shadowed_text( pic_x, pic_y, -pen.LAYERS.DEBUG, text, {
 			alpha = 0.5, is_centered_x = true, is_centered_y = true, color = color })
 	else --stolen from fairmod + thanks Nathan
 		color = color or pen.PALETTE.VNL.WARNING
@@ -3681,8 +3683,7 @@ function pen.get_text_dims( text, font, is_pixel_font )
 
 	local symbol = "_"
 	local reference = GuiGetTextDimensions( gui, symbol, 1, 0, font, is_pixel_font )
-	local w, h = pen.catch( GuiGetTextDimensions, {
-		gui, table.concat({ symbol, text, symbol }), 1, 0, font, is_pixel_font }, {0,0})
+	local w, h = GuiGetTextDimensions( gui, table.concat({ symbol, text, symbol }), 1, 0, font, is_pixel_font )
 
 	GuiDestroy( gui )
 	return w - 2*reference, h
@@ -3730,10 +3731,13 @@ function pen.get_tip_dims( text, width, height, line_offset )
 	width[1], width[2] = width[1] or 121, width[2] or 525
 
 	local _,dims = pen.liner( text ); local s_x, s_y = unpack( dims )
-	if( string.find( text, "[\n@]" ) ~= nil ) then s_x = 2*s_x end
-	local line = math.max(( s_x > 300 and math.max( math.pow( 250/s_x, 1.25 ), 0.1 ) or 1 )*s_x, width[1])
-	_,dims = pen.liner( text, math.min( line, width[2]), height or 300, nil, { line_offset = line_offset or -2 })
+	local _,line_count = string.gsub( text, "[\n@]", "" )
+	s_x = s_x*math.max( line_count or 0, 1 )
 
+	local line = math.max(( s_x > 300 and math.max( math.pow( 250/s_x, 1.25 ), 0.1 ) or 1 )*s_x, width[1])
+	-- if( line_count > 3 ) then line = width[2] end
+	_,dims = pen.liner( text, math.min( line, width[2]), height or 300, nil, { line_offset = line_offset or -2 })
+	
 	return dims
 end
 
@@ -3920,13 +3924,13 @@ function pen.new_interface( pic_x, pic_y, s_x, s_y, pic_z, data )
 	
 	if( is_hovered ) then
 		if( data.is_debugging ) then
-			pen.new_pixel( local_x, local_y, 10*pen.LAYERS.TIPS, {255,100,100,0.75}, s_x, s_y, nil, data.angle )
+			pen.new_pixel( local_x, local_y, pen.LAYERS.DEBUG, {255,100,100,0.75}, s_x, s_y, nil, data.angle )
 		end
 		
 		local size = 500
 		local gui = pen.gui_builder()
 		pen.c.gui_data.i = pen.c.gui_data.i + 1
-		GuiZSetForNextWidget( gui, 10*pen.LAYERS.TIPS )
+		GuiZSetForNextWidget( gui, pen.LAYERS.DEBUG )
 		GuiImage( gui, pen.c.gui_data.i, m_x - size, m_y - size, pen.FILE_PIC_NIL, 1, size, size, data.angle or 0 )
 
 		local is_new = tonumber( GlobalsGetValue( pen.GLOBAL_INTERFACE_FRAME, "0" )) ~= frame_num
@@ -3967,15 +3971,15 @@ function pen.new_interface( pic_x, pic_y, s_x, s_y, pic_z, data )
 	return clicked, r_clicked, is_hovered
 end
 
-function pen.new_pixel( pic_x, pic_y, pic_z, color, s_x, s_y, alpha, angle )
+function pen.new_pixel( pic_x, pic_y, pic_z, c, s_x, s_y, alpha, angle )
 	local gui = pen.gui_builder()
 	GuiZSetForNextWidget( gui, pic_z )
 	GuiOptionsAddForNextWidget( gui, 2 ) --NonInteractive
 	pen.c.gui_data.i = pen.c.gui_data.i - 1
 
-	color = color or pen.PALETTE.W
-	GuiColorSetForNextWidget( gui, color[1]/255, color[2]/255, color[3]/255, 1 )
-	GuiImage( gui, 1020, pic_x, pic_y, pen.FILE_PIC_NUL, alpha or color[4] or 1, ( s_x or 1 )/2, ( s_y or 1 )/2, angle or 0 )
+	c = pen.get_hybrid_table( c or pen.PALETTE.W )
+	GuiColorSetForNextWidget( gui, c[1]/255, ( c[2] or c[1])/255, ( c[3] or c[1])/255, 1 )
+	GuiImage( gui, 1020, pic_x, pic_y, pen.FILE_PIC_NUL, alpha or c[4] or 1, ( s_x or 1 )/2, ( s_y or 1 )/2, angle or 0 )
 end
 
 function pen.new_image( pic_x, pic_y, pic_z, pic, data )
@@ -4154,13 +4158,14 @@ function pen.new_cutout( pic_x, pic_y, size_x, size_y, func, data ) --credit goe
 	if( got_some ) then table.insert( pen.c.cutter_dims_memo, pen.t.clone( pen.c.cutter_dims )) end
 	pen.c.cutter_dims = { xy = { pic_x, pic_y }, wh = { size_x, size_y }}
 	
-	local height = func( data )
-	
+	local is_fine, out = pcall( func, data )
+
 	if( got_some ) then
 		pen.c.cutter_dims = table.remove( pen.c.cutter_dims_memo, #pen.c.cutter_dims_memo )
 	else pen.c.cutter_dims = nil end
 	GuiEndScrollContainer( gui )
-	return height
+
+	if( not( is_fine )) then error( "\n"..out ) else return out end
 end
 
 function pen.unscroller() --huge thanks to Lamia for inspiration
@@ -4302,6 +4307,31 @@ function pen.new_scroller( sid, pic_x, pic_y, pic_z, size_x, size_y, func, data 
 	end
 end
 
+function pen.new_slider( uid, pic_x, pic_y, pic_z, length, data )
+	data = data or {}
+
+	pen.c.slider_memo = pen.c.slider_memo or {}
+	local pos = pen.c.slider_memo[ uid ] or 0
+
+	local min_pos = pic_x + 1
+	local max_pos = min_pos + length
+	pen.new_pixel( pic_x, pic_y - 3, pic_z, pen.PALETTE.W, 1, 7 )
+	pen.new_pixel( max_pos + 7, pic_y - 3, pic_z, pen.PALETTE.W, 1, 7 )
+	pen.new_pixel( min_pos + 1 + length*pos, pic_y - 2, pic_z, pen.PALETTE.VNL.YELLOW, 5, 5 )
+
+	--scrolling + clicking at the sides
+	--proper visuals
+
+	local new_x,new_y,state,_,_,is_hovered = pen.new_dragger(
+		uid.."_dragger", min_pos + length*pos, pic_y - 3, 7, 7, pic_z )
+	if( state ~= 0 or is_hovered ) then pen.new_tooltip( length*pos, { is_active = true }) end
+
+	if( state == 2 ) then
+		pen.c.slider_memo[ uid ] = ( math.min( math.max( new_x, min_pos ), max_pos ) - min_pos )/length
+	end
+	return length*pos
+end
+
 function pen.new_text( pic_x, pic_y, pic_z, text, data )
 	data = data or {}
 	data.alpha = data.alpha or 1
@@ -4309,6 +4339,8 @@ function pen.new_text( pic_x, pic_y, pic_z, text, data )
 	data.font_mods = data.font_mods or {}
 	local dims, is_pixel_font, new_line = {}, false, 9
 	data.font, is_pixel_font = pen.font_cancer( data.font, data.is_huge )
+	data.is_centered_x = data.is_centered_x or data.is_centered or false
+	data.is_centered_y = data.is_centered_y or data.is_centered or false
 	
 	if( pen.vld( data.dims )) then
 		dims = pen.get_hybrid_table( data.dims ); dims[2] = dims[2] or -1
@@ -4333,11 +4365,16 @@ function pen.new_text( pic_x, pic_y, pic_z, text, data )
 		GuiText( gui, pic_x + scale/2, pic_y + scale/2, txt, scale, font, is_pixel )
 	end
 	
-	local off_x = 0 --( data.is_centered_x or false ) and -math.abs( dims[1])/2 or 0
-	local off_y = ( data.is_centered_y or false ) and -math.max( dims[2], dims[2])/2 or 0
+	local off_x = 0
+	local off_y = data.is_centered_y and -math.abs( dims[2])/2 or 0
 	if( not( data.fully_featured )) then
 		if( data.is_centered_x or data.is_right_x ) then pic_x = pic_x - dims[1]/( data.is_right_x and 1 or 2 ) end
 		for i,t in ipairs( text ) do
+			if( data.is_centered ) then
+				off_x = pen.get_text_dims( t, data.font, is_pixel_font )
+				off_x = ( math.abs( dims[1]) - off_x )/2
+			end
+
 			shadowed_text( pic_x + off_x, pic_y + ( i - 1 )*new_line + off_y, pic_z,
 				t, data.scale, data.font, is_pixel_font, data.color, data.alpha, data.has_shadow )
 		end
@@ -5181,6 +5218,7 @@ pen.SDF = { --https://iquilezles.org/articles/distfunctions2d/
 
 pen.PALETTE = {
 	B = {0,0,0}, _="ff000000",
+	ERR = {255,0,0}, _="ffff0000",
 	W = {255,255,255}, _="ffffffff",
 	SHADOW = {46,34,47}, _="ff2e222f",
 	VNL = {
@@ -5341,6 +5379,8 @@ pen.LAYERS = {
 	TIPS_BACK = -10100,
 	TIPS = -10105,
 	TIPS_FRONT = -10110,
+
+	DEBUG = -99999,
 }
 
 pen.INIT_THREADS = {

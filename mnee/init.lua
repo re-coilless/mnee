@@ -19,10 +19,15 @@ function OnModInit()
 		end,
 	})
 	
+	-- conflict checker for special keys is fucked
 	-- add an option to merge numpad and main keyboard on per-bind basis
-	-- make procedural pause screen keyboard that highlights all the bind's keys on hover of one of them (only if the moddev marked the binding as show_on_pause)
 	-- make mnee the main propero mod (p2k must pull all the sounds and such from it, window context is run from within mnee's init)
-	--add vertical window resizing that snaps to always have whol enumber of buttons shown
+	-- fuck it, redo prospero
+
+	-- make procedural pause screen keyboard that highlights all the bind's keys on hover of one of them (only if the moddev marked the binding as show_on_pause)
+	--add vertical window resizing that snaps to always have the whole number of buttons shown
+
+	mnee.G.m_list = mnee.G.m_list or ""
 
 	mnee.G.mod_page = mnee.G.mod_page or 1
 	mnee.G.current_mod = mnee.G.current_mod or "mnee"
@@ -203,8 +208,57 @@ function OnWorldPreUpdate()
 		jslots = { false, false, false, false, },
 		jauto = pen.setting_get( "mnee.CTRL_AUTOMAPPING" ),
 	}
-	if( mnee.G.gui_active and not( pen.is_inv_active())) then
-		dofile( "mods/mnee/files/gui.lua" ) end; pen.gui_builder( true )
+	if( not( pen.is_inv_active())) then
+		local will_remind = not( GameHasFlagRun( mnee.NO_REMINDER ))
+		local screen_w, screen_h = GuiGetScreenDimensions( pen.gui_builder())
+		if( mnee.G.gui_active ) then
+			if( not( pen.vld( mnee.G.m_list ))) then
+				mnee.G.m_list = "|"..pen.t.loop_concat( _BINDINGS, function( mod ) return { mod, "|" } end)
+			end
+
+			pen.setting_set( "mnee.REMINDER", false )
+			pen.try( dofile, "mods/mnee/files/gui.lua", function( log )
+				pen.new_pixel( -5, -5, pen.LAYERS.WORLD_BACK + 1, pen.PALETTE.PRSP.WHITE, screen_w + 10, screen_h + 10 )
+				pen.new_text( screen_w/2, screen_h/2, pen.LAYERS.WORLD_BACK, GameTextGet( "$mnee_error" ), { is_centered = true, color = pen.PALETTE.PRSP.BLUE, fully_featured = true })
+				pen.new_text( screen_w/2, screen_h/2 + 50, pen.LAYERS.WORLD_BACK, mnee.G.m_list.."\n"..log, { is_centered = true, color = pen.PALETTE.PRSP.RED, dims = { 0.75*screen_w, -1 }})
+			end)
+		elseif( will_remind and pen.setting_get( "mnee.REMINDER" )) then
+			if( GameGetFrameNum() < 600 ) then return end
+			local count = pen.t.count( _BINDINGS )
+			if( count < 2 ) then return end
+			
+			local clicked = false
+			local pic_x, pic_y, pic_z = screen_w/2, screen_h, pen.LAYERS.MAIN - 10
+			pic_y = pic_y - 31*pen.animate( 1, "reminder", { ease_out = "wav1", frames = 15 })
+
+			local dims = pen.new_text( pic_x, pic_y + 6, pic_z, GameTextGet( "$mnee_tip", count - 1,
+				mnee.get_binding_keys( "mnee", "menu" )), { is_centered = true, color = pen.PALETTE.PRSP.PURPLE, fully_featured = true })
+			local off = math.max( dims[1]/2 - 80, 40 )
+			
+			clicked = mnee.new_button( pic_x - off - 90,
+				pic_y + 20, pic_z, "mods/mnee/files/pics/button_90_B.png" )
+			pen.new_text( pic_x - off - 90/2, pic_y + 20, pic_z - 0.01,
+				GameTextGet( "$mnee_tipA" ), { is_centered_x = true, color = pen.PALETTE.PRSP.RED })
+			if( clicked ) then
+				mnee.play_sound( mnee.G.gui_active and "close_window" or "open_window" )
+				mnee.G.gui_active = not( mnee.G.gui_active )
+				if( mnee.G.gui_active ) then pen.atimer( "main_window", nil, true ) end
+			end
+
+			clicked = mnee.new_button( pic_x + off,
+				pic_y + 20, pic_z, "mods/mnee/files/pics/button_90_A.png" )
+			pen.new_text( pic_x + off + 90/2, pic_y + 20, pic_z - 0.01,
+				GameTextGet( "$mnee_tipB" ), { is_centered_x = true, color = pen.PALETTE.PRSP.WHITE })
+			if( clicked ) then GameAddFlagRun( mnee.NO_REMINDER ); mnee.play_sound( "close_window" ) end
+
+			off = off + 91
+			pen.new_pixel( pic_x - off, pic_y - 5, pic_z + 0.01, pen.PALETTE.PRSP.WHITE, 2*off, 50 )
+			pen.new_pixel( pic_x - off - 1, pic_y - 6, pic_z + 0.015, pen.PALETTE.PRSP.BLUE, 2*( off + 1 ), 50 )
+			pen.new_interface( pic_x - off, pic_y - 5, 2*off, 50, pic_z + 0.01 )
+		end
+	end
+	pen.gui_builder( true )
+
 	for i,gslot in ipairs( mnee.stl.jslots ) do
 		if(( gslot or mnee.stl.jauto ) and mnee.G.jpad_maps[i] == -1 ) then
 			local ctl = mnee.jpad_update( i )

@@ -4,7 +4,7 @@ _BINDINGS = {}
 --see mnee/lists.lua for most of the internal key IDs + gamepad binding examples
 
 _MNEEDATA[ "mnee" ] = {
-	name = "mnee",
+	name = "M-Nee",
 	desc = "$mnee_desc",
 	is_dirty = false,
 	is_advanced = true,
@@ -63,7 +63,7 @@ _BINDINGS[ "mnee" ] = {
 		deadzone = 0.5, --[INTERNAL USER-INACCESSIBLE DEADZONE THAT IS ADDED ON TOP]
 		
 		keys = pen.t.unarray({ "left_ctrl", "m" }), --[DEFAULT BINDING KEYS]
-		keys_alt = pen.t.unarray({ "right_ctrl", "m" }), --[SECONDARY KEYS]
+		--keys_alt = pen.t.unarray({ "right_ctrl", "m" }), --[SECONDARY KEYS]
 	},
 	
 	off = {

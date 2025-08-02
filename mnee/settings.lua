@@ -88,6 +88,16 @@ function text_with_no_mod( key ) --inspired by Conga's approach
 				["русский"] = "Изменяет поведение глобального интерфейса.",
 				["简体中文"] = "更改全局菜单行为。",
 			},
+			["$mnee_reminder"] = {
+				["English"] = "Remind Every New Run",
+				["русский"] = "Напоминать Перед Каждой Новой Игрой",
+				["简体中文"] = "每次跑步时提醒",
+			},
+			["$mnee_reminder_desc"] = {
+				["English"] = "Will stop the tip at the bottom of the screen from popping up every new game.",
+				["русский"] = "Скроет уведомление снизу экрана, которое появляется в начале каждого нового забега.",
+				["简体中文"] = "将阻止每次进行新游戏时屏幕底部的提示弹出。",
+			},
 			["$mnee_living"] = {
 				["English"] = "Disable Internal Deadzones",
 				["русский"] = "Отключить Постоянные Мёртвые Зоны",
@@ -166,6 +176,14 @@ mod_settings =
 		ui_name = function() return GameTextGetTranslatedOrNot( text_with_no_mod( "$mnee_frontend" )) end,
 		ui_description = function() return text_with_no_mod( "$mnee_frontend_desc" ) end,
 		values = function() return { GameTextGetTranslatedOrNot( text_with_no_mod( "$mnee_frontend_a" )), GameTextGetTranslatedOrNot( text_with_no_mod( "$mnee_frontend_b" ))} end,
+	}),
+	add_dynamic_fields({
+		id = "REMINDER",
+		value_default = true,
+		scope = MOD_SETTING_SCOPE_RUNTIME,
+	},{
+		ui_name = function() return GameTextGetTranslatedOrNot( text_with_no_mod( "$mnee_reminder" )) end,
+		ui_description = function() return text_with_no_mod( "$mnee_reminder_desc" ) end,
 	}),
 	add_dynamic_fields({
 		id = "LIVING",
@@ -272,6 +290,15 @@ mod_settings =
 	{
 		id = "BINDINGS",
 		ui_name = "Bindings",
+		ui_description = "",
+		hidden = true,
+		value_default = "",
+		text_max_length = 100000,
+		scope = MOD_SETTING_SCOPE_RUNTIME,
+	},
+	{
+		id = "FOLDED_NODES",
+		ui_name = "Folded Nodes",
 		ui_description = "",
 		hidden = true,
 		value_default = "",

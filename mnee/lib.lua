@@ -162,8 +162,8 @@ function mnee.aim_assist( hooman, pos, angle, is_active, is_searching, data )
 			local v, g = mnee.aim_assist_korrection[2], mnee.aim_assist_korrection[3] + 0.000001
 			
 			if( y_sign < 0 ) then y, h = -h, 0 end
-			local a = pen.catch( fuck_it, {x,y,v,g,h,1}, {9999})
-			local b = pen.catch( fuck_it, {x,y,v,g,h,-1}, {9999})
+			local a = pen.try( fuck_it, { x, y, v, g, h, 1 }) or 9999
+			local b = pen.try( fuck_it, { x, y, v, g, h, -1 }) or 9999
 			t_angle = y_sign*math.min( a, b )
 
 			so_back = pen.vld( t_angle )
@@ -616,9 +616,9 @@ function mnee.new_button( pic_x, pic_y, pic_z, pic, data )
 		if( pen.vld( d.tip )) then
 			if( pen.vld( pen.c.cutter_dims )) then
 				pen.uncutter( function( cut_x, cut_y, cut_w, cut_h )
-					return mnee.new_tooltip( d.tip, { is_active = true })
+					return mnee.new_tooltip( d.tip, { is_active = true, min_width = d.min_width })
 				end)
-			else mnee.new_tooltip( d.tip, { is_active = true }) end
+			else mnee.new_tooltip( d.tip, { is_active = true, min_width = d.min_width }) end
 		end
 		if( d.highlight ) then pen.new_pixel(
 			pic_x - 1, pic_y - 1, pic_z + 0.001, d.highlight,
@@ -635,6 +635,17 @@ end
 ---@return boolean is_active
 function mnee.new_tooltip( text, data )
 	data = data or {}; data.frames = data.frames or 10
+	if( data.dims == true ) then data.dims = { -1, -1 } end
+	data.text_prefunc = function( text, data )
+		text = pen.get_hybrid_table( text )
+		
+		local extra = 0
+		if( pen.vld( text[2])) then
+			data.fully_featured, extra = true, 2
+			text[1] = text[1].."\n{>indent>{{>color>{{-}|PRSP|PURPLE|{-}"..text[2].."}<color<}}<indent<}" end
+		return text[1], extra, 0
+	end
+
 	return pen.new_tooltip( text, data, function( text, d )
 		local size_x, size_y = unpack( d.dims )
 		local pic_x, pic_y, pic_z = unpack( d.pos )
@@ -647,7 +658,7 @@ function mnee.new_tooltip( text, data )
 			})
 		end
 		
-		local scale_x = pen.animate({2,size_x}, d.t, { ease_in = "exp1.1", ease_out = "bck1.5", frames = d.frames })
+		local scale_x = pen.animate({2,size_x}, d.t, { ease_in = "exp1.1", ease_out = "wav1.5", frames = d.frames })
 		local scale_y = pen.animate({2,size_y}, d.t, { ease_out = "sin", frames = d.frames })
 		local shift_x, shift_y = ( size_x - scale_x )/2, ( size_y - scale_y )/2
 		pen.new_image( pic_x + shift_x, pic_y + shift_y, pic_z + 0.01, "mods/mnee/files/pics/dot_purple_dark.png", {
@@ -688,9 +699,9 @@ function mnee.new_pager( pic_x, pic_y, pic_z, data )
 	if( data.compact_mode ) then t_y = t_y - 11 else t_x = pic_x + 11 end
 	pen.new_image( t_x, t_y, pic_z,
 		"mods/mnee/files/pics/button_21_"..( max_page > 1 and "B" or "A" )..".png", { can_click = true })
-	if( data.compact_mode ) then mnee.new_tooltip( GameTextGet( "$mnee_this_profile" ).."." ) end
-
 	if( max_page > 1 ) then
+		if( data.profile_mode ) then mnee.new_tooltip( GameTextGet( "$mnee_this_profile" )) end
+
 		local text = data.page..( max_page < 10 and "/"..max_page or "" )
 		if( data.profile_mode ) then text = data.page - 1; text = string.char(( text < 1 and -29 or text ) + 64 ) end
 		pen.new_text( t_x + 2, t_y, pic_z - 0.01, text, { color = pen.PALETTE.PRSP.BLUE })
@@ -974,6 +985,7 @@ mnee.UPDATER = "MNEE_RELOAD"
 mnee.JPAD_UPDATE = "MNEE_JPAD_UPDATE"
 mnee.SERV_MODE = "MNEE_HOLD_UP"
 mnee.PRIO_MODE = "MNEE_PRIORITY_MODE"
+mnee.NO_REMINDER = "MNEE_NO_REMINDER"
 
 mnee.G_DOWN = "MNEE_DOWN"
 mnee.G_AXES = "MNEE_AXES"

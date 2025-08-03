@@ -12,8 +12,8 @@ mnee.G = mnee.G or {}
 ---@return string|number tbl_key, any tbl_value
 function mnee.mod_sorter( tbl )
 	return pen.t.order( tbl, function( a, b )
-		local v1 = ( _MNEEDATA or tbl )[a].order_id or 100*string.byte( a )
-		local v2 = ( _MNEEDATA or tbl )[b].order_id or 100*string.byte( b )
+		local v1 = (( _MNEEDATA or {})[a] or {}).order_id or tbl[a].order_id or 100*string.byte( a )
+		local v2 = (( _MNEEDATA or {})[b] or {}).order_id or tbl[b].order_id or 100*string.byte( b )
 		return v1 < v2
 	end)
 end

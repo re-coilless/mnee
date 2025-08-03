@@ -17,14 +17,19 @@ function OnModInit()
 				ModSettingRemove( prefix.."BINDINGS_ALT_"..i )
 			end
 		end,
+		[3] = function( prefix, current_version )
+			pen.setting_set( prefix.."FRONTEND", 1 )
+		end,
 	})
-	
-	-- conflict checker for special keys is fucked
-	-- add an option to merge numpad and main keyboard on per-bind basis
-	-- make mnee the main propero mod (p2k must pull all the sounds and such from it, window context is run from within mnee's init)
-	-- fuck it, redo prospero
 
-	-- make procedural pause screen keyboard that highlights all the bind's keys on hover of one of them (only if the moddev marked the binding as show_on_pause)
+	-- add an option to merge numpad and main keyboard on per-bind basis (make sure conflict check supports this)
+	-- testing (test advanced setups, then Kappa and Iota)
+	-- update documentation
+
+	-- fuck it, redo prospero and stream the entire dev cicle (speedrunning style with timer on-screen; window context is run from within mnee's init)
+	-- also try splitscreen for kappa
+	-- add search functionality to mnee scroller
+	-- make procedural pause screen keyboard that highlights all the bind's keys on hover of one of them (also add option to hide stuff from this menu)
 	--add vertical window resizing that snaps to always have the whole number of buttons shown
 
 	mnee.G.m_list = mnee.G.m_list or ""

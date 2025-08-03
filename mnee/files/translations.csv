@@ -10,7 +10,7 @@ mnee_no_backups,[NO BACKUPS FOUND],[РЕЗЕРВНЫЕ КОПИИ ОТСУТСТ
 mnee_tutorial,[PRESS CTRL+M IN-GAME TO OPEN THE MENU],[НАЖМИ CTRL+M В ИГРЕ ЧТОБЫ ОТКРЫТЬ ГЛАВНОЕ ОКНО],,,,,,,[在游戏内按下CTRL+M以开启该菜单],,,,,
 mnee_done,[IT IS DONE],[ГОТОВО],,,,,,,[已完成],,,,,
 mnee_setup_warning, [Will override this mod's profile!], [Перезапишет профиль этого мода!],,,,,,, [将覆盖此模组的档案！],,,,,
-mnee_desc,Global M-Nee bindings.,Глобальные M-Nee бинды.,,,,,,,全局M-Nee按键绑定,,,,,
+mnee_desc,Standard M-Nee bindings.,Стандартные M-Nee бинды.,,,,,,,标准M-Nee键绑定,,,,,
 mnee_no_change,This binding cannot be changed!,Этот бинд не может быть изменён!,,,,,,,此按键绑定无法被更改！,,,,,
 mnee_jpad_count,Gamepad Count: [$0],Число Контроллеров: [$0],,,,,,,游戏手柄数量：[$0],,,,,
 mnee_jpad_id,CURRENT CTRL ID: ,ТЕКУШИЙ ИДЕНТИФИКАТОР: ,,,,,,,当前控制器ID： ,,,,,

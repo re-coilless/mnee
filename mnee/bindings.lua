@@ -4,9 +4,9 @@ _BINDINGS = {}
 --see mnee/lists.lua for most of the internal key IDs + gamepad binding examples
 
 _MNEEDATA[ "mnee" ] = {
+	order_id = 0,
 	name = "M-Nee",
 	desc = "$mnee_desc",
-	is_dirty = false,
 	is_advanced = true,
 	is_locked = function( mod_id, jpads ) return false end,
 	is_hidden = function( mod_id, jpads ) return false end,
@@ -42,9 +42,10 @@ _MNEEDATA[ "mnee" ] = {
 _BINDINGS[ "mnee" ] = {
 	menu = { --[ACTUAL BINDING ID]
 		order_id = "a", --[SORTING ORDER]
-		is_dirty = false, --[CONFLICT CHECKING MODE TOGGLE]
+		is_clean = true, --[ONLY ACTIVATE WHEN PRESSED ALONE]
 		is_advanced = true, --[ALLOW MULTIPLE KEYS DURING BINDING]
 		never_advanced = false, --[FORBID TO EVER BE REBINDED IN ADVANCED MODE]
+		is_weak = false, --[PREVENTS THE BIND FROM FIRING IF SPECIAL KEY IS PRESSED]
 		allow_special = false, --[ALLOW BINDING SPECIAL KEYS WHEN IS IN SIMPLE BINDING MODE]
 		split_modifiers = true, --[HANDLE LEFT AND RIGHT SPECIAL MODIFIER KEYS LIKE CTRL SEPARATELY]
 		is_locked = function( id_tbl, jpads ) return true end, --[PREVENT REBINDING]
@@ -68,6 +69,7 @@ _BINDINGS[ "mnee" ] = {
 	
 	off = {
 		order_id = "b",
+		is_clean = true,
 		
 		name = "$mnee_nope",
 		desc = "$mnee_nope_desc",
@@ -77,6 +79,7 @@ _BINDINGS[ "mnee" ] = {
 	
 	profile_change = {
 		order_id = "c",
+		is_clean = true,
 
 		name = "$mnee_profile",
 		desc = "$mnee_profile_desc",

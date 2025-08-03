@@ -46,7 +46,7 @@ if( not( gonna_rebind )) then
         local folded_nodes = pen.t.unarray( pen.t.pack( pen.setting_get( "mnee.FOLDED_NODES" )))
         pen.try( pen.new_scroller, { "mnee", pic_x + 1, pic_y + 10, pic_z + 0.03, 131, 100, function( scroll_pos )
 			local cnt, height, accum = 0, 0, 0
-			pen.t.loop( pen.t.order( _BINDINGS ), function( i, m )
+			pen.t.loop( mnee.mod_sorter( _BINDINGS ), function( i, m )
                 cnt = cnt + 1
                 
                 local is_fancy = _MNEEDATA[i] ~= nil
@@ -94,7 +94,7 @@ if( not( gonna_rebind )) then
                     end
                     height = height + ( result.height or 0 )
                 else
-                    pen.t.loop( mnee.order_sorter( m ), function( e, b )
+                    pen.t.loop( mnee.bind_sorter( m ), function( e, b )
                         cnt = cnt + 1
 
                         if( pen.get_hybrid_function( b.is_hidden, {{ i, e }, mnee.G.jpad_maps })) then
@@ -205,7 +205,7 @@ if( not( gonna_rebind )) then
                 pen.new_text( t_x + 43/2, t_y, pic_z - 0.01, name, {
                     dims = {39,0}, is_centered_x = true, color = pen.PALETTE.PRSP[ is_current and "RED" or "WHITE" ]})
                 if( clicked ) then mnee.G.binding_page, mnee.G.current_mod = 1, i; mnee.play_sound( "button_special" ) end
-            end,
+            end, order_func = mnee.mod_sorter,
         }}, function( log, pic_x, pic_y )
             pen.new_shadowed_text( mnee.G.pos[1], mnee.G.pos[2] - 11, pen.LAYERS.DEBUG,
                 mnee.G.m_list, { color = pen.PALETTE.PRSP.RED, color_shadow = pen.PALETTE.PRSP.BLUE })
@@ -296,7 +296,7 @@ if( not( gonna_rebind )) then
                             if( f ~= nil ) then f( v ) end
                         end
                     end
-                end, order_func = mnee.order_sorter,
+                end, order_func = mnee.bind_sorter,
             }}, function( log, pic_x, pic_y )
                 pen.new_shadowed_text( mnee.G.pos[1], mnee.G.pos[2] - 11, pen.LAYERS.DEBUG,
                     mnee.G.m_list, { color = pen.PALETTE.PRSP.RED, color_shadow = pen.PALETTE.PRSP.BLUE })
@@ -321,7 +321,7 @@ if( not( gonna_rebind )) then
             if( _MNEEDATA[ mnee.G.current_mod ] ~= nil ) then
                 local func = _MNEEDATA[ mnee.G.current_mod ].on_reset or _MNEEDATA[ mnee.G.current_mod ].on_changed
                 if( func ~= nil ) then func( _MNEEDATA[ mnee.G.current_mod ]) end
-                for i,v in mnee.order_sorter( KEYS[ mnee.G.current_mod ]) do
+                for i,v in mnee.bind_sorter( KEYS[ mnee.G.current_mod ]) do
                     local f = v.on_reset or v.on_changed
                     if( f ~= nil ) then f( v ) end
                 end
@@ -527,11 +527,9 @@ else
     local doing_jpad = mnee.G.doing_axis and not( mnee.G.btn_axis_mode )
     if( not( doing_jpad )) then active = mnee.get_keys( "guied" ) end
     if( pen.vld( active ) and mnee.G.advanced_mode ) then
-        local is_dirty = this_bind.is_dirty
-        if( is_dirty == nil and _MNEEDATA[ mnee.G.current_mod ] ~= nil ) then
-            is_dirty = _MNEEDATA[ mnee.G.current_mod ].is_dirty or false
-        end
-        
+        local _is_weak = this_bind.is_weak
+        local _is_dirty = not( this_bind.is_clean )
+
         tip_text = table.concat({ tip_text, pen.t.loop_concat( active, function( i, key )
             if( key == "return" ) then enter_down = true; return end
             return {( i == 1 and "" or "; " ), key }
@@ -541,28 +539,39 @@ else
                 local bind, bind_tbl = unpack( bt )
                 local data = ( _BINDINGS[ mod ] or {})[ bind ] or {}
                 if( data.name == nil ) then return end
-                local this_one = 0
-                for i = 1,2 do
-                    local b = mnee.get_pbd( bind_tbl )[ i == 1 and "main" or "alt" ] or { ["_"] = 1 }
-                    this_one = is_dirty and -1 or pen.t.count( b )
+                
+                local is_hidden = pen.get_hybrid_function( data.is_hidden, {{ mod, bind }, mnee.G.jpad_maps })
+                if( is_hidden == nil and _MNEEDATA[ mod ] ~= nil ) then
+                    is_hidden = pen.get_hybrid_function( _MNEEDATA[ mod ].is_hidden, { mod, mnee.G.jpad_maps })
+                end
+                if( is_hidden ) then return end
+
+                local is_weak = data.is_weak
+                local is_dirty = not( data.is_clean )
+                local is_twin = not( data.split_modifiers )
+                return ( pen.t.loop({ "main", "alt" }, function( _,tp )
+                    local b = mnee.get_pbd( bind_tbl )[ tp ]
+                    if( not( pen.vld( b ))) then return end
+
+                    local score = pen.t.count( b ) - 1
                     for e,key in ipairs( active ) do
-                        if( mnee.SPECIAL_KEYS[ key ] == nil ) then
-                            local gotcha = b[ key ] ~= nil
-                            if( is_dirty and gotcha ) then
-                                this_one = #active; break
-                            elseif( not( gotcha )) then
-                                this_one = -1; break
-                            end
-                        end
+                        if( is_weak and mnee.SPECIAL_KEYS[ key ] ~= nil ) then score = 1; break end
+
+                        local tkey = mnee.twin_me( key, is_twin ) or ""
+                        local gotcha = b[ key ] ~= nil or b[ tkey ] ~= nil
+                        if( gotcha ) then
+                            if( _is_weak and mnee.SPECIAL_KEYS[ key ] ~= nil ) then
+                                score = 1; break
+                            else score = score - 1 end
+                        elseif( not( is_dirty )) then score = 1; break end
                     end
-                    if( this_one > 0 ) then break end
-                end
-                if( this_one == #active ) then
-                    return {
-                        "\n", GameTextGet( "$mnee_conflict" ),
-                        "{>color>{{-}|PRSP|RED|{-}[", mod, "; ", pen.magic_translate( data.name ), "]}<color<}"
-                    }
-                end
+
+                    if( score < 0 ) then return true end
+                    if( pen.t.count( b ) - ( score + 1 ) >= #active ) then return true end
+                end) or false ) and {
+                    "\n", GameTextGet( "$mnee_conflict" ),
+                    "{>color>{{-}|PRSP|RED|{-}[", mod, "; ", pen.magic_translate( data.name ), "]}<color<}"
+                } or nil
             end)
         end)})
     elseif( pen.vld( active )) then

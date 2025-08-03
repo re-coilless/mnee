@@ -169,7 +169,7 @@ mod_settings =
 	}),
 	add_dynamic_fields({
 		id = "FRONTEND",
-		value_default = 2,
+		value_default = 1,
 		scope = MOD_SETTING_SCOPE_RUNTIME,
 		ui_fn = mod_setting_custom_enum,
 	},{

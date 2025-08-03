@@ -1,6 +1,6 @@
 {d3d376b6-af21-4ae3-917c-3e8fb781b724} bank:/Master Bank
 {4bce5662-de5a-06a1-1735-b4714672b1bc} bank:/Master Bank.strings
-{308064b9-079b-4e21-b75f-bdaf7dda0bdd} bank:/mnee
+{10e77aa3-0ef6-48a0-a3e7-4eede83543d7} bank:/mnee
 {fd1ec6a6-24b7-4a2e-9988-9733b99dc81e} bus:/
 {ab2beddd-fa07-445b-a933-d5cca76adb6e} bus:/UNASSIGNED 2
 {1a5d4dc3-8fc9-4261-a499-f3f6b0202e17} bus:/UNASSIGNED 3
@@ -15,6 +15,7 @@
 {9e5f6674-ecca-4cb3-9e39-050604be24e9} bus:/music_reverb
 {8340afee-1bfb-481c-8b65-a1721703356c} bus:/reverb
 {40bdfd79-5dfd-4303-8a71-0792c637c380} bus:/ui
+{e587b0ad-640d-4add-8d88-4a1ef8d21872} event:/bootup
 {e628e8dd-1dd4-4203-ad10-6747a521f492} event:/button_generic
 {8c078475-4d39-4c5b-b77d-c491ae44fea7} event:/button_special
 {ef33810d-8820-408c-80c7-34287088b25f} event:/capture
@@ -23,6 +24,22 @@
 {b7808476-4f09-4a67-9f2a-d46e9c2ab049} event:/confirm
 {911687d2-be5d-4190-85b0-b113d6bc9211} event:/delete
 {3546f25a-342b-438c-8ec1-722709a5550f} event:/error
+{b5b3846b-a7b7-4674-bf2d-4f8d5b40ec7c} event:/keys/key_1_generic
+{303fb5ab-2580-44d0-b64f-37e8c0f068a3} event:/keys/key_1_special
+{b9a44c41-9bc2-4e9c-9670-7d1ee630435d} event:/keys/key_2_generic
+{4fb4ff2e-6e25-41cd-8b9b-27c896edae57} event:/keys/key_2_special
+{018f9d67-e02e-4b2a-91bd-cb6b00bb5ecc} event:/keys/key_3_generic
+{20b4ed09-fe2e-4de9-81d9-36496e3665f8} event:/keys/key_3_special
+{ffe5a865-8462-44a3-80a1-e5d841e06fcf} event:/keys/key_4_generic
+{664edcd7-3ec7-4ae0-acf4-4fd10e133806} event:/keys/key_4_special
+{21368f4c-8288-4bb7-aefd-2cedcacbec32} event:/keys/key_5_generic
+{33b74d9e-678a-4e70-a87e-ccfc75f914a8} event:/keys/key_5_special
+{70a51836-bd8b-4b92-81b7-25b2e3cf40f1} event:/keys/key_6_generic
+{036a7fb9-d11a-4a16-9487-47467ccce247} event:/keys/key_6_special
+{8e203102-88ad-4493-81b1-4276793e7d3b} event:/keys/key_7_generic
+{906f6767-d2c7-4630-a856-9510907856de} event:/keys/key_7_special
+{cdfa9eb2-1c0d-420a-a468-de20cb19e644} event:/keys/key_8_generic
+{0b80e912-3f42-4b1b-9725-ec44c2787c5f} event:/keys/key_8_special
 {9add2a25-1df2-4480-8055-81f9743b21dc} event:/minimize
 {43666076-4b36-41f5-bb09-6336f653ae42} event:/open_main
 {a569e86d-dd5c-41d4-9cf0-845be5ad6ac5} event:/open_window

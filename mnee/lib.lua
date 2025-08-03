@@ -7,10 +7,21 @@ mnee.G = mnee.G or {}
 
 ------------------------------------------------------		[BACKEND]		------------------------------------------------------
 
----Custom sorter with element.order_id support.
+---Custom sorter with numerical element.order_id support.
 ---@param tbl table
 ---@return string|number tbl_key, any tbl_value
-function mnee.order_sorter( tbl )
+function mnee.mod_sorter( tbl )
+	return pen.t.order( tbl, function( a, b )
+		local v1 = ( _MNEEDATA or tbl )[a].order_id or 100*string.byte( a )
+		local v2 = ( _MNEEDATA or tbl )[b].order_id or 100*string.byte( b )
+		return v1 < v2
+	end)
+end
+
+---Custom sorter with alphabetical element.order_id support.
+---@param tbl table
+---@return string|number tbl_key, any tbl_value
+function mnee.bind_sorter( tbl )
 	return pen.t.order( tbl, function( a, b )
 		return (( tbl[a].order_id or a ) < ( tbl[b].order_id or b ))
 	end)
@@ -488,6 +499,24 @@ function mnee.update_bindings( binding_data )
 	mnee.set_bindings( tbl )
 end
 
+---Returns the simmetrical counterpart of the key provided, that should have identical responce on press.
+---@param ket string
+---@return string|nil
+function mnee.twin_me( key, will_twin )
+	if( will_twin == nil or will_twin ) then
+		return ({
+			["left_ctrl"] = "right_ctrl",
+			["left_shift"] = "right_shift",
+			["left_alt"] = "right_alt",
+			["left_windows"] = "right_windows",
+			["right_ctrl"] = "left_ctrl",
+			["right_shift"] = "left_shift",
+			["right_alt"] = "left_alt",
+			["right_windows"] = "left_windows",
+		})[ key ]
+	end
+end
+
 ------------------------------------------------------		[FRONTEND]		------------------------------------------------------
 
 ---Returns the shifted value of a key (= the value a key should return after shift is pressed).
@@ -660,11 +689,10 @@ function mnee.new_tooltip( text, data )
 		
 		local scale_x = pen.animate({2,size_x}, d.t, { ease_in = "exp1.1", ease_out = "wav1.5", frames = d.frames })
 		local scale_y = pen.animate({2,size_y}, d.t, { ease_out = "sin", frames = d.frames })
-		local shift_x, shift_y = ( size_x - scale_x )/2, ( size_y - scale_y )/2
-		pen.new_image( pic_x + shift_x, pic_y + shift_y, pic_z + 0.01, "mods/mnee/files/pics/dot_purple_dark.png", {
-			s_x = scale_x, s_y = scale_y })
-		pen.new_image( pic_x + shift_x + 1, pic_y + shift_y + 1, pic_z + 0.005, "mods/mnee/files/pics/dot_white.png", {
-			s_x = scale_x - 2, s_y = scale_y - 2 })
+		pen.new_image( pic_x, pic_y, pic_z + 0.01,
+			"mods/mnee/files/pics/dot_purple_dark.png", { s_x = scale_x, s_y = scale_y })
+		pen.new_image( pic_x + 1, pic_y + 1, pic_z + 0.005,
+			"mods/mnee/files/pics/dot_white.png", { s_x = scale_x - 2, s_y = scale_y - 2 })
 	end)
 end
 
@@ -753,13 +781,11 @@ end
 ---Operates via flexible and rebindable single- or multi-keyed combinations, shows up in the binding menu.
 ---@param mod_id string
 ---@param bind_id string
----@param dirty_mode? boolean Controls key layer separation, enable to allow conflicts between "ctrl+m" and "m". [DFT: false ]
 ---@param pressed_mode? boolean Enable to report "true" only once and then wait until the key is reset. [DFT: false ]
 ---@param is_vip? boolean Enable to stop this bind from being disabled by user via global toggle. [DFT: false ]
----@param strict_mode? boolean Controls combination purity, enable to stop conflicts between "shift+ctrl+e" and "ctrl+e". [DFT: false ]
 ---@param inmode? string The name of the desired mode from mnee.INMODES list.
 ---@return boolean is_down, boolean is_unbound, boolean is_jpad
-function mnee.mnin_bind( mod_id, bind_id, dirty_mode, pressed_mode, is_vip, strict_mode, inmode )
+function mnee.mnin_bind( mod_id, bind_id, pressed_mode, is_vip, inmode )
 	local id = mod_id..bind_id
 	if( mnee.get_exe()[ id ]) then return true, false, false end
 
@@ -776,23 +802,13 @@ function mnee.mnin_bind( mod_id, bind_id, dirty_mode, pressed_mode, is_vip, stri
 	if( binding ~= nil ) then binding = binding[ mod_id ] end
 	if( binding ~= nil ) then binding = binding[ bind_id ] end
 	if( not( pen.vld( binding ))) then return unpack( abort_tbl ) end
-	
-	local function twin_me( key )
-		if( not( binding.split_modifiers )) then
-			return ({
-				["left_ctrl"] = "right_ctrl",
-				["left_shift"] = "right_shift",
-				["left_alt"] = "right_alt",
-				["left_windows"] = "right_windows",
-				["right_ctrl"] = "left_ctrl",
-				["right_shift"] = "left_shift",
-				["right_alt"] = "left_alt",
-				["right_windows"] = "left_windows",
-			})[ key ]
-		end
-	end
 
+	local is_weak = binding.is_weak
+	local is_dirty = not( binding.is_clean )
+	local is_twin = not( binding.split_modifiers )
+	
 	for i = 1,2 do
+		local is_special = false
 		local bind = mnee.get_pbd( binding )[ i == 1 and "main" or "alt" ]
 		local high_score, score = pen.t.count( bind ), 0
 		if( bind["_"] ~= nil ) then
@@ -800,17 +816,22 @@ function mnee.mnin_bind( mod_id, bind_id, dirty_mode, pressed_mode, is_vip, stri
 		else is_gone = false end
 		
 		if( high_score < 1 ) then goto continue end
-		if( high_score > 1 and strict_mode and high_score ~= #keys_down ) then goto continue end
-		if( high_score == 1 and is_dirty == false ) then
-			for i,key in ipairs( keys_down ) do
-				if( mnee.SPECIAL_KEYS[ key ] ~= nil ) then goto continue end
+		if( not( is_dirty ) and high_score ~= #keys_down ) then goto continue end
+		
+		for i,key in ipairs( keys_down ) do
+			if( bind[ key ] ~= nil or bind[ mnee.twin_me( key, is_twin ) or "" ] ~= nil ) then
+				if( not( is_special )) then is_special = mnee.SPECIAL_KEYS[ key ] ~= nil end
+				score = score + 1
 			end
 		end
 		
-		for i,key in ipairs( keys_down ) do
-			if( bind[ key ] ~= nil or bind[ twin_me( key ) or "" ] ~= nil ) then score = score + 1 end
-		end
 		if( score == high_score ) then
+			if( is_weak and not( is_special )) then
+				for i,key in ipairs( keys_down ) do
+					if( mnee.SPECIAL_KEYS[ key ] ~= nil ) then goto continue end
+				end
+			end
+
 			if( pressed_mode ) then
 				local check = mnee.get_disarmer()[ id ] ~= nil
 				mnee.add_disarmer( id )
@@ -923,7 +944,7 @@ end
 function mnee.mnin( mode, id, data )
 	local map = {
 		key = { mnee.mnin_key, {1}, { "pressed", "vip", "mode" }},
-		bind = { mnee.mnin_bind, {1,2}, { "dirty", "pressed", "vip", "strict", "mode" }},
+		bind = { mnee.mnin_bind, {1,2}, { "pressed", "vip", "mode" }},
 		axis = { mnee.mnin_axis, {1,2}, { "alive", "pressed", "vip", "mode" }},
 		stick = { mnee.mnin_stick, {1,2}, { "pressed", "vip", "mode" }},
 	}
@@ -1073,7 +1094,7 @@ end
 ---Use mnee.mnin_bind instead.
 ---@deprecated
 function is_binding_down( mod_id, name, dirty_mode, pressed_mode, is_vip, loose_mode, key_mode )
-	return mnee.mnin_bind( mod_id, name, dirty_mode, pressed_mode, is_vip, not( loose_mode ), key_mode )
+	return mnee.mnin_bind( mod_id, name, pressed_mode, is_vip, key_mode )
 end
 ---Use mnee.mnin_bind instead.
 ---@deprecated

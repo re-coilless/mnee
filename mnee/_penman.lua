@@ -4187,7 +4187,17 @@ function pen.unscroller() --huge thanks to Lamia for inspiration
 	GuiAnimateEnd( gui )
 	GuiEndScrollContainer( gui )
 end
-function pen.new_scroller( sid, pic_x, pic_y, pic_z, size_x, size_y, func, data ) --if char ctrl_comp is disabled, don't do the unscroller
+
+---Scroller framework.
+---@param sid string
+---@param pic_x number
+---@param pic_y number
+---@param pic_z number
+---@param size_x number
+---@param size_y number
+---@param func PenmanScrollerFunction|fun( scroll_pos:number ):{ height:number }
+---@param data? PenmanScrollerData
+function pen.new_scroller( sid, pic_x, pic_y, pic_z, size_x, size_y, func, data )
 	func = pen.get_hybrid_table( func )
 	func[2] = func[2] or function( sid, pic_x, pic_y, pic_z, size_x, size_y, bar_size, bar_pos, data )
 		local out = {}
@@ -4238,8 +4248,10 @@ function pen.new_scroller( sid, pic_x, pic_y, pic_z, size_x, size_y, func, data 
 	if( data.scroll_always ) then
 		data.can_scroll = true
 	elseif( data.scroll_always ~= false ) then
-		_,_,data.can_scroll = pen.new_interface( pic_x, pic_y,
-			data.forced_zone_x or ( size_x + 5 ), data.forced_zone_y or size_y, pic_z )
+		data.forced_zone = data.forced_zone or {}
+		_,_,data.can_scroll = pen.new_interface(
+			pic_x + ( data.forced_zone[3] or 0 ), pic_y + ( data.forced_zone[4] or 0 ),
+			data.forced_zone[1] or ( size_x + 5 ), data.forced_zone[2] or size_y, pic_z )
 	end
 
 	pen.c.scroll_memo = pen.c.scroll_memo or {}
@@ -8096,6 +8108,20 @@ pen.FILE_XML_FONT = [[
 ---@field func fun( pic_x:number, pic_y:number, pic_z:number, absolute_i:number, element:any, relative_k:number, is_hidden:boolean ): will_skip:boolean Draws the elements of the current page.
 ---@field order_func function [DFT: pen.t.order ]<br> Sorts the list for later processing.
 ---@field click table [INTERNAL]<br> This is used to interface between visual and logical segments. The value of 1 means that the button was clicked and the value of -1 means that it was r_clicked.
+
+---@class PenmanScrollerFunction
+---@field e1 fun( scroll_pos:number ): height:number [OBLIGATORY]<br> Draws the actual content and returns the height of the column to scroll through.
+---@field e2 fun( sid:string, pic_x:number, pic_y:number, pic_z:number, size_x:number, size_y:number, bar_size:number, bar_pos:number, data:PenmanScrollerData ) Draws the scrollbar visuals.
+
+---@class PenmanScrollerData
+---@field color table A table that defined the colors of the scrollbar.
+---@field can_scroll boolean [INTERNAL]<br> Reports whether the scroller can be scrolled.
+---@field hide_bar boolean [DFT: false ]<br> Hides the scrollbar visuals if can_scroll is not true.
+---@field scroll_always boolean [DFT: false ]<br> Forces the scroller to be scrollable even if is not directly hovered.
+---@field forced_zone table [DFT: { size_x + 5, size_y, 0, 0 } ] Redefines the zone that will block the inputs and be used to determine whether user can scroll or not. The structure is { length, height, offset_x, offset_y }.
+---@field bottom_start boolean [DFT: false ] Initializes the scroller with bar being at the very bottom.
+---@field scroll_step number [DFT: 11 ] A distance the content will move on a single bar step. 
+---@field is_left boolean [DFT: false ] Flips the scroller to be left-facing in structure.
 
 --<{> MAGICAL APPEND MARKER <}>--
 

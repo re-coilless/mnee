@@ -499,24 +499,6 @@ function mnee.update_bindings( binding_data )
 	mnee.set_bindings( tbl )
 end
 
----Returns the simmetrical counterpart of the key provided, that should have identical responce on press.
----@param ket string
----@return string|nil
-function mnee.twin_me( key, will_twin )
-	if( will_twin == nil or will_twin ) then
-		return ({
-			["left_ctrl"] = "right_ctrl",
-			["left_shift"] = "right_shift",
-			["left_alt"] = "right_alt",
-			["left_windows"] = "right_windows",
-			["right_ctrl"] = "left_ctrl",
-			["right_shift"] = "left_shift",
-			["right_alt"] = "left_alt",
-			["right_windows"] = "left_windows",
-		})[ key ]
-	end
-end
-
 ------------------------------------------------------		[FRONTEND]		------------------------------------------------------
 
 ---Returns the shifted value of a key (= the value a key should return after shift is pressed).
@@ -534,13 +516,26 @@ end
 ---@param extra_fancy boolean
 ---@return string fancy_key
 function mnee.get_fancy_key( key, extra_fancy )
-	extra_fancy = extra_fancy or false
 	local k, is_jpad = string.gsub( key, "%dgpd_", "" )
 	local name = pen.get_hybrid_table( dofile_once( "mods/mnee/lists.lua" )[5][k])
-	local out = name[ extra_fancy and 2 or 1 ] or name[1] or k
+	local out = name[( extra_fancy or false ) and 2 or 1 ] or name[1] or k
 	if( is_jpad > 0 ) then
 		return table.concat({ "GP", string.sub( key, 1, 1 ), "(", out, ")" })
 	else return out end
+end
+
+---Returns the functional counterpart of the key provided, the main purpose is to unify ALTs/SHIFTs/CTRLs.
+---@param ket string
+---@param do_special? boolean Controls special key merging. [DFT: true ]
+---@param do_numpad? boolean Controls numpad merging. [DFT: false ]
+---@return string|nil
+function mnee.get_twin_key( key, do_special, do_numpad )
+	if( not( do_special or do_numpad )) then return "" end
+	local twins = dofile_once( "mods/mnee/lists.lua" )[6]
+
+	local twin = twins.special[ key ]
+	if( do_numpad ) then twin = twin or twins.numpad[ key ] end
+	return twin or ""
 end
 
 ---Returns UI-ready binding key list.
@@ -582,7 +577,7 @@ function mnee.get_binding_keys( mod_id, bind_id, is_compact )
 	if( is_compact ) then
 		out = string.lower( out )
 	elseif( got_alt ) then
-		out = table.concat({ out, " or ", figure_it_out( b.alt )})
+		out = table.concat({ out, GameTextGet( "$mnee_or" ), figure_it_out( b.alt )})
 	end
 	return out
 end
@@ -738,6 +733,41 @@ function mnee.new_pager( pic_x, pic_y, pic_z, data )
 	return data.page
 end
 
+---Draws a scroller themed after Prospero Inc.
+---@param sid string
+---@param pic_x number
+---@param pic_y number
+---@param pic_z number
+---@param size_x number
+---@param size_y number
+---@param func PenmanScrollerFunction|fun( scroll_pos:number ):{ height:number }
+---@param data? PenmanScrollerData
+function mnee.new_scroller( sid, pic_x, pic_y, pic_z, size_x, size_y, func, data )
+	data = data or {}
+	data.color = data.color or {
+		pen.PALETTE.PRSP.BLUE, pen.PALETTE.PRSP.RED,
+		pen.PALETTE.PRSP.BLUE, pen.PALETTE.PRSP.RED,
+		pen.PALETTE.PRSP.BLUE, pen.PALETTE.PRSP.RED,
+		pen.PALETTE.PRSP.BLUE, pen.PALETTE.PRSP.RED,
+		pen.PALETTE.PRSP.BLUE, pen.PALETTE.PRSP.RED,
+		pen.PALETTE.PRSP.BLUE, pen.PALETTE.PRSP.RED,
+		pen.PALETTE.PRSP.PURPLE, pen.PALETTE.PRSP.BLUE
+	}
+	
+	pen.new_pixel( pic_x + size_x, pic_y, pic_z - 0.03, pen.PALETTE.PRSP.BLUE, 3, 1 )
+	pen.new_pixel( pic_x + size_x, pic_y + size_y - 1, pic_z - 0.03, pen.PALETTE.PRSP.BLUE, 3, 1 )
+	pen.new_pixel( pic_x + size_x + 1, pic_y, pic_z - 0.08, pen.PALETTE.PRSP.PURPLE, 1, size_y )
+
+	return pen.try( pen.new_scroller, {
+		sid, pic_x, pic_y, pic_z, size_x, size_y, func, data
+	}, function( log, _, pic_x, pic_y )
+		pen.new_shadowed_text( pic_x, pic_y - 11, pen.LAYERS.DEBUG,
+			mnee.G.m_list, { color = pen.PALETTE.PRSP.RED, color_shadow = pen.PALETTE.PRSP.BLUE })
+		pen.new_shadowed_text( pic_x, pic_y, pen.LAYERS.DEBUG, log, {
+			color = pen.PALETTE.PRSP.RED, color_shadow = pen.PALETTE.PRSP.BLUE, dims = { size_x - 1, -1 }})
+	end)
+end
+
 -------------------------------------------------------		[INPUT]		-------------------------------------------------------
 
 ---Adds yet another bind event to be executed.
@@ -805,7 +835,8 @@ function mnee.mnin_bind( mod_id, bind_id, pressed_mode, is_vip, inmode )
 
 	local is_weak = binding.is_weak
 	local is_dirty = not( binding.is_clean )
-	local is_twin = not( binding.split_modifiers )
+	local twin_nmpd = binding.unify_numpad
+	local twin_spec = not( binding.split_modifiers )
 	
 	for i = 1,2 do
 		local is_special = false
@@ -819,7 +850,7 @@ function mnee.mnin_bind( mod_id, bind_id, pressed_mode, is_vip, inmode )
 		if( not( is_dirty ) and high_score ~= #keys_down ) then goto continue end
 		
 		for i,key in ipairs( keys_down ) do
-			if( bind[ key ] ~= nil or bind[ mnee.twin_me( key, is_twin ) or "" ] ~= nil ) then
+			if( bind[ key ] ~= nil or bind[ mnee.get_twin_key( key, twin_spec, twin_nmpd )] ~= nil ) then
 				if( not( is_special )) then is_special = mnee.SPECIAL_KEYS[ key ] ~= nil end
 				score = score + 1
 			end
@@ -1015,7 +1046,6 @@ mnee.G_EXE = "MNEE_EXE"
 mnee.G_JPADS = "MNEE_JPADS"
 mnee.G_DISARMER = "MNEE_DISARMER"
 mnee.G_AXES_MEMO = "MNEE_AXES_MEMO"
-mnee.G_FORCED = "MNEE_FORCED_SCROLLER"
 
 mnee.SPECIAL_KEYS = pen.t.unarray({
 	"left_shift", "right_shift",

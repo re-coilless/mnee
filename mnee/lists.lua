@@ -626,6 +626,53 @@ local full_fancy = {
 	["btn_rv_-"] = {"RStckY-","Right Stick Y-Axis-"},
 }
 
+local full_twin = {
+	special = {
+		["left_alt"] = "right_alt",
+		["right_alt"] = "left_alt",
+		["left_ctrl"] = "right_ctrl",
+		["right_ctrl"] = "left_ctrl",
+		["left_shift"] = "right_shift",
+		["right_shift"] = "left_shift",
+		["left_windows"] = "right_windows",
+		["right_windows"] = "left_windows",
+	},
+	
+	numpad = {
+		["1"] = "keypad_1",
+		["keypad_1"] = "1",
+		["2"] = "keypad_2",
+		["keypad_2"] = "2",
+		["3"] = "keypad_3",
+		["keypad_3"] = "3",
+		["4"] = "keypad_4",
+		["keypad_4"] = "4",
+		["5"] = "keypad_5",
+		["keypad_5"] = "5",
+		["6"] = "keypad_6",
+		["keypad_6"] = "6",
+		["7"] = "keypad_7",
+		["keypad_7"] = "7",
+		["8"] = "keypad_8",
+		["keypad_8"] = "8",
+		["9"] = "keypad_9",
+		["keypad_9"] = "9",
+		["0"] = "keypad_0",
+		["keypad_0"] = "0",
+
+		["return"] = "keypad_enter",
+		["keypad_enter"] = "return",
+		["-"] = "keypad_-",
+		["keypad_-"] = "-",
+		[","] = "keypad_,",
+		["keypad_,"] = ",",
+		["."] = "keypad_.",
+		["keypad_."] = ".",
+		["/"] = "keypad_/",
+		["keypad_/"] = "/",
+	},
+}
+
 --<{> MAGICAL APPEND MARKER <}>--
 
-return { full_board, full_mouse, full_joy, full_shifted, full_fancy }
+return { full_board, full_mouse, full_joy, full_shifted, full_fancy, full_twin }

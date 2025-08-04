@@ -21,20 +21,20 @@ function OnModInit()
 			pen.setting_set( prefix.."FRONTEND", 1 )
 		end,
 	})
-
-	-- add an option to merge numpad and main keyboard on per-bind basis (make sure conflict check supports this)
+	
 	-- testing (test advanced setups, then Kappa and Iota)
-	-- update documentation
+	-- update all mods
+	-- announce streaming week
 
-	-- fuck it, redo prospero and stream the entire dev cicle (speedrunning style with timer on-screen; window context is run from within mnee's init)
 	-- also try splitscreen for kappa
 	-- add search functionality to mnee scroller
-	-- make procedural pause screen keyboard that highlights all the bind's keys on hover of one of them (also add option to hide stuff from this menu)
+	-- make procedural pause screen keyboard/mouse/gamepad that highlights all the bind's keys on hover of one of them (also add option to hide stuff from this menu; list all binds to the side in a scrolllist and highlight on hover)
 	--add vertical window resizing that snaps to always have the whole number of buttons shown
 
 	mnee.G.m_list = mnee.G.m_list or ""
 
 	mnee.G.mod_page = mnee.G.mod_page or 1
+	mnee.G.help_num = mnee.G.help_num or 1
 	mnee.G.current_mod = mnee.G.current_mod or "mnee"
 	mnee.G.binding_page = mnee.G.binding_page or 1
 	mnee.G.current_binding = mnee.G.current_binding or ""
@@ -48,6 +48,7 @@ function OnModInit()
 	mnee.G.advanced_timer = mnee.G.advanced_timer or 0
 
 	mnee.G.gui_active = mnee.G.gui_active or false
+	mnee.G.help_active = mnee.G.help_active or false
 	mnee.G.gui_retoggler = mnee.G.gui_retoggler or false
 	mnee.G.max_profiles = mnee.G.max_profiles or 27
 
@@ -189,6 +190,7 @@ function OnWorldPreUpdate()
 	
 	if( mnee.mnin( "bind", { "mnee", "menu" }, { pressed = true, vip = true })) then
 		mnee.play_sound( mnee.G.gui_active and "close_window" or "open_window" )
+		if( mnee.G.gui_active ) then mnee.G.help_active = false end
 		mnee.G.gui_active = not( mnee.G.gui_active )
 		if( mnee.G.gui_active ) then pen.atimer( "main_window", nil, true ) end
 	end
@@ -234,7 +236,7 @@ function OnWorldPreUpdate()
 			
 			local clicked = false
 			local pic_x, pic_y, pic_z = screen_w/2, screen_h, pen.LAYERS.MAIN - 10
-			pic_y = pic_y - 31*pen.animate( 1, "reminder", { ease_out = "wav1", frames = 15 })
+			pic_y = pic_y - 32*pen.animate( 1, "reminder", { ease_out = "wav1", frames = 15 })
 
 			local dims = pen.new_text( pic_x, pic_y + 6, pic_z, GameTextGet( "$mnee_tip", count - 1,
 				mnee.get_binding_keys( "mnee", "menu" )), { is_centered = true, color = pen.PALETTE.PRSP.PURPLE, fully_featured = true })
@@ -246,7 +248,7 @@ function OnWorldPreUpdate()
 				GameTextGet( "$mnee_tipA" ), { is_centered_x = true, color = pen.PALETTE.PRSP.RED })
 			if( clicked ) then
 				mnee.play_sound( mnee.G.gui_active and "close_window" or "open_window" )
-				mnee.G.gui_active = not( mnee.G.gui_active )
+				mnee.G.gui_active, mnee.G.help_active = not( mnee.G.gui_active ), false
 				if( mnee.G.gui_active ) then pen.atimer( "main_window", nil, true ) end
 			end
 
@@ -254,12 +256,86 @@ function OnWorldPreUpdate()
 				pic_y + 20, pic_z, "mods/mnee/files/pics/button_90_A.png" )
 			pen.new_text( pic_x + off + 90/2, pic_y + 20, pic_z - 0.01,
 				GameTextGet( "$mnee_tipB" ), { is_centered_x = true, color = pen.PALETTE.PRSP.WHITE })
-			if( clicked ) then GameAddFlagRun( mnee.NO_REMINDER ); mnee.play_sound( "close_window" ) end
+			if( clicked ) then
+				GameAddFlagRun( mnee.NO_REMINDER )
+				mnee.play_sound( "close_window" )
+				mnee.G.help_active = false
+			end
+
+			clicked = mnee.new_button( pic_x - 5, pic_y + 20, pic_z,
+				"mods/mnee/files/pics/help.png", { auid = "help_reminder", highlight = pen.PALETTE.PRSP.PURPLE })
+			if( clicked ) then
+				mnee.play_sound( mnee.G.help_active and "close_window" or "open_window" )
+				mnee.G.help_active = not( mnee.G.help_active )
+				if( mnee.G.help_active ) then pen.atimer( "help_window", nil, true ) end
+			end
 
 			off = off + 91
-			pen.new_pixel( pic_x - off, pic_y - 5, pic_z + 0.01, pen.PALETTE.PRSP.WHITE, 2*off, 50 )
-			pen.new_pixel( pic_x - off - 1, pic_y - 6, pic_z + 0.015, pen.PALETTE.PRSP.BLUE, 2*( off + 1 ), 50 )
-			pen.new_interface( pic_x - off, pic_y - 5, 2*off, 50, pic_z + 0.01 )
+			pen.new_pixel( pic_x - off - 1, pic_y - 5, pic_z + 0.01, pen.PALETTE.PRSP.WHITE, 2*( off + 1 ), 50 )
+			pen.new_pixel( pic_x - off - 2, pic_y - 6, pic_z + 0.015, pen.PALETTE.PRSP.BLUE, 2*( off + 2 ), 50 )
+			pen.new_interface( pic_x - off - 1, pic_y - 5, 2*( off + 1 ), 50, pic_z + 0.01 )
+		end
+
+		if( mnee.G.help_active ) then
+			local help_w, help_h = 200, 100
+			if( mnee.G.pos_help == nil ) then
+				mnee.G.pos_help = {( screen_w - help_w )/2, screen_h - help_h - 40 }
+			end
+
+			local w_anim = {
+				help_w*pen.animate( 1, "help_window",
+					{ ease_in = "exp1.1", ease_out = "wav1.5", frames = 5, stillborn = true }),
+				help_h*pen.animate( 1, "help_window", { ease_out = "sin", frames = 10, stillborn = true })}
+			local help_x, help_y = unpack( mnee.G.pos_help )
+			
+			local clicked, is_hovered = false, false
+			local pic_z = pen.LAYERS.TIPS_BACK + 1.5
+			mnee.G.pos_help[1], mnee.G.pos_help[2], _,_,_, is_hovered = pen.new_dragger( "mnee_help_window", help_x, help_y, w_anim[1], 11, pic_z + 0.5 )
+			pen.new_pixel( help_x, help_y, pic_z + 0.01, pen.PALETTE.PRSP.WHITE, w_anim[1], w_anim[2])
+			pen.new_pixel( help_x - 1, help_y - 1, pic_z + 0.015, pen.PALETTE.PRSP.BLUE, w_anim[1] + 2, w_anim[2] + 2 )
+			
+			local alpha = ( w_anim[1]/help_w )*( w_anim[2]/help_h )
+			if( alpha > 0.5 ) then
+				pen.new_text( help_x + w_anim[1]/2, help_y, pic_z - 0.015,
+					GameTextGet( "$mnee_help"), { is_centered_x = true, color = pen.PALETTE.PRSP.WHITE, alpha = alpha })
+				pen.new_pixel( help_x, help_y, pic_z - 0.01, pen.PALETTE.PRSP[ is_hovered and "RED" or "PURPLE" ], w_anim[1], 11 )
+				pen.new_pixel( help_x + w_anim[1] - 4, help_y, pic_z - 0.015, pen.PALETTE.PRSP.BLUE, 3, 11 )
+				pen.new_pixel( help_x + w_anim[1] - 3, help_y, pic_z - 0.02, pen.PALETTE.PRSP.PURPLE, 1, 11 )
+				pen.new_pixel( help_x, help_y + w_anim[2] - 4, pic_z - 0.01, pen.PALETTE.PRSP.PURPLE, w_anim[1], 4 )
+				pen.new_pixel( help_x + w_anim[1] - 4, help_y + w_anim[2] - 4, pic_z - 0.015, pen.PALETTE.PRSP.BLUE, 3, 4 )
+				pen.new_pixel( help_x + w_anim[1] - 3, help_y + w_anim[2] - 4, pic_z - 0.02, pen.PALETTE.PRSP.PURPLE, 1, 4 )
+				
+				local total_num = 11
+				mnee.new_scroller( "mnee_help", help_x, help_y + 11, pic_z, w_anim[1] - 4, w_anim[2] - 15, function( scroll_pos )
+					local dims = pen.new_text( 2, scroll_pos, pic_z,
+						GameTextGet( "$mnee_help"..mnee.G.help_num, mnee.get_binding_keys( "mnee", "menu" ), mnee.get_binding_keys( "mnee", "profile_change" ), mnee.get_binding_keys( "mnee", "off" )), { dims = { w_anim[1] - 10, -1 }, color = pen.PALETTE.PRSP.BLUE, alpha = alpha, fully_featured = true })
+					return dims[2] + 10
+				end)
+
+				local update = false
+				clicked = mnee.new_button( help_x + w_anim[1] - 26, help_y + w_anim[2] - 11, pic_z - 0.02, "mods/mnee/files/pics/key_left.png", { auid = "help_arrow_left" })
+				if( clicked ) then
+					update = true
+					mnee.G.help_num = mnee.G.help_num == 1 and total_num or ( mnee.G.help_num - 1 )
+				end
+
+				clicked = mnee.new_button( help_x + w_anim[1] - 15, help_y + w_anim[2] - 11, pic_z - 0.02, "mods/mnee/files/pics/key_right.png", { auid = "help_arrow_right" })
+				if( clicked ) then
+					update = true
+					mnee.G.help_num = mnee.G.help_num == total_num and 1 or ( mnee.G.help_num + 1 )
+				end
+
+				if( update ) then
+					mnee.play_sound( "switch_page" )
+					pen.c.estimator_memo[ "mnee_help_anim" ] = 0
+					pen.c.scroll_memo[ "mnee_help" ].p = 0
+				end
+
+				pen.new_image( help_x + 2, help_y + w_anim[2] - 11, pic_z - 0.02, "mods/mnee/files/pics/button_43_B.png" )
+				pen.new_text( help_x + 4, help_y + w_anim[2] - 11, pic_z - 0.025, mnee.G.help_num, { color = pen.PALETTE.PRSP.BLUE })
+				pen.new_text( help_x + 2 + 43/2, help_y + w_anim[2] - 11, pic_z - 0.025, "/", { color = pen.PALETTE.PRSP.BLUE, is_centered_x = true })
+				pen.new_text( help_x + 1 + 43, help_y + w_anim[2] - 11, pic_z - 0.025, total_num, { color = pen.PALETTE.PRSP.BLUE, is_right_x = true })
+			end
 		end
 	end
 	pen.gui_builder( true )

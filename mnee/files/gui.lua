@@ -11,6 +11,7 @@ local pic_w, pic_h = GuiGetImageDimensions( gui, "mods/mnee/files/pics/window.pn
 if( mnee.G.pos == nil ) then
     local screen_w, screen_h = GuiGetScreenDimensions( gui )
     mnee.G.pos = { math.floor(( screen_w - pic_w )/2 ), math.floor( screen_h - ( pic_h + 11 ))}
+    if( mnee.G.help_active ) then mnee.G.pos_help = { mnee.G.pos[1] - 202, mnee.G.pos[2] + 5 } end
 end
 
 local pic_z = pen.LAYERS.BACKGROUND + 5
@@ -28,7 +29,11 @@ if( not( gonna_rebind )) then
         auid = "window_close", no_anim = true,
         tip = GameTextGet( "$mnee_close" ),
         highlight = pen.PALETTE.PRSP[ mnee.G.show_alt and "PURPLE" or "WHITE" ]})
-    if( clicked ) then mnee.G.gui_active = false; mnee.play_sound( "close_window" ) end
+    if( clicked ) then
+        mnee.G.gui_active = false
+        mnee.G.help_active = false
+        mnee.play_sound( "close_window" )
+    end
     
     clicked = mnee.new_button( pic_x + pic_w - 15, pic_y + 2, pic_z,
         "mods/mnee/files/pics/key_"..( mnee.G.show_alt and "B" or "A" )..".png", {
@@ -38,13 +43,9 @@ if( not( gonna_rebind )) then
     if( clicked ) then mnee.G.show_alt = not( mnee.G.show_alt ); mnee.play_sound( "button_special" ) end
     
     local help_x, help_y = pic_x + 101, pic_y + 99
-    if( pen.setting_get( "mnee.FRONTEND" ) == 1 or GlobalsGetValue( mnee.G_FORCED, "0" ) == "1" ) then
-        pen.new_pixel( pic_x + 132, pic_y + 10, pic_z, pen.PALETTE.PRSP.BLUE, 3, 1 )
-        pen.new_pixel( pic_x + 132, pic_y + 109, pic_z, pen.PALETTE.PRSP.BLUE, 3, 1 )
-        pen.new_pixel( pic_x + 133, pic_y + 10, pic_z - 0.05, pen.PALETTE.PRSP.PURPLE, 1, 100 )
-
+    if( pen.setting_get( "mnee.FRONTEND" ) == 1 ) then
         local folded_nodes = pen.t.unarray( pen.t.pack( pen.setting_get( "mnee.FOLDED_NODES" )))
-        pen.try( pen.new_scroller, { "mnee", pic_x + 1, pic_y + 10, pic_z + 0.03, 131, 100, function( scroll_pos )
+        mnee.new_scroller( "mnee", pic_x + 1, pic_y + 10, pic_z + 0.03, 131, 100, function( scroll_pos )
 			local cnt, height, accum = 0, 0, 0
 			pen.t.loop( mnee.mod_sorter( _BINDINGS ), function( i, m )
                 cnt = cnt + 1
@@ -166,20 +167,7 @@ if( not( gonna_rebind )) then
 			end)
 
 			return height + 5
-		end, { color = {
-			pen.PALETTE.PRSP.BLUE, pen.PALETTE.PRSP.RED,
-			pen.PALETTE.PRSP.BLUE, pen.PALETTE.PRSP.RED,
-			pen.PALETTE.PRSP.BLUE, pen.PALETTE.PRSP.RED,
-			pen.PALETTE.PRSP.BLUE, pen.PALETTE.PRSP.RED,
-			pen.PALETTE.PRSP.BLUE, pen.PALETTE.PRSP.RED,
-			pen.PALETTE.PRSP.BLUE, pen.PALETTE.PRSP.RED,
-			pen.PALETTE.PRSP.PURPLE, pen.PALETTE.PRSP.BLUE
-		}}}, function( log, _, pic_x, pic_y )
-            pen.new_shadowed_text( mnee.G.pos[1], mnee.G.pos[2] - 11, pen.LAYERS.DEBUG,
-                mnee.G.m_list, { color = pen.PALETTE.PRSP.RED, color_shadow = pen.PALETTE.PRSP.BLUE })
-            pen.new_shadowed_text( pic_x, pic_y, pen.LAYERS.DEBUG, log, {
-                color = pen.PALETTE.PRSP.RED, color_shadow = pen.PALETTE.PRSP.BLUE, dims = { 130, -1 }})
-        end)
+		end)
 
         help_x, help_y = pic_x + 141, pic_y + 33
     else
@@ -329,15 +317,21 @@ if( not( gonna_rebind )) then
         end
     end
 
-    mnee.new_button( help_x, help_y, pic_z,
+    clicked = mnee.new_button( help_x, help_y, pic_z,
         "mods/mnee/files/pics/help.png", {
         auid = "help_main",
         tip = { table.concat({
             GameTextGet( "$mnee_lmb_bind" ),
             "\n", GameTextGet( "$mnee_rmb_advanced" ),
         }), GameTextGet( "$mnee_alt_help" ) },
-        no_anim = true, highlight = pen.PALETTE.PRSP.PURPLE,
+        highlight = pen.PALETTE.PRSP.PURPLE,
     })
+    if( clicked ) then
+        mnee.play_sound( mnee.G.help_active and "close_window" or "open_window" )
+        mnee.G.help_active = not( mnee.G.help_active )
+        mnee.G.pos_help = { mnee.G.pos[1] - 202, mnee.G.pos[2] + 5 }
+        if( mnee.G.help_active ) then pen.atimer( "help_window", nil, true ) end
+    end
     
     clicked = mnee.new_button( pic_x + 136, pic_y + 11, pic_z,
         "mods/mnee/files/pics/button_21_"..( is_disabled and "A" or "B" )..".png", {
@@ -529,6 +523,8 @@ else
     if( pen.vld( active ) and mnee.G.advanced_mode ) then
         local _is_weak = this_bind.is_weak
         local _is_dirty = not( this_bind.is_clean )
+        local _twin_nmpd = this_bind.unify_numpad
+        local _twin_spec = not( this_bind.split_modifiers )
 
         tip_text = table.concat({ tip_text, pen.t.loop_concat( active, function( i, key )
             if( key == "return" ) then enter_down = true; return end
@@ -548,22 +544,18 @@ else
 
                 local is_weak = data.is_weak
                 local is_dirty = not( data.is_clean )
-                local is_twin = not( data.split_modifiers )
+                local twin_nmpd = _twin_nmpd or data.unify_numpad
+                local twin_spec = _twin_spec or not( data.split_modifiers )
                 return ( pen.t.loop({ "main", "alt" }, function( _,tp )
                     local b = mnee.get_pbd( bind_tbl )[ tp ]
                     if( not( pen.vld( b ))) then return end
 
                     local score = pen.t.count( b ) - 1
                     for e,key in ipairs( active ) do
-                        if( is_weak and mnee.SPECIAL_KEYS[ key ] ~= nil ) then score = 1; break end
-
-                        local tkey = mnee.twin_me( key, is_twin ) or ""
-                        local gotcha = b[ key ] ~= nil or b[ tkey ] ~= nil
-                        if( gotcha ) then
-                            if( _is_weak and mnee.SPECIAL_KEYS[ key ] ~= nil ) then
-                                score = 1; break
-                            else score = score - 1 end
-                        elseif( not( is_dirty )) then score = 1; break end
+                        if( is_weak and mnee.SPECIAL_KEYS[ key ] ~= nil ) then return end
+                        if( b[ key ] ~= nil or b[ mnee.get_twin_key( key, twin_spec, twin_nmpd )] ~= nil ) then
+                            if( _is_weak and mnee.SPECIAL_KEYS[ key ] ~= nil ) then return else score = score - 1 end
+                        elseif( not( is_dirty )) then return end
                     end
 
                     if( score < 0 ) then return true end
@@ -586,9 +578,9 @@ else
     
     local is_stick = this_bind.axes ~= nil
     if( mnee.G.gui_retoggler ) then
-        clicked = pen.new_image( pic_x, pic_y, pic_z + 0.05, "mods/mnee/files/pics/continue.png", { can_click = true })
+        pen.new_image( pic_x, pic_y, pic_z + 0.05, "mods/mnee/files/pics/continue.png", { can_click = true })
         mnee.new_tooltip( GameTextGet( "$mnee_doit" ))
-        if( clicked ) then
+        if( #active == 0 ) then
             if(( mnee.G.btn_axis_counter or 4 ) >= (( is_stick and not( doing_jpad )) and 4 or 2 )) then
                 mnee.G.current_binding = ""
                 mnee.G.doing_axis = false
@@ -603,12 +595,18 @@ else
     else
         local help_tip = GameTextGet( "$mnee_binding_"..( doing_jpad and "axis" or ( mnee.G.advanced_mode and "advanced" or "simple" )))
         if( not( mnee.G.advanced_mode or doing_jpad )) then help_tip = help_tip..GameTextGet( "$mnee_binding_simple_"..(( _BINDINGS[ mnee.G.current_mod ][ mnee.G.current_binding ].allow_special or false ) and "a" or "b" )) end
-        mnee.new_button( pic_x + 3, pic_y + 71, pic_z,
+        clicked = mnee.new_button( pic_x + 3, pic_y + 71, pic_z,
             "mods/mnee/files/pics/help.png", {
             auid = "help_rebinding",
             tip = help_tip, min_width = 500,
-            no_anim = true, highlight = pen.PALETTE.PRSP.PURPLE,
+            highlight = pen.PALETTE.PRSP.PURPLE,
         })
+        if( clicked ) then
+            mnee.play_sound( mnee.G.help_active and "close_window" or "open_window" )
+            mnee.G.help_active = not( mnee.G.help_active )
+            mnee.G.pos_help = { mnee.G.pos[1] - 202, mnee.G.pos[2] + 5 }
+            if( mnee.G.help_active ) then pen.atimer( "help_window", nil, true ) end
+        end
         
         local c_bind = mnee.G.current_binding
         if( is_stick ) then

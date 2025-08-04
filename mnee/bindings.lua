@@ -48,6 +48,7 @@ _BINDINGS[ "mnee" ] = {
 		is_weak = false, --[PREVENTS THE BIND FROM FIRING IF SPECIAL KEY IS PRESSED]
 		allow_special = false, --[ALLOW BINDING SPECIAL KEYS WHEN IS IN SIMPLE BINDING MODE]
 		split_modifiers = true, --[HANDLE LEFT AND RIGHT SPECIAL MODIFIER KEYS LIKE CTRL SEPARATELY]
+		unify_numpad = false, --[VIEW NUMPAD KEYS THE SAME AS THEIR COUNTERPARTS ON THE MAIN KEYBOARD]
 		is_locked = function( id_tbl, jpads ) return true end, --[PREVENT REBINDING]
 		is_hidden = function( id_tbl, jpads ) return false end, --[HIDE FROM MENU]
 		

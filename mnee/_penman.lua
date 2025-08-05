@@ -4264,7 +4264,7 @@ function pen.new_scroller( sid, pic_x, pic_y, pic_z, size_x, size_y, func, data 
 	local new_height = pen.new_cutout( pic_x, pic_y, size_x, size_y, func[1], scroll_pos )
 	if( new_height > size_y ) then
 		if( data.can_scroll ) then pen.unscroller() end
-	else return end
+	else pen.c.scroll_memo[ sid ].p = 0; return end
 
 	local bar_size = pen.rounder( math.max(( size_y - 6 )*math.min( size_y/new_height, 1 ), 1 ), -2 )
 	

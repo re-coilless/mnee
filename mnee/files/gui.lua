@@ -578,9 +578,17 @@ else
     
     local is_stick = this_bind.axes ~= nil
     if( mnee.G.gui_retoggler ) then
+        local function is_jpad_static()
+            for ax,v in pairs( mnee.get_axes()) do
+                if( math.abs( v ) > 0 ) then return false end
+            end
+
+            return true
+        end
+
         pen.new_image( pic_x, pic_y, pic_z + 0.05, "mods/mnee/files/pics/continue.png", { can_click = true })
         mnee.new_tooltip( GameTextGet( "$mnee_doit" ))
-        if( #active == 0 ) then
+        if( #active == 0 and is_jpad_static()) then
             if(( mnee.G.btn_axis_counter or 4 ) >= (( is_stick and not( doing_jpad )) and 4 or 2 )) then
                 mnee.G.current_binding = ""
                 mnee.G.doing_axis = false

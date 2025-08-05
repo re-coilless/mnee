@@ -21,10 +21,6 @@ function OnModInit()
 			pen.setting_set( prefix.."FRONTEND", 1 )
 		end,
 	})
-	
-	-- testing (test advanced setups, then Kappa and Iota)
-	-- update all mods
-	-- announce streaming week
 
 	-- also try splitscreen for kappa
 	-- add search functionality to mnee scroller
@@ -203,8 +199,7 @@ function OnWorldPreUpdate()
 		mnee.play_sound( has_flag and "capture" or "uncapture" )
 	end
 	if( mnee.mnin( "bind", { "mnee", "profile_change" }, { pressed = true })) then
-		local prf = pen.setting_get( "mnee.PROFILE" ) + 1
-		prf = prf > mnee.G.max_profiles and 1 or prf
+		local prf = pen.setting_get( "mnee.PROFILE" ) == 2 and 3 or 2
 		pen.setting_set( "mnee.PROFILE", prf )
 		GamePrint( GameTextGet( "$mnee_this_profile" )..": "..string.char( prf + 64 ))
 		mnee.play_sound( "switch_page" )

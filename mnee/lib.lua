@@ -505,8 +505,8 @@ end
 ---@param key string
 ---@return string shifted_key
 function mnee.get_shifted_key( key )
-	local check = string.byte( key ) 
-	if( check > 96 and check < 123 ) then
+	local check = string.byte( key )
+	if( #key == 1 and check > 96 and check < 123 ) then
 		return string.char( check - 32 )
 	else return dofile_once( "mods/mnee/lists.lua" )[4][ key ] or key end
 end
@@ -744,9 +744,7 @@ end
 ---@param data? PenmanScrollerData
 function mnee.new_scroller( sid, pic_x, pic_y, pic_z, size_x, size_y, func, data )
 	data = data or {}
-	data.color = data.color or {
-		pen.PALETTE.PRSP.BLUE, pen.PALETTE.PRSP.RED,
-		pen.PALETTE.PRSP.BLUE, pen.PALETTE.PRSP.RED,
+	data.bar_colors = data.bar_colors or {
 		pen.PALETTE.PRSP.BLUE, pen.PALETTE.PRSP.RED,
 		pen.PALETTE.PRSP.BLUE, pen.PALETTE.PRSP.RED,
 		pen.PALETTE.PRSP.BLUE, pen.PALETTE.PRSP.RED,
@@ -783,6 +781,7 @@ end
 ---@param entity_id? entity_id Will default to mnee.get_ctrl() if left empty. 
 ---@return boolean is_down, boolean is_just_down
 function mnee.vanilla_input( button, entity_id )
+	if( GameHasFlagRun( mnee.SERV_MODE )) then return false, false end
 	local ctrl_comp = EntityGetFirstComponentIncludingDisabled( entity_id or mnee.get_ctrl(), "ControlsComponent" )
 	if( not( pen.vld( ctrl_comp, true ))) then return false, false end
 	return ComponentGetValue2( ctrl_comp, "mButtonDown"..button ), ComponentGetValue2( ctrl_comp, "mButtonFrame"..button ) == GameGetFrameNum()
@@ -992,39 +991,303 @@ function mnee.mnin( mode, id, data )
 	end
 	return func[1]( unpack( inval ))
 end
-
----Simplistic static full keyboard input with shifting support and special keys.
----@param no_shifting boolean
+---Static full keyboard input with shifting support and special keys.
+---@param kb_func fun( is_shifted:boolean, is_ctrled:boolean, is_alted:boolean ): input:string
+---@param no_shifting? boolean
 ---@return string|number|nil
-function mnee.get_keyboard_input( no_shifting )
+function mnee.get_keyboard_input( kb_func, no_shifting )
 	local lists = dofile_once( "mods/mnee/lists.lua" )
-	local is_shifted = ( InputIsKeyDown( 225 ) or InputIsKeyDown( 229 )) and not( no_shifting )
+
+	local is_shifted = not( no_shifting ) and (
+		InputIsKeyDown( 225 --[[Left Shift]]) or InputIsKeyDown( 229 --[[Right Shift]]))
+	local is_ctrled = not( no_shifting ) and (
+		InputIsKeyDown( 224 --[[Left Control]]) or InputIsKeyDown( 228 --[[Right Control]]))
+	local is_alted = not( no_shifting ) and (
+		InputIsKeyDown( 226 --[[Left Alt]]) or InputIsKeyDown( 230 --[[Right Alt]]))
+
+	local input = ""
 	for i = 4,56 do
 		if( InputIsKeyJustDown( i )) then
-			local value = lists[1][i]
+			input = lists[1][i]
 			if( is_shifted ) then
-				value = mnee.get_shifted_key( value )
+				input = mnee.get_shifted_key( input )
 			elseif( i > 39 and i < 45 ) then
 				if( i == 40 ) then
-					value = 3
+					input = 3
 				elseif( i == 41 ) then
-					value = 0
+					input = 0
 				elseif( i == 42 ) then
-					value = 2
+					input = 2
 				elseif( i == 43 ) then
-					value = 4
+					input = 4
 				elseif( i == 44 ) then
-					value = " "
+					input = " "
 				end
 			end
-			return value
+			break
 		end
 	end
 	for i = 1,10 do
 		if( InputIsKeyJustDown( 88 + i )) then
-			return string.sub( tostring( i ), -1 )
+			input = string.sub( tostring( i ), -1 ); break
 		end
 	end
+
+	if( pen.vld( kb_func )) then
+		input = kb_func( input, is_shifted, is_ctrled, is_alted ) or input end
+	if( pen.vld( input )) then return input end
+end
+
+function pen.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
+	if( not( pen.vld( iid ))) then return text, false end
+
+	data = data or {}
+	data.uid = iid
+	data.edging = data.edging or 2
+	data.nil_val = data.nil_val or " "
+	data.is_live = data.is_live or false
+	data.no_wrap = data.no_wrap or false
+	data.is_compact = true
+
+	local state = GlobalsGetValue( pen.GLOBAL_INPUT_STATE, "" )
+	local is_active = state == iid
+
+	local clicked, r_clicked, is_hovered = false, false, false
+	if( not( pen.vld( state ) or GameHasFlagRun( mnee.SERV_MODE )) or is_active ) then
+		clicked, r_clicked, is_hovered = pen.new_interface( pic_x, pic_y, size_x, size_y, pic_z )
+	end
+
+	local is_updated, is_confirmed = false, false
+	data.lmb_event = data.lmb_event or function( pic_x, pic_y, pic_z, pic, d )
+		pen.c.input_data = {}
+		GlobalsSetValue( pen.GLOBAL_INPUT_STATE, is_active and "_" or d.uid )
+		pen.play_sound( pen.TUNES.VNL[ is_active and "RESET" or "CLICK" ])
+		return pic_x, pic_y, pic_z, pic, d
+	end
+	if( data.lmb_event ~= nil and clicked ) then
+		pic_x, pic_y, pic_z, pic, data = data.lmb_event( pic_x, pic_y, pic_z, pic, data ) end
+	data.rmb_event = data.rmb_event or function( pic_x, pic_y, pic_z, pic, d )
+		is_confirmed = true
+		return pic_x, pic_y, pic_z, pic, d
+	end
+	if( data.rmb_event ~= nil and r_clicked and is_active ) then
+		pic_x, pic_y, pic_z, pic, data = data.rmb_event( pic_x, pic_y, pic_z, pic, data ) end
+	data.hov_event = data.hov_event or function( pic_x, pic_y, pic_z, pic, d )
+		--default tip should have the text in title (only if text has no newlines) and actions in desc
+
+		-- if( pen.vld( d.tip )) then
+		-- 	if( pen.vld( pen.c.cutter_dims )) then
+		-- 		pen.uncutter( function( cut_x, cut_y, cut_w, cut_h )
+		-- 			return mnee.new_tooltip( d.tip, { is_active = true, min_width = d.min_width })
+		-- 		end)
+		-- 	else mnee.new_tooltip( d.tip, { is_active = true, min_width = d.min_width }) end
+		-- end
+		return pic_x, pic_y, pic_z, pic, d
+	end
+	if( data.hov_event ~= nil and is_hovered ) then
+		pic_x, pic_y, pic_z, pic, data = data.hov_event( pic_x, pic_y, pic_z, pic, data )
+	elseif( data.idle_event ~= nil ) then
+		pic_x, pic_y, pic_z, pic, data = data.idle_event( pic_x, pic_y, pic_z, pic, data )
+	end
+	
+	pen.c.input_data = pen.c.input_data or {}
+	pen.c.input_data.safety = pen.c.input_data.safety or 0
+	pen.c.input_data.pos = pen.c.input_data.pos or { l = 1, c = 0 }
+	pen.c.input_data.buffer = pen.c.input_data.buffer or ""
+	pen.c.input_data.hdata = pen.c.input_data.hdata or {}
+	
+	pen.c.input_data.drift = pen.c.input_data.drift or {}
+	pen.c.input_data.last_chr = pen.c.input_data.last_chr or 0
+	pen.c.input_data.last_lin = -math.abs( pen.c.input_data.last_lin or 1 )
+	pen.c.input_data.last_last_lin = pen.c.input_data.last_last_lin or 1
+
+	local t = text
+	if( is_active ) then t = pen.c.input_data.buffer or text end
+	if( clicked and not( is_active )) then pen.c.input_data.buffer = text end
+	
+	data.pic_func = data.pic_func or function( pic_x, pic_y, pic_z, pic, d )
+		pen.new_tooltip( "", {
+			tid = d.uid,
+			is_active = true,
+			pic_z = pic_z + 0.1,
+			pos = { pic_x - d.edging, pic_y - d.edging },
+			is_special = is_active,
+			dims = { size_x, size_y },
+		})
+	end
+	data.pic_func( pic_x, pic_y, pic_z, pic, data )
+	
+	if( is_active ) then
+		is_updated = data.is_live
+		GlobalsSetValue( pen.GLOBAL_INPUT_FRAME, GameGetFrameNum() + 1 )
+
+		local will_highlight = InputIsKeyDown( 225 --[[Left Shift]])
+		will_highlight = will_highlight or InputIsKeyDown( 229 --[[Right Shift]])
+		local is_moving = InputIsKeyJustDown( 81 --[[Down]]) or InputIsKeyJustDown( 82 --[[Up]])
+		is_moving = is_moving or InputIsKeyJustDown( 79 --[[Right]]) or InputIsKeyJustDown( 80 --[[Left]])
+		if( not( will_highlight ) and is_moving ) then pen.c.input_data.hdata = {} end
+
+		local a, b = "", ""
+		local input = mnee.get_keyboard_input( data.kb_func, false ) or ""
+		if( input ~= "" or ( will_highlight and ( is_moving or pen.c.input_data.hdata[2] == nil ))) then
+			local c = pen.c.input_data.index or 0
+			local s = pen.c.input_data.space_num or 0
+			local score, i, is_edge = s - 1, -1, pen.c.input_data.pos.c == 0
+			pen.w2c( pen.c.input_data.buffer, function( char_id, letter_id, start_id, end_id )
+				if( char_id ~= 10 ) then score = score + 1 end
+				if( char_id == 32 ) then score = score - 1 end
+
+				if( score >= c ) then
+					i = start_id
+					if( not( is_edge )) then
+						i = i - ( string.sub( pen.c.input_data.buffer, i - 1, i - 1 ) == "\n" and 1 or 0 )
+					end
+					if( not( pen.c.input_data.is_space )) then
+						i = i - ( string.sub( pen.c.input_data.buffer, i - 1, i - 1 ) == " " and 1 or 0 )
+					end
+					
+					return true
+				end
+			end)
+			
+			if( i ~= -1 ) then
+				local da, db = 0, 0
+				-- local drift = pen.c.input_data.hdata[1] or 0
+				-- if( drift < 0 ) then da = drift else db = drift end
+				-- if( drift ~= 0 ) then da, db = da - 1, db + 1 end
+				a = string.sub( pen.c.input_data.buffer, 1, i - 1 + da )
+				b = string.sub( pen.c.input_data.buffer, i + db, -1 )
+
+				if( will_highlight ) then
+					pen.c.input_data.hdata[2] = pen.c.input_data.hdata[2] or i
+					if( is_moving ) then pen.c.input_data.hdata[1] = i - pen.c.input_data.hdata[2] end
+				else pen.c.input_data.hdata = {} end
+			else a = pen.c.input_data.buffer end
+		end
+		
+		pen.c.typing_test.a = a == "" and ( pen.c.typing_test.a or "" ) or a
+		pen.c.typing_test.b = b == "" and ( pen.c.typing_test.b or "" ) or b
+		pen.debug_print( string.gsub( pen.c.typing_test.a.."|"..pen.c.typing_test.b, "\n", "[N]" ), 200, 75, true )
+		pen.debug_print( pen.c.input_data.hdata[1], 50, 50, true )
+
+		if( type( input ) == "number" ) then
+			local kind = math.abs( input )
+			local is_normal = input > 0
+			local count = 1
+
+			if( kind == 2 ) then
+				local is_unicode = false
+				pen.w2c( a, function( char_id, letter_id, start_id, end_id )
+					if( char_id > 127 ) then is_unicode = true; return true end
+				end)
+				
+				if( not( is_normal ) and not( is_unicode )) then
+					local pos1, pos2 = string.find( a, "^%w-$" )
+					if( pos1 == nil ) then pos1, pos2 = string.find( a, "[%s%p]%w-$" ) end
+					count = ( pos2 or 0 ) - ( pos1 or 0 )
+					if( count > 0 ) then
+						local got_nl = string.sub( a, pos1, pos1 ) == "\n"
+						a = string.sub( a, 1, pos1 - 1 )
+						pen.c.input_data.drift.l = true
+
+						if( got_nl ) then
+							pen.c.input_data.pos.c = 1
+							pen.c.input_data.pos.l = pen.c.input_data.pos.l - 1
+						else pen.c.input_data.pos.c = pen.c.input_data.pos.c - count end
+					end
+					pen.c.input_data.buffer = a..b
+				elseif( a ~= "" ) then
+					pen.c.input_data.drift.l = true
+					if( string.sub( a, -1, -1 ) == "\n" ) then
+						pen.c.input_data.pos.c = 1
+						pen.c.input_data.pos.l = pen.c.input_data.pos.l - 1
+					end
+					
+					local nuke_pos = 0
+					if( is_unicode ) then
+						pen.w2c( a, function( char_id, letter_id, start_id, end_id ) nuke_pos = start_id end)
+						nuke_pos = nuke_pos - string.len( a )
+					end
+					pen.c.input_data.buffer = string.sub( a, 1, nuke_pos - 2 )..b
+				end
+			elseif( kind == 3 ) then
+				if( data.is_live ) then
+					is_normal = not( is_normal ) end
+				if( not( is_normal ) and not( data.is_flat )) then
+					if( not( string.sub( a, -1, -1 ) == "\n" or string.sub( b, 1, 1 ) == "\n" )) then
+						pen.c.input_data.buffer = string.gsub( a.."\n"..b, " -\n", "\n" )
+						pen.c.input_data.pos.c, pen.c.input_data.pos.l = 0, pen.c.input_data.pos.l + 1
+					end
+				else is_confirmed = true end
+			-- elseif( kind == 4 ) then --figure out real tab support
+			-- 	if( is_normal ) then
+			-- 		pen.c.input_data.pos.c = pen.c.input_data.pos.c + 4
+			-- 		a, count = string.gsub( a, "(\n).-$", "\n    " )
+			-- 		if( count == 0 ) then a = "    "..a end
+			-- 	else
+			-- 		print(tostring(string.match( a, "\n( -).-$" )))
+			-- 	end
+			-- 	pen.c.input_data.buffer = a..b
+			end
+		elseif( input ~= "" ) then
+			local is_tab = input == " " and ( a == "" or
+				string.sub( a, -1, -1 ) == " " or string.sub( b, 1, 1 ) == " " )
+			if( not( is_tab )) then
+				pen.c.input_data.buffer = a..input..b
+				pen.c.input_data.pos.c = pen.c.input_data.pos.c + 1
+			end
+		else is_updated = false end
+	end
+	
+	if( is_confirmed ) then
+		is_updated = true
+		pen.play_sound( pen.TUNES.VNL.BUY )
+		GlobalsSetValue( pen.GLOBAL_INPUT_STATE, "_" )
+	end
+
+	pen.new_scroller( iid.."_scroller", pic_x, pic_y, pic_z, size_x, size_y, function( scroll_pos )
+		if( not( data.no_wrap )) then data.dims = { size_x, -1 } end
+		
+		if( is_active ) then
+			t = pen.c.input_data.buffer
+			data.no_culling, data.fully_featured = true, true
+			pen.new_text( scroll_pos[2], scroll_pos[1], pic_z - 1, "{>cursor>{"..( t or "" ).."}<cursor<}", data )
+		elseif( is_hovered ) then data.color = data.color_highlight or pen.PALETTE.VNL.YELLOW end
+		
+		data.no_culling, data.fully_featured = false, false
+		local dims, new_line = pen.new_text( scroll_pos[2], scroll_pos[1], pic_z, t, data )
+		return { dims[2] + ( string.sub( t, -1, -1 ) == "\n" and new_line or 0 ) + 1, dims[1]}
+	end, data )
+
+	--holding to repeat input (arrows and backspace)
+	--finish highlighting; ctrl + a
+	--ctrl + c through global var (with buffer of up to 50 last copies + store last 10 in a setting + autocompletion should have buffer data integrated)
+
+	--keyboards are defined within each individual pen.new_input, the position is obtained from a setting
+	--every input has style id, report back when new style is being activated, default style has no virtual keyboard unless gamepad is connected (do global button gamepad support next)
+	
+	if( is_updated ) then
+		text = pen.c.input_data.buffer end
+	return text, is_updated
+end
+
+function mnee.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
+	--custom mnee styled keyboard with anim
+	--type checking (unicode, ascii only, alphabetical ascii only, numbers only)
+
+	--localization layouts (store the choice in a setting; localization is achieved through predefined char-to-char tables, should work with shifted and alted, in lists.lua)
+	--all keys are images, allow adding scaled down variants
+
+	--CN: https://en.wikipedia.org/wiki/Chinese_input_method
+	--JP: https://en.wikipedia.org/wiki/Japanese_language_and_computers
+	--KO: https://en.wikipedia.org/wiki/Korean_language_and_computers
+
+	return pen.try( pen.new_input, {
+		iid, pic_x, pic_y, pic_z, size_x, size_y, text, data
+	}, function( log, _, pic_x, pic_y )
+		pen.new_shadowed_text( pic_x, pic_y, pen.LAYERS.DEBUG, log, {
+			color = pen.PALETTE.PRSP.RED, color_shadow = pen.PALETTE.PRSP.BLUE, dims = { size_x - 1, -1 }})
+	end)
 end
 
 -----------------------------------------------------		[GLOBALS]		-----------------------------------------------------

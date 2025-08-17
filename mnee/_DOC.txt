@@ -56,7 +56,7 @@
    - mnee.is_jpad_real( slot_num ): a basic utility for checking the connection state of a gamepad; "slot_num" argument indicates the number of the controller and is equal to 1 by default.
    - mnee.apply_jpads( jpad_tbl ): enables one to manually map gamepads to slots; "jpad_tbl" is a mapping table ("-1" to unbound, 0-3 to assign, 5 to insert a dummy).
    - mnee.get_setup_id( mod_id ): returns the id of currently active setup mode; "mod_id" is the id of the mod in questions.
-   - mnee.vanilla_input( button, entity_id ): returns player entity independent ControlsComponent values; "button" is the last part of "mButtonDownFire" = simply "Fire", "entity_id" is the optional id of the entity you wish to capture ControlsComp of.
+   - mnee.vanilla_input( button, entity_id ): returns player entity independent ControlsComponent values; "button" is the last part of "mButtonDownFire" = simply "Fire", "entity_id" is the optional id of the entity you wish to capture ControlsComp of. This will get suppressed by SERV_MODE.
    - mnee.exe( mod_id, bind_id ): force-triggers provided binding on the next frame, does not care for service/priority/global_toggle.
 
 [INPUT]

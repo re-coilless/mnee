@@ -820,9 +820,11 @@ end
 
 function pen.w2c( word, on_char, do_pre, on_iter )
 	local num, letter_id = 0, 0
+	local start_id, end_id = 1, 0
 	for c in string.gmatch( word, "." ) do
+		end_id = end_id + 1
 		if( do_pre ~= false and on_iter ~= nil ) then
-			on_iter()
+			on_iter( end_id )
 		end
 
 		if( on_char ~= nil ) then
@@ -831,14 +833,13 @@ function pen.w2c( word, on_char, do_pre, on_iter )
 			local char_id = pen.BYTE_TO_ID[ num ]
 			if( char_id ) then
 				num, letter_id = 0, letter_id + 1
-				if( on_char( char_id, letter_id )) then
-					break
-				end
+				if( on_char( char_id, letter_id, start_id, end_id )) then break end
+				start_id = end_id + 1
 			end
 		end
 
 		if( do_pre ~= true and on_iter ~= nil ) then
-			on_iter()
+			on_iter( end_id )
 		end
 	end
 end
@@ -2414,9 +2415,11 @@ end
 
 function pen.debug_print( text, x, y, color )
 	if( pen.vld( x ) and pen.vld( y )) then
-		local pic_x, pic_y = pen.world2gui( x, y )
+		local pic_x, pic_y = x, y
+		if( color ~= true ) then
+			pic_x, pic_y = pen.world2gui( x, y ) else color = nil end
 		pen.new_shadowed_text( pic_x, pic_y, -pen.LAYERS.DEBUG, text, {
-			alpha = 0.5, is_centered_x = true, is_centered_y = true, color = color })
+			alpha = 0.5, is_centered_x = true, is_centered_y = true, color = color or pen.PALETTE.VNL.WARNING })
 	else --stolen from fairmod + thanks Nathan
 		color = color or pen.PALETTE.VNL.WARNING
 		if( ModIsEnabled( "index_core" )) then
@@ -4199,124 +4202,260 @@ end
 ---@param data? PenmanScrollerData
 function pen.new_scroller( sid, pic_x, pic_y, pic_z, size_x, size_y, func, data )
 	func = pen.get_hybrid_table( func )
-	func[2] = func[2] or function( sid, pic_x, pic_y, pic_z, size_x, size_y, bar_size, bar_pos, data )
+	func[2] = func[2] or function( sid, pic_x, pic_y, pic_z, size_x, size_y, bar_height, bar_y, data )
 		local out = {}
-		local color = data.color or {
-			pen.PALETTE.VNL.NINE_MAIN, pen.PALETTE.VNL.NINE_ACCENT,
-			pen.PALETTE.VNL.NINE_MAIN_DARK, pen.PALETTE.VNL.NINE_ACCENT_DARK,
+		local color = data.bar_colors or {
 			pen.PALETTE.VNL.NINE_MAIN, pen.PALETTE.VNL.NINE_ACCENT,
 			pen.PALETTE.VNL.NINE_MAIN_DARK, pen.PALETTE.VNL.NINE_ACCENT_DARK,
 			pen.PALETTE.VNL.NINE_MAIN, pen.PALETTE.VNL.NINE_ACCENT,
 			pen.PALETTE.VNL.NINE_MAIN_DARK, pen.PALETTE.VNL.NINE_ACCENT_DARK,
 			{ 0, 0, 0, 0.83 }
 		}
-		color[14] = color[14] or color[13]
+		color[10] = color[10] or color[9]
 
-		local _,new_y,state,_,_,is_hovered = pen.new_dragger( sid.."_dragger", pic_x, bar_pos, 3, bar_size, pic_z )
+		local clicked, r_clicked = false, false
+		local is_shifted = not( InputIsKeyDown( 225 ))
+		if( data.is_compact ) then
+			out[1] = { bar_y, 0 }
+			out[2] = { false, false }
+			out[3] = { false, false }
+			if(( data.can_scroll and is_shifted
+				and InputIsMouseButtonDown( 4 )) or data.go_up ) then out[2][1] = 1 end
+			if(( data.can_scroll and is_shifted
+				and InputIsMouseButtonDown( 5 )) or data.go_down ) then out[3][1] = 1 end
+			if( data.can_scroll or not( data.hide_bar )) then
+				pen.new_pixel( pic_x + ( data.is_left and 5 or -1 ), pic_y, pic_z, color[7], 1, 2, 0.75 )
+				pen.new_pixel( pic_x + ( data.is_left and 5 or -1 ),
+					bar_y, pic_z, color[ data.can_scroll and 1 or 3 ], 1, bar_height, 0.75 )
+				pen.new_pixel( pic_x + ( data.is_left and 5 or -1 ), pic_y + size_y - 2, pic_z, color[7], 1, 2, 0.75 )
+			end
+
+			return out
+		end
+		
+		local _,new_y,state,_,_,is_hovered = pen.new_dragger(
+			sid.."_dragger_y", pic_x, bar_y, 3, bar_height, pic_z )
 		if( data.can_scroll or not( data.hide_bar )) then
-			pen.new_pixel( pic_x + 1, bar_pos, pic_z, color[ is_hovered and 14 or 13 ], 1, bar_size )
-			pen.new_pixel( pic_x, bar_pos, pic_z, color[ is_hovered and 2 or 1 ], 1, bar_size )
-			pen.new_pixel( pic_x + 2, bar_pos, pic_z, color[ is_hovered and 4 or 3 ], 1, bar_size )
+			pen.new_pixel( pic_x + 1, bar_y, pic_z, color[ is_hovered and 10 or 9 ], 1, bar_height )
+			pen.new_pixel( pic_x, bar_y, pic_z, color[ is_hovered and 2 or 1 ], 1, bar_height )
+			pen.new_pixel( pic_x + 2, bar_y, pic_z, color[ is_hovered and 4 or 3 ], 1, bar_height )
 		end
 		out[1] = { new_y, state }
 		
-		local clicked, r_clicked = false, false
 		clicked, r_clicked, is_hovered = pen.new_interface( pic_x, pic_y, 3, 3, pic_z )
 		if( data.can_scroll or not( data.hide_bar )) then
-			pen.new_pixel( pic_x + 1, pic_y + 1, pic_z, color[ is_hovered and 14 or 13 ])
+			pen.new_pixel( pic_x + 1, pic_y + 1, pic_z, color[ is_hovered and 10 or 9 ])
 			pen.new_pixel( pic_x + 1, pic_y, pic_z, color[ is_hovered and 6 or 5 ])
 			pen.new_pixel( pic_x, pic_y + 1, pic_z, color[ is_hovered and 6 or 5 ])
 			pen.new_pixel( pic_x + 2, pic_y + 1, pic_z, color[ is_hovered and 8 or 7 ])
 		end
-		if( data.can_scroll and ( InputIsMouseButtonDown( 4 ) or InputIsKeyJustDown( 86 ))) then clicked = 1 end
+		if(( data.can_scroll and is_shifted and InputIsMouseButtonDown( 4 )) or data.go_up ) then clicked = 1 end
 		out[2] = { clicked, r_clicked }
 
 		clicked, r_clicked, is_hovered = pen.new_interface( pic_x, pic_y + size_y - 3, 3, 3, pic_z )
 		if( data.can_scroll or not( data.hide_bar )) then
-			pen.new_pixel( pic_x + 1, pic_y + size_y - 2, pic_z, color[ is_hovered and 14 or 13 ])
-			pen.new_pixel( pic_x + 1, pic_y + size_y - 1, pic_z, color[ is_hovered and 10 or 9 ])
-			pen.new_pixel( pic_x, pic_y + size_y - 2, pic_z, color[ is_hovered and 10 or 9 ])
-			pen.new_pixel( pic_x + 2, pic_y + size_y - 2, pic_z, color[ is_hovered and 12 or 11 ])
+			pen.new_pixel( pic_x + 1, pic_y + size_y - 2, pic_z, color[ is_hovered and 10 or 9 ])
+			pen.new_pixel( pic_x + 1, pic_y + size_y - 1, pic_z, color[ is_hovered and 6 or 5 ])
+			pen.new_pixel( pic_x, pic_y + size_y - 2, pic_z, color[ is_hovered and 6 or 5 ])
+			pen.new_pixel( pic_x + 2, pic_y + size_y - 2, pic_z, color[ is_hovered and 8 or 7 ])
 		end
-		if( data.can_scroll and ( InputIsMouseButtonDown( 5 ) or InputIsKeyJustDown( 87 ))) then clicked = 1 end
+		if(( data.can_scroll and is_shifted and InputIsMouseButtonDown( 5 )) or data.go_down ) then clicked = 1 end
+		out[3] = { clicked, r_clicked }
+		
+		return out
+	end
+	func[3] = func[3] or function( sid, pic_x, pic_y, pic_z, size_x, size_y, bar_length, bar_x, data )
+		local out = {}
+		local color = data.bar_colors or {
+			pen.PALETTE.VNL.NINE_MAIN, pen.PALETTE.VNL.NINE_ACCENT,
+			pen.PALETTE.VNL.NINE_MAIN_DARK, pen.PALETTE.VNL.NINE_ACCENT_DARK,
+			pen.PALETTE.VNL.NINE_MAIN, pen.PALETTE.VNL.NINE_ACCENT,
+			pen.PALETTE.VNL.NINE_MAIN_DARK, pen.PALETTE.VNL.NINE_ACCENT_DARK,
+			{ 0, 0, 0, 0.83 }
+		}
+		color[10] = color[10] or color[9]
+
+		local clicked, r_clicked = false, false
+		local is_shifted = not( data.got_vertical ) or InputIsKeyDown( 225 )
+		if( data.is_compact ) then
+			out[1] = { bar_x, 0 }
+			out[2] = { false, false }
+			out[3] = { false, false }
+			if(( data.can_scroll and is_shifted
+				and InputIsMouseButtonDown( 4 )) or data.go_left ) then out[2][1] = 1 end
+			if(( data.can_scroll and is_shifted
+				and InputIsMouseButtonDown( 5 )) or data.go_right ) then out[3][1] = 1 end
+			if( data.can_scroll or not( data.hide_bar )) then
+				pen.new_pixel( pic_x, pic_y + ( data.is_top and 5 or -1 ), pic_z, color[7], 2, 1, 0.75 )
+				pen.new_pixel( bar_x, pic_y + ( data.is_top and 5 or -1 ),
+					pic_z, color[ data.can_scroll and 1 or 3 ], bar_length, 1, 0.75 )
+				pen.new_pixel( pic_x + size_x - 2, pic_y + ( data.is_top and 5 or -1 ), pic_z, color[7], 2, 1, 0.75 )
+			end
+
+			return out
+		end
+
+		local new_x,_,state,_,_,is_hovered = pen.new_dragger(
+			sid.."_dragger_x", bar_x, pic_y, bar_length, 3, pic_z )
+		if( data.can_scroll or not( data.hide_bar )) then
+			pen.new_pixel( bar_x, pic_y + 1, pic_z, color[ is_hovered and 10 or 9 ], bar_length, 1 )
+			pen.new_pixel( bar_x, pic_y, pic_z, color[ is_hovered and 2 or 1 ], bar_length, 1 )
+			pen.new_pixel( bar_x, pic_y + 2, pic_z, color[ is_hovered and 4 or 3 ], bar_length, 1 )
+		end
+		out[1] = { new_x, state }
+		
+		clicked, r_clicked, is_hovered = pen.new_interface( pic_x, pic_y, 3, 3, pic_z )
+		if( data.can_scroll or not( data.hide_bar )) then
+			pen.new_pixel( pic_x + 1, pic_y + 1, pic_z, color[ is_hovered and 10 or 9 ])
+			pen.new_pixel( pic_x, pic_y + 1, pic_z, color[ is_hovered and 6 or 5 ])
+			pen.new_pixel( pic_x + 1, pic_y, pic_z, color[ is_hovered and 6 or 5 ])
+			pen.new_pixel( pic_x + 1, pic_y + 2, pic_z, color[ is_hovered and 8 or 7 ])
+		end
+		if(( data.can_scroll and is_shifted and InputIsMouseButtonDown( 4 )) or data.go_left ) then clicked = 1 end
+		out[2] = { clicked, r_clicked }
+
+		clicked, r_clicked, is_hovered = pen.new_interface( pic_x + size_x - 3, pic_y, 3, 3, pic_z )
+		if( data.can_scroll or not( data.hide_bar )) then
+			pen.new_pixel( pic_x + size_x - 2, pic_y + 1, pic_z, color[ is_hovered and 10 or 9 ])
+			pen.new_pixel( pic_x + size_x - 1, pic_y + 1, pic_z, color[ is_hovered and 6 or 5 ])
+			pen.new_pixel( pic_x + size_x - 2, pic_y, pic_z, color[ is_hovered and 6 or 5 ])
+			pen.new_pixel( pic_x + size_x - 2, pic_y + 2, pic_z, color[ is_hovered and 8 or 7 ])
+		end
+		if(( data.can_scroll and is_shifted and InputIsMouseButtonDown( 5 )) or data.go_right ) then clicked = 1 end
 		out[3] = { clicked, r_clicked }
 		
 		return out
 	end
 	
 	data = data or {}
+	pen.c.scroll_memo = pen.c.scroll_memo or {}
+	pen.c.scroll_memo[ sid ] = pen.c.scroll_memo[ sid ] or {}
+
+	local old_height = pen.c.scroll_memo[ sid ].h or -1
+	local progress_y = pen.c.scroll_memo[ sid ].py or ( data.bottom_start and 1 or 0 )
+	local scroll_y = old_height > size_y and ( size_y - math.abs( old_height ))*progress_y or 0
+	local old_length = pen.c.scroll_memo[ sid ].l or -1
+	local progress_x = pen.c.scroll_memo[ sid ].px or ( data.right_start and 1 or 0 )
+	local scroll_x = old_length > size_x and ( size_x - math.abs( old_length ))*progress_x or 0
+
+	local new_height, new_length = unpack( pen.new_cutout(
+		pic_x, pic_y, size_x, size_y, func[1], { scroll_y, scroll_x }))
+	local do_vert, do_horz = new_height > size_y, new_length > size_x
 	if( data.scroll_always ) then
 		data.can_scroll = true
 	elseif( data.scroll_always ~= false ) then
 		data.forced_zone = data.forced_zone or {}
 		_,_,data.can_scroll = pen.new_interface(
-			pic_x + ( data.forced_zone[3] or 0 ), pic_y + ( data.forced_zone[4] or 0 ),
-			data.forced_zone[1] or ( size_x + 5 ), data.forced_zone[2] or size_y, pic_z )
-	end
-
-	pen.c.scroll_memo = pen.c.scroll_memo or {}
-	pen.c.scroll_memo[ sid ] = pen.c.scroll_memo[ sid ] or {}
-	pen.c.scroll_memo[ sid ].m = pen.c.scroll_memo[ sid ].m or {}
-
-	local old_height = pen.c.scroll_memo[ sid ].h or -1
-	local progress = pen.c.scroll_memo[ sid ].p or ( data.bottom_start and 1 or 0 )
-	local scroll_pos = old_height > size_y and ( size_y - math.abs( old_height ))*progress or 0
-	local new_height = pen.new_cutout( pic_x, pic_y, size_x, size_y, func[1], scroll_pos )
-	if( new_height > size_y ) then
-		if( data.can_scroll ) then pen.unscroller() end
-	else pen.c.scroll_memo[ sid ].p = 0; return end
-
-	local bar_size = pen.rounder( math.max(( size_y - 6 )*math.min( size_y/new_height, 1 ), 1 ), -2 )
-	
-	local bar_y = ( size_y - ( 6 + bar_size ))
-	local bar_pos = pic_y + bar_y*progress + 3
-	local step = bar_y*( data.scroll_step or 11 )/( new_height - size_y )
-	if( data.is_left ) then pic_x = pic_x - 5 else pic_x = pic_x + size_x end
-	local out = func[2]( sid, pic_x, pic_y, pic_z - 0.01, size_x, size_y, bar_size, bar_pos, data )
-	local new_y = out[1][1]
-	
-	local discrete_target = pen.c.scroll_memo[ sid ].t
-	if( discrete_target ~= nil ) then
-		if( discrete_target == new_y ) then
-			pen.c.scroll_memo[ sid ].t = nil
-		else new_y = discrete_target end
-	end
-
-	local k = pen.c.scroll_memo[ sid ].m or 1
-	pen.c.scroll_memo[ sid ].m = ( out[2][1] or out[3][1]) and 2*k or 1
-	
-	for i = 2,3 do
-		if( out[i][1]) then
-			if( i == 2 ) then
-				pen.c.scroll_memo[ sid ].t = math.max( new_y - step*k, pic_y + 3 )
-			else pen.c.scroll_memo[ sid ].t = math.min( new_y + step*k, pic_y + bar_y + 3 ) end
-		elseif( out[i][2]) then pen.c.scroll_memo[ sid ].t = pic_y + 3 + ( i == 3 and bar_y or 0 ) end
-		if( out[i][1] or out[i][2]) then
-			pen.play_sound( pen.TUNES.VNL[ out[i][1] == 1 and "HOVER" or ( out[i][2] and "CLICK" or "SELECT" )])
-		end
+			pic_x + ( data.forced_zone[3] or 0 ),
+			pic_y + ( data.forced_zone[4] or 0 ),
+			data.forced_zone[1] or size_x, data.forced_zone[2] or size_y, pic_z )
 	end
 
 	local buffer = 1
-	local eid = sid.."_anim"
-	progress = math.min( math.max(( new_y - ( pic_y + 3 ))/bar_y, -buffer ), 1 + buffer )
-	progress = pen.estimate( eid, progress, "wgt0.75", 0.001, 0.02*step )
-	pen.c.scroll_memo[ sid ].p = math.min( math.max( progress, 0 ), 1 )
-
+	local is_static = false
 	local is_waiting = GameGetFrameNum()%7 ~= 0
-	local is_clipped = progress >= 0 and progress <= 1
-	local is_static = out[1][2] ~= 2 or pen.eps_compare( new_y, bar_pos )
-	if( not( is_clipped )) then
-		pen.c.estimator_memo[ eid ] = math.min( math.max( pen.c.estimator_memo[ eid ], 0 ), 1 )
-	elseif( not( is_static or is_waiting )) then pen.play_sound( pen.TUNES.VNL.HOVER ) end
+	if( data.can_scroll ) then pen.unscroller() end
+	data.got_vertical = do_vert
 
-	if( old_height ~= new_height ) then
-		if( progress ~= 1 and old_height > 0 ) then
-			pen.c.scroll_memo[ sid ].p = math.min( math.max( scroll_pos/( size_y - new_height ), 0 ), 1 )
-			pen.c.estimator_memo[ eid ] = pen.c.scroll_memo[ sid ].p
+	if( do_vert ) then
+		local bar_height = pen.rounder( math.max(( size_y - 6 )*math.min( size_y/new_height, 1 ), 1 ), -2 )
+		local bar_y = ( size_y - ( 6 + bar_height ))
+		local pos_y = pic_y + bar_y*progress_y + 3
+
+		local step_y = bar_y*( data.scroll_step or 11 )/( new_height - size_y )
+		local out_y = func[2]( sid,
+			pic_x + ( data.is_left and -5 or size_x ), pic_y, pic_z - 0.01, size_x, size_y, bar_height, pos_y, data )
+
+		local new_y = out_y[1][1]
+		local target_y = pen.c.scroll_memo[ sid ].ty
+		if( target_y ~= nil ) then
+			if( target_y == new_y ) then
+				pen.c.scroll_memo[ sid ].ty = nil
+			else new_y = target_y end
 		end
 
-		pen.c.scroll_memo[ sid ].h = new_height
-	end
+		local ky = pen.c.scroll_memo[ sid ].my or 1
+		pen.c.scroll_memo[ sid ].my = ( out_y[2][1] or out_y[3][1]) and 2*ky or 1
+		for i = 2,3 do
+			if( out_y[i][1]) then
+				if( i == 2 ) then
+					pen.c.scroll_memo[ sid ].ty = math.max( new_y - step_y*ky, pic_y + 3 )
+				else pen.c.scroll_memo[ sid ].ty = math.min( new_y + step_y*ky, pic_y + bar_y + 3 ) end
+			elseif( out_y[i][2]) then pen.c.scroll_memo[ sid ].ty = pic_y + 3 + ( i == 3 and bar_y or 0 ) end
+			if( not( data.go_down or data.go_up ) and ( out_y[i][1] or out_y[i][2])) then
+				pen.play_sound( pen.TUNES.VNL[
+					out_y[i][1] == 1 and "HOVER" or ( out_y[i][2] and "CLICK" or "SELECT" )])
+			end
+		end
+
+		local eid_y = sid.."_anim_y"
+		progress_y = math.min( math.max(( new_y - ( pic_y + 3 ))/bar_y, -buffer ), 1 + buffer )
+		progress_y = pen.estimate( eid_y, progress_y, "wgt0.75", 0.001, 0.02*step_y )
+		pen.c.scroll_memo[ sid ].py = math.min( math.max( progress_y, 0 ), 1 )
+		is_static = out_y[1][2] ~= 2 or pen.eps_compare( new_y, pos_y )
+		if( not( progress_y >= 0 and progress_y <= 1 )) then
+			pen.c.estimator_memo[ eid_y ] = math.min( math.max( pen.c.estimator_memo[ eid_y ], 0 ), 1 )
+		elseif( not( is_static or is_waiting )) then pen.play_sound( pen.TUNES.VNL.HOVER ) end
+
+		if( old_height ~= new_height ) then
+			if( progress_y ~= 1 and old_height > 0 ) then
+				pen.c.scroll_memo[ sid ].py = math.min( math.max( scroll_y/( size_y - new_height ), 0 ), 1 )
+				pen.c.estimator_memo[ eid_y ] = pen.c.scroll_memo[ sid ].py
+			end
+	
+			pen.c.scroll_memo[ sid ].h = new_height
+		end
+	else pen.c.scroll_memo[ sid ].py = 0 end
+	
+	if( do_horz ) then
+		local bar_length = pen.rounder( math.max(( size_x - 6 )*math.min( size_x/new_length, 1 ), 1 ), -2 )
+		local bar_x = ( size_x - ( 6 + bar_length ))
+		local pos_x = pic_x + bar_x*progress_x + 3
+
+		local step_x = bar_x*( data.scroll_step or 11 )/( new_length - size_x )
+		local out_x = func[3]( sid, pic_x,
+			pic_y + ( data.is_top and -5 or size_y ), pic_z - 0.01, size_x, size_y, bar_length, pos_x, data )
+
+		local new_x = out_x[1][1]
+		local target_x = pen.c.scroll_memo[ sid ].tx
+		if( target_x ~= nil ) then
+			if( target_x == new_x ) then
+				pen.c.scroll_memo[ sid ].tx = nil
+			else new_x = target_x end
+		end
+
+		local kx = pen.c.scroll_memo[ sid ].mx or 1
+		pen.c.scroll_memo[ sid ].mx = ( out_x[2][1] or out_x[3][1]) and 2*kx or 1
+		for i = 2,3 do
+			if( out_x[i][1]) then
+				if( i == 2 ) then
+					pen.c.scroll_memo[ sid ].tx = math.max( new_x - step_x*kx, pic_x + 3 )
+				else pen.c.scroll_memo[ sid ].tx = math.min( new_x + step_x*kx, pic_x + bar_x + 3 ) end
+			elseif( out_x[i][2]) then pen.c.scroll_memo[ sid ].tx = pic_x + 3 + ( i == 3 and bar_x or 0 ) end
+			if( not( data.go_right or data.go_left ) and ( out_x[i][1] or out_x[i][2])) then
+				pen.play_sound( pen.TUNES.VNL[
+					out_x[i][1] == 1 and "HOVER" or ( out_x[i][2] and "CLICK" or "SELECT" )])
+			end
+		end
+
+		local eid_x = sid.."_anim_x"
+		progress_x = math.min( math.max(( new_x - ( pic_x + 3 ))/bar_x, -buffer ), 1 + buffer )
+		progress_x = pen.estimate( eid_x, progress_x, "wgt0.75", 0.001, 0.02*step_x )
+		pen.c.scroll_memo[ sid ].px = math.min( math.max( progress_x, 0 ), 1 )
+		is_static = out_x[1][2] ~= 2 or pen.eps_compare( new_x, pos_x )
+		if( not( progress_x >= 0 and progress_x <= 1 )) then
+			pen.c.estimator_memo[ eid_x ] = math.min( math.max( pen.c.estimator_memo[ eid_x ], 0 ), 1 )
+		elseif( not( is_static or is_waiting )) then pen.play_sound( pen.TUNES.VNL.HOVER ) end
+
+		if( old_length ~= new_length ) then
+			if( progress_x ~= 1 and old_length > 0 ) then
+				pen.c.scroll_memo[ sid ].px = math.min( math.max( scroll_x/( size_x - new_length ), 0 ), 1 )
+				pen.c.estimator_memo[ eid_x ] = pen.c.scroll_memo[ sid ].px
+			end
+	
+			pen.c.scroll_memo[ sid ].l = new_length
+		end
+	else pen.c.scroll_memo[ sid ].px = 0 end
 end
 
 function pen.new_slider( uid, pic_x, pic_y, pic_z, length, data )
@@ -4386,11 +4525,11 @@ function pen.new_text( pic_x, pic_y, pic_z, text, data )
 				off_x = pen.get_text_dims( t, data.font, is_pixel_font )
 				off_x = ( math.abs( dims[1]) - off_x )/2
 			end
-
+			
 			shadowed_text( pic_x + off_x, pic_y + ( i - 1 )*new_line + off_y, pic_z,
 				t, data.scale, data.font, is_pixel_font, data.color, data.alpha, data.has_shadow )
 		end
-		return dims
+		return dims, new_line
 	end
 	
 	local structure = pen.cache({ "metafont",
@@ -4403,7 +4542,7 @@ function pen.new_text( pic_x, pic_y, pic_z, text, data )
 		for i,line in ipairs( text ) do
 			local temp = line
 			local l_pos, r_pos = {0,0,0}, {0,0,0}
-			local new_element = { x = 0, y = height_counter }
+			local new_element = { x = 0, y = height_counter, new_line = true }
 			if( data.is_centered_x or data.is_right_x ) then
 				local _,off = pen.liner( line, nil, nil, data.font )
 				new_element.x = -off[1]/( data.is_right_x and 1 or 2 )
@@ -4465,19 +4604,21 @@ function pen.new_text( pic_x, pic_y, pic_z, text, data )
 	
 	pen.c.font_ram = pen.c.font_ram or {}
 
-	local c_gbl, c_lcl = 1, {}
+	local c_lin, c_gbl, c_lcl = 0, 1, {}
 	local is_inside = pen.vld( pen.c.cutter_dims )
 	pen.t.loop( structure, function( i, element )
 		if( not( pen.vld( element.text ))) then return end
-		
+		if( element.new_line ) then c_lin = c_lin + 1 end
+
 		local pos_x = pic_x + data.scale*( off_x + element.x )
 		local pos_y = pic_y + data.scale*( off_y + element.y )
-		if( is_inside ) then
+		if( is_inside and not( data.no_culling )) then
 			local real_x = pen.c.cutter_dims.xy[1] + pos_x
 			if( pos_x < 0 ) then real_x = pen.c.cutter_dims.xy[1] end
 			local real_y = pen.c.cutter_dims.xy[2] + pos_y
 			if( pos_y < 0 ) then real_y = real_y + new_line + 1 end
-			if( not( pen.check_bounds({ real_x, real_y }, pen.c.cutter_dims.wh, pen.c.cutter_dims.xy ))) then return end
+			local is_real = pen.check_bounds({ real_x, real_y }, pen.c.cutter_dims.wh, pen.c.cutter_dims.xy )
+			if( not( is_real )) then return end
 		end
 
 		if( not( pen.vld( element.f ))) then
@@ -4492,9 +4633,9 @@ function pen.new_text( pic_x, pic_y, pic_z, text, data )
 		c_lcl = new_lcl
 
 		local orig_x, orig_y = pos_x, pos_y
-		pen.w2c( element.text, function( char_id, letter_id )
+		pen.w2c( element.text, function( char_id, letter_id, start_id, end_id )
 			pos_x, pos_y = orig_x, orig_y
-			
+
 			local extra_list, n = {}, 1
 			pen.t.loop( element.extra, function( k, v )
 				if( v[1] == letter_id ) then extra_list[n] = v[2] end
@@ -4510,10 +4651,10 @@ function pen.new_text( pic_x, pic_y, pic_z, text, data )
 				local font_mod = data.font_mods[ func ] or pen.FONT_MODS[ func ]
 				if( font_mod ~= nil ) then
 					c_lcl[ func ] = ( c_lcl[ func ] or 0 ) + 1
-					new_x, new_y, new_clr, new_font, new_char = font_mod(
+					new_x, new_y, new_clr, new_font, new_char = font_mod( data,
 						{ l = pos_x, g = orig_x }, { l = pos_y, g = orig_y }, pic_z,
 						{ char = char, dims = off, font = font, extra = extra_list, ram = pen.c.font_ram },
-						{ clr[1], clr[2], clr[3], clr[4] or data.alpha }, { gbl = c_gbl, lcl = c_lcl[ func ], chr = letter_id }
+						{ clr[1], clr[2], clr[3], clr[4] or data.alpha }, { gbl = c_gbl, lcl = c_lcl[ func ], chr = letter_id, lin = c_lin }
 					)
 				end
 
@@ -4535,7 +4676,7 @@ function pen.new_text( pic_x, pic_y, pic_z, text, data )
 	
 	pen.c.font_ram = nil
 
-	return dims
+	return dims, new_line
 end
 
 function pen.new_shadowed_text( pic_x, pic_y, pic_z, text, data )
@@ -4571,8 +4712,8 @@ function pen.new_scrolling_text( sid, pic_x, pic_y, pic_z, dims, text, data )
 	elseif( dims[2] ~= nil ) then
 		data.dims = { dims[1], -1 }
 		return pen.new_scroller( sid, pic_x, pic_y, pic_z - 0.001, dims[1], dims[2], function( scroll_pos )
-			local dims = pen.new_text( 0, scroll_pos, pic_z, text, data )
-			return dims[2]
+			local dims = pen.new_text( 0, scroll_pos[1], pic_z, text, data )
+			return { dims[2], 1 }
 		end)
 	end
 	
@@ -4648,13 +4789,12 @@ function pen.new_tooltip( text, data, func )
 
 		local w, h = GuiGetScreenDimensions( gui )
 		if( not( pen.vld( data.dims ))) then
-			data.dims = pen.get_tip_dims( text, { data.min_width or 121, data.max_width or 0.9*w }, h, data.line_offset or -2 )
+			data.dims = pen.get_tip_dims( text,
+				{ data.min_width or 121, data.max_width or 0.9*w }, h, data.line_offset or -2 )
+			data.dims = { data.dims[1] - 1, data.dims[2] - 1 }
 		end
-		data.dims = {
-			data.dims[1] + ( off_x or 0 ),
-			data.dims[2] + ( off_y or 0 )}
-		data.dims[1] = data.dims[1] + 2*data.edging - 1
-		data.dims[2] = data.dims[2] + 2*data.edging - 1
+		data.dims = { data.dims[1] + ( off_x or 0 ), data.dims[2] + ( off_y or 0 )}
+		data.dims[1], data.dims[2] = data.dims[1] + 2*data.edging, data.dims[2] + 2*data.edging
 
 		local z_resolver = 0
 		local mouse_drift = 5
@@ -4707,7 +4847,10 @@ function pen.new_tooltip( text, data, func )
 			local gui, uid = pen.gui_builder()
 			GuiOptionsAddForNextWidget( gui, 2 ) --NonInteractive
 			GuiZSetForNextWidget( gui, pic_z + 0.01 )
-			GuiImageNinePiece( gui, uid, pic_x, pic_y, size_x, size_y, 1.15*math.max( 1 - inter_alpha/6, 0.1 ))
+			GuiImageNinePiece( gui, uid,
+				pic_x, pic_y, size_x, size_y,
+				1.15*math.max( 1 - inter_alpha/6, 0.1 ),
+				"data/ui_gfx/decorations/9piece0"..(( d.is_special or false ) and "" or "_gray" )..".png" )
 			return clicked, r_clicked, is_hovered
 		end
 		
@@ -4716,32 +4859,6 @@ function pen.new_tooltip( text, data, func )
 	else pen.c.ttips[ data.tid ].inter_state = {} end
 	
 	return data.is_active, data.dims, is_pinned
-end
-
-function pen.new_input( iid, pic_x, pic_y, pic_z, data )
-	data = data or {}
-	local _,default_dims = pen.liner( "T__________T", nil, nil, nil, { line_offset = data.line_offset or -2, })
-	data.dims = data.dims or default_dims
-	
-	local text = ""
-
-	--put input state to global var (comes with frame num, and if frame num there is higher than current frame num – nuke it)
-	--right click to disable vanilla input
-	--enter/rmb to confirm
-	--legit full keyboard that is stolen from mnee
-	--copypaste support (through global var)
-	--multiline cursor with arrow control
-	
-	pen.new_tooltip( text, {
-		is_active = true,
-		tid = iid, pic_z = pic_z, pos = {pic_x,pic_y},
-		dims = data.dims or default_dims,
-		edging = data.edging, line_offset = data.line_offset
-	}, data.tip_func )
-
-	print( tostring( pen.c.ttips[iid].inter_state[1]))
-	
-	return
 end
 
 ---Paging framework.
@@ -4829,6 +4946,8 @@ pen.FLAG_INTERFACE_TOGGLE = "PENMAN_INTERFACE_DOWN"
 
 pen.GLOBAL_SCREEN_X = "PENMAN_SCREEN_X"
 pen.GLOBAL_SCREEN_Y = "PENMAN_SCREEN_Y"
+pen.GLOBAL_INPUT_STATE = "PENMAN_INPUT_STATE"
+pen.GLOBAL_INPUT_FRAME = "PENMAN_INPUT_FRAME"
 pen.GLOBAL_VIRTUAL_ID = "PENMAN_VIRTUAL_INDEX"
 pen.GLOBAL_INTERFACE_Z = "PENMAN_INTERFACE_Z"
 pen.GLOBAL_TIPZ_RESOLVER = "PENMAN_TIPZ_RESOLVER"
@@ -4914,21 +5033,21 @@ pen.FONT_SPACING = {
 	["data/fonts/generated/notosans_ko_36.bin"] = 2.5,
 }
 pen.FONT_MODS = {
-	_bold = function( pic_x, pic_y, pic_z, char_data, color, index )
+	_bold = function( data, pic_x, pic_y, pic_z, char_data, color, index )
 		pen.colourer( nil, color )
 		GuiZSetForNextWidget( pen.c.gui_data.g, pic_z )
 		local off_x, off_y = unpack( char_data.dims )
 		GuiText( pen.c.gui_data.g, pic_x.l - 0.25*off_x, pic_y.l - 0.25*off_y, char_data.char, 1.25, char_data.font[1], char_data.font[2])
 		return nil, nil, nil, nil, ""
 	end,
-	_italic = function( pic_x, pic_y, pic_z, char_data, color, index )
+	_italic = function( data, pic_x, pic_y, pic_z, char_data, color, index )
 		--get letter pic and angle it
 	end,
-	crossed = function( pic_x, pic_y, pic_z, char_data, color, index ) --make this be font height related
+	crossed = function( data, pic_x, pic_y, pic_z, char_data, color, index ) --make this be font height related
 		local off_x, off_y = unpack( char_data.dims )
 		pen.new_pixel( pic_x.g - 1, pic_y.g + ( off_y - 1 )/2, pic_z + 0.001, color, ( off_x + 2 ), 1 )
 	end,
-	underscore = function( pic_x, pic_y, pic_z, char_data, color, index ) --make this be font height related
+	underscore = function( data, pic_x, pic_y, pic_z, char_data, color, index ) --make this be font height related
 		local alpha = color[4]
 		local new_color = color
 		if( not( char_data.ram.under_color_locked ) and pen.vld( char_data.extra[1])) then
@@ -4946,12 +5065,12 @@ pen.FONT_MODS = {
 		local off_x, off_y = unpack( char_data.dims )
 		pen.new_pixel( pic_x.g, pic_y.g + off_y*0.8, pic_z + 0.001, new_color, off_x, 1, alpha )
 	end,
-	shadow = function( pic_x, pic_y, pic_z, char_data, color, index )
+	shadow = function( data, pic_x, pic_y, pic_z, char_data, color, index )
 		GuiZSetForNextWidget( pen.c.gui_data.g, pic_z + 0.0001 )
 		pen.colourer( nil, pen.PALETTE.SHADOW, 0.5*(( color or {})[4] or 1 ))
 		GuiText( pen.c.gui_data.g, pic_x.l + 0.6, pic_y.l + 0.6, char_data.char, 1, char_data.font[1], char_data.font[2])
 	end,
-	runic = function( pic_x, pic_y, pic_z, char_data, color, index )
+	runic = function( data, pic_x, pic_y, pic_z, char_data, color, index )
 		local new_one = char_data.char
 		local new_byte = pen.magic_byte( new_one )
 		if( new_byte > 10000 ) then new_one = pen.magic_byte( 65 + new_byte%57 ) end
@@ -4959,7 +5078,7 @@ pen.FONT_MODS = {
 		font = ( pen.t.unarray( pen.t.pack( GlobalsGetValue( pen.GLOBAL_FONT_REMAP, "" ))) or {})[ font ] or font
 		return nil, nil, nil, { font, true }, new_one == "$" and "!" or new_one
 	end,
-	color = function( pic_x, pic_y, pic_z, char_data, color, index )
+	color = function( data, pic_x, pic_y, pic_z, char_data, color, index )
 		local new_color = nil
 		if( pen.vld( char_data.extra[1])) then
 			new_color = pen.t.pack( char_data.extra[ #char_data.extra ])
@@ -4972,29 +5091,33 @@ pen.FONT_MODS = {
 		return nil, nil, new_color
 	end,
 
-	indent = function( pic_x, pic_y, pic_z, char_data, color, index )
+	indent = function( data, pic_x, pic_y, pic_z, char_data, color, index )
 		return pic_x.l + 2, pic_y.l
 	end,
-	wave = function( pic_x, pic_y, pic_z, char_data, color, index )
+	wave = function( data, pic_x, pic_y, pic_z, char_data, color, index )
 		return nil, pic_y.l + math.sin( 0.5*index.gbl + GameGetFrameNum()/7 )
 	end,
-	quake = function( pic_x, pic_y, pic_z, char_data, color, index )
+	quake = function( data, pic_x, pic_y, pic_z, char_data, color, index )
 		pic_x.l = pic_x.l + pen.generic_random( 0, 100, nil, true )/200
 		pic_y.l = pic_y.l + pen.generic_random( 0, 100, nil, true )/200
 		return pic_x.l, pic_y.l
 	end,
-	cancer = function( pic_x, pic_y, pic_z, char_data, color, index )
+	cancer = function( data, pic_x, pic_y, pic_z, char_data, color, index )
 		local new_one = pen.magic_byte( pen.generic_random( 33, 127 ))
 		return nil, nil, nil, nil, new_one == "$" and "!" or new_one
 	end,
-	rainbow = function( pic_x, pic_y, pic_z, char_data, color, index )
+	rainbow = function( data, pic_x, pic_y, pic_z, char_data, color, index )
 		color = pen.magic_rgb( color, false, "hsv" )
 		color[1] = (( 5*index.gbl + GameGetFrameNum())%100 )/100
 		color[2] = math.max( color[2], 0.5 )
 		return nil, nil, pen.magic_rgb( color, true, "hsv" )
 	end,
+	_typing = function( data, pic_x, pic_y, pic_z, char_data, color, index )
+		--char_data.extra for modifications (compare the index num with index.chr)
+		--letters appear through alpha sin interpolating top down
+	end,
 	
-	button = function( pic_x, pic_y, pic_z, char_data, color, index, bid )
+	button = function( data, pic_x, pic_y, pic_z, char_data, color, index, bid )
 		local frame_num = GameGetFrameNum()
 		local id_tbl = { "hyperlink_state", bid or "dft_btn" }
 		local clicked, r_clicked, is_hovered = pen.cache( id_tbl, function( old_val )
@@ -5017,7 +5140,7 @@ pen.FONT_MODS = {
 		end
 		return nil, nil, color
 	end,
-	tip = function( pic_x, pic_y, pic_z, char_data, color, index, tip_id, text )
+	tip = function( data, pic_x, pic_y, pic_z, char_data, color, index, tip_id, text )
 		tip_id = tip_id or "dft_tip"
 
 		local frame_num = GameGetFrameNum()
@@ -5032,23 +5155,93 @@ pen.FONT_MODS = {
 			})
 		end
 		
-		return pen.FONT_MODS.button( pic_x, pic_y, pic_z, char_data, color, index, tip_id )
+		return pen.FONT_MODS.button( data, pic_x, pic_y, pic_z, char_data, color, index, tip_id )
 	end,
-	hyperlink = function( pic_x, pic_y, pic_z, char_data, color, index, link_id )
+	hyperlink = function( data, pic_x, pic_y, pic_z, char_data, color, index, link_id )
 		link_id = link_id or "dft_lnk"
 
 		local frame_num = GameGetFrameNum()
 		local clicked, r_clicked, is_hovered = pen.cache({ "hyperlink_state", link_id })
 		color = ( clicked or 0 ) == 0 and pen.PALETTE.VNL.MANA or pen.PALETTE.VNL.RED
 		if( frame_num < ( is_hovered or 0 )) then
-			pen.FONT_MODS.underscore( pic_x, pic_y, pic_z, char_data, color, index )
+			pen.FONT_MODS.underscore( data, pic_x, pic_y, pic_z, char_data, color, index )
 		end
 		
-		return pen.FONT_MODS.button( pic_x, pic_y, pic_z, char_data, color, index, link_id )
+		return pen.FONT_MODS.button( data, pic_x, pic_y, pic_z, char_data, color, index, link_id )
 	end,
-	_dialogue = function( pic_x, pic_y, pic_z, char_data, color, index )
-		--char_data.extra for modifications (compare the index num with index.chr)
-		--letters appear through alpha sin interpolating top down
+
+	cursor = function( data, pic_x, pic_y, pic_z, char_data, color, index )
+		local idt = pen.c.input_data
+		local frame_num = GameGetFrameNum()
+		if( idt.safety < frame_num ) then
+			idt.safety, idt.new_lin = frame_num, 0
+			idt.is_space, idt.space_num = false, 0
+			idt.drift.r = idt.drift.r or InputIsKeyJustDown( 79 --[[Arrow Right]])
+			idt.drift.l = idt.drift.l or InputIsKeyJustDown( 80 --[[Arrow Left]])
+			idt.drift.d = idt.drift.d or InputIsKeyJustDown( 81 --[[Arrow Down]])
+			idt.drift.u = idt.drift.u or InputIsKeyJustDown( 82 --[[Arrow Up]])
+		end
+		
+		if( idt.last_lin ~= index.lin ) then
+			local prev_lin = math.abs( idt.last_lin )
+			if( idt.drift.l and idt.pos.l == index.lin ) then
+				idt.drift.l = false
+				local will_jump = idt.pos.c < 1
+				idt.pos.c = will_jump and idt.last_chr or ( idt.pos.c - 1 )
+				if( will_jump ) then idt.pos.l = prev_lin end
+			elseif( idt.drift.u and idt.pos.l == index.lin ) then
+				idt.drift.u = false
+				idt.pos.l = prev_lin
+				idt.pos.c = math.min( idt.pos.c, idt.last_chr )
+			elseif( idt.drift.r and idt.pos.l == prev_lin ) then
+				idt.drift.r = false
+				local will_jump = idt.pos.c == idt.last_chr
+				idt.pos.c = will_jump and 0 or ( idt.pos.c + 1 )
+				if( will_jump ) then idt.pos.l = index.lin end
+			elseif( idt.drift.d and idt.pos.l == idt.last_last_lin ) then
+				idt.drift.d = false
+				idt.pos.l = prev_lin
+				idt.pos.c = math.min( idt.pos.c, idt.last_chr )
+			elseif( frame_num - ( idt.frame_rendered or frame_num ) > 2 ) then
+				if( idt.last_lin < 0 and idt.pos.c ~= 0 ) then
+					idt.pos.l = math.abs( idt.last_lin )
+					idt.pos.c = idt.last_chr
+				end
+			end
+			
+			idt.last_last_lin = math.abs( idt.last_lin )
+		end
+
+		if( -idt.last_lin == idt.pos.l - 1 and idt.pos.c == 0 ) then
+			idt.new_lin = -idt.last_lin
+		end
+
+		if( idt.frame_rendered ~= idt.safety ) then
+			if( char_data.char == " " ) then idt.space_num = idt.space_num + 1 end
+		end
+		
+		local is_here = idt.pos.l == index.lin and
+			( idt.pos.c == index.chr or ( idt.pos.c == 0 and index.chr == 1 ))
+		local is_new = idt.new_lin == index.lin and index.chr == 1
+		if( is_here or is_new ) then
+			idt.frame_rendered = frame_num - pen.b2n( is_new )
+			local step_x = idt.pos.c == 0 and 1 or char_data.dims[1]
+			local step_y = is_new and char_data.dims[2] or 0
+			pen.new_pixel( pic_x.g + step_x - 1, pic_y.g + step_y, pic_z + 0.002,
+				pen.PALETTE.VNL.YELLOW, 1, char_data.dims[2], frame_num%30 < 15 and 1 or 0.1 )
+			if( not( is_new )) then
+				idt.index = index.gbl + ( idt.pos.c == 0 and -1 or 0 ) end
+			if( frame_num%3 == 0 and pen.vld( pen.c.cutter_dims )) then
+				data.go_right = pic_x.g + step_x - 2 > pen.c.cutter_dims.wh[1]
+				data.go_left, data.go_up = pic_x.g + step_x - 1 < 0, pic_y.g + step_y < 0
+				data.go_down = pic_y.g + step_y + char_data.dims[2] - 1 > pen.c.cutter_dims.wh[2]
+			end
+			if( char_data.char == " " ) then idt.is_space = true end
+		end
+
+		idt.last_chr = index.chr
+		idt.last_lin = index.lin
+		return nil, nil, nil, nil, ""
 	end,
 }
 
@@ -6527,8 +6720,8 @@ pen.CANCER_COMPS = {
 }
 
 pen.BYTE_TO_ID = {
-	[0] = 0,
-
+	[0]=0,	[9]=9,	[10]=10,
+	
 	[32]=32,	[33]=33,	[34]=34,	[35]=35,	[36]=36,	[37]=37,	[38]=38,	[39]=39,	[40]=40,	[41]=41,	[42]=42,
 	[43]=43,	[44]=44,	[45]=45,	[46]=46,	[47]=47,	[48]=48,	[49]=49,	[50]=50,	[51]=51,	[52]=52,	[53]=53,
 	[54]=54,	[55]=55,	[56]=56,	[57]=57,	[58]=58,	[59]=59,	[60]=60,	[61]=61,	[62]=62,	[63]=63,	[64]=64,

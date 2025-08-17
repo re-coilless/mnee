@@ -14,6 +14,8 @@ if( mnee.G.pos == nil ) then
     if( mnee.G.help_active ) then mnee.G.pos_help = { mnee.G.pos[1] - 202, mnee.G.pos[2] + 5 } end
 end
 
+local may_rebind = not( GameHasFlagRun( mnee.SERV_MODE ))
+
 local pic_z = pen.LAYERS.BACKGROUND + 5
 local pic_x, pic_y = unpack( mnee.G.pos )
 local clicked, r_clicked, is_hovered = false, false, false
@@ -55,7 +57,7 @@ if( not( gonna_rebind )) then
                     accum = accum + 1; return end
                 
                 local is_folded = folded_nodes[i] ~= nil
-                local pos_y = 1 + scroll_pos + 11*( cnt - ( 1 + accum ))
+                local pos_y = 1 + scroll_pos[1] + 11*( cnt - ( 1 + accum ))
                 local name = pen.magic_translate( is_fancy and _MNEEDATA[i].name or i )
                 clicked, _, is_hovered = pen.new_interface( 1, pos_y + 1, 129, 7, pic_z )
                 pen.uncutter( function( cut_x, cut_y, cut_w, cut_h )
@@ -100,7 +102,7 @@ if( not( gonna_rebind )) then
 
                         if( pen.get_hybrid_function( b.is_hidden, {{ i, e }, mnee.G.jpad_maps })) then
                             accum = accum + 1; return end
-                        pos_y = 1 + scroll_pos + 11*( cnt - ( 1 + accum ))
+                        pos_y = 1 + scroll_pos[1] + 11*( cnt - ( 1 + accum ))
                         if( pos_y < -10 or pos_y > 130 ) then height = height + 11; return end
                         
                         local is_static = b.is_locked
@@ -120,7 +122,7 @@ if( not( gonna_rebind )) then
                             }), mnee.bind2string( KEYS[i][e], key_type, KEYS[i])..( is_axis and "\n"..GameTextGet( "$mnee_lmb_axis" ) or "" )}})
                         pen.new_text( 3 + 116/2, pos_y, pic_z - 0.01, name, {
                             aggressive = true, dims = {110,0}, is_centered_x = true, color = pen.PALETTE.PRSP[ is_static and "BLUE" or "WHITE" ]})
-                        if( clicked or r_clicked ) then
+                        if(( clicked or r_clicked ) and may_rebind ) then
                             if( not( is_static )) then
                                 mnee.G.current_mod = i
                                 mnee.G.current_binding = e
@@ -166,7 +168,7 @@ if( not( gonna_rebind )) then
 				height = height + 11
 			end)
 
-			return height + 5
+			return { height + 5, 1 }
 		end)
 
         help_x, help_y = pic_x + 141, pic_y + 33
@@ -247,7 +249,7 @@ if( not( gonna_rebind )) then
                         }), mnee.bind2string( KEYS[ mnee.G.current_mod ][i], key_type, KEYS[ mnee.G.current_mod ])..( is_axis and "\n"..GameTextGet( "$mnee_lmb_axis" ) or "" )}})
                     pen.new_text( t_x + 74/2, t_y, pic_z - 0.01, name, {
                         aggressive = true, dims = {70,0}, is_centered_x = true, color = pen.PALETTE.PRSP[ is_static and "BLUE" or "WHITE" ]})
-                    if( clicked or r_clicked ) then
+                    if(( clicked or r_clicked ) and may_rebind ) then
                         if( not( is_static )) then
                             mnee.G.current_binding = i
                             mnee.G.doing_axis = is_axis

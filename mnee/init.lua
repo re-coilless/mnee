@@ -177,6 +177,35 @@ function OnWorldPreUpdate()
 		end)
 	else mnee.apply_jpads( mnee.G.jpad_maps, true ) end
 
+	local function nuke_the_player( is_over )
+		local hooman = pen.get_hooman()
+		if( not( pen.vld( hooman, true ))) then return end
+		local ctrl_comp = EntityGetFirstComponentIncludingDisabled( hooman, "ControlsComponent" )
+		if( not( pen.vld( ctrl_comp, true ))) then return end
+		ComponentSetValue2( ctrl_comp, "enabled", not( is_over ))
+		
+		if( is_over ) then
+			pen.t.loop( ComponentGetMembers( ctrl_comp ), function( field, _ )
+				if( string.find( field, "^mButtonDown" ) == nil ) then return end
+				if( type( ComponentGetValue2( ctrl_comp, field )) ~= "boolean" ) then return end
+				ComponentSetValue2( ctrl_comp, field, false )
+			end)
+		end
+		
+		return true
+	end
+
+	local frame_num = GameGetFrameNum()
+	if( frame_num - tonumber( GlobalsGetValue( pen.GLOBAL_INPUT_FRAME, "0" )) < 2 ) then
+		GameAddFlagRun( mnee.SERV_MODE ); nuke_the_player( true )
+	elseif( pen.vld( GlobalsGetValue( pen.GLOBAL_INPUT_STATE, "" )) and GameHasFlagRun( mnee.SERV_MODE )) then
+		if( nuke_the_player( false )) then
+			GameRemoveFlagRun( mnee.SERV_MODE )
+			GlobalsSetValue( pen.GLOBAL_INPUT_STATE, "" )
+			GlobalsSetValue( pen.GLOBAL_INPUT_FRAME, "0" )
+		end
+	end
+
 	local button_deadzone = pen.setting_get( "mnee.DEADZONE_BUTTON" )/20
 	local active_core = mnee.get_current_keys()..pen.t.loop_concat( pen.t.unarray( mnee.get_axes()), function( i, v )
 		if( math.abs( v[2]) < button_deadzone ) then return end
@@ -203,7 +232,7 @@ function OnWorldPreUpdate()
 		pen.setting_set( "mnee.PROFILE", prf )
 		GamePrint( GameTextGet( "$mnee_this_profile" )..": "..string.char( prf + 64 ))
 		mnee.play_sound( "switch_page" )
-		GlobalsSetValue( mnee.UPDATER, GameGetFrameNum())
+		GlobalsSetValue( mnee.UPDATER, frame_num )
 	end
 	
 	mnee.stl = {
@@ -225,7 +254,7 @@ function OnWorldPreUpdate()
 				pen.new_text( screen_w/2, screen_h/2 + 50, pen.LAYERS.WORLD_BACK, mnee.G.m_list.."\n"..log, { is_centered = true, color = pen.PALETTE.PRSP.RED, dims = { 0.75*screen_w, -1 }})
 			end)
 		elseif( will_remind and pen.setting_get( "mnee.REMINDER" )) then
-			if( GameGetFrameNum() < 600 ) then return end
+			if( frame_num < 600 ) then return end
 			local count = pen.t.count( _BINDINGS )
 			if( count < 2 ) then return end
 			
@@ -302,9 +331,9 @@ function OnWorldPreUpdate()
 				
 				local total_num = 11
 				mnee.new_scroller( "mnee_help", help_x, help_y + 11, pic_z, w_anim[1] - 4, w_anim[2] - 15, function( scroll_pos )
-					local dims = pen.new_text( 2, scroll_pos, pic_z,
+					local dims = pen.new_text( 2, scroll_pos[1], pic_z,
 						GameTextGet( "$mnee_help"..mnee.G.help_num, mnee.get_binding_keys( "mnee", "menu" ), mnee.get_binding_keys( "mnee", "profile_change" ), mnee.get_binding_keys( "mnee", "off" )), { dims = { w_anim[1] - 10, -1 }, color = pen.PALETTE.PRSP.BLUE, alpha = alpha, fully_featured = true })
-					return dims[2] + 10
+					return { dims[2] + 10, 1 }
 				end)
 
 				local update = false
@@ -322,8 +351,8 @@ function OnWorldPreUpdate()
 
 				if( update ) then
 					mnee.play_sound( "switch_page" )
-					pen.c.estimator_memo[ "mnee_help_anim" ] = 0
-					pen.c.scroll_memo[ "mnee_help" ].p = 0
+					pen.c.estimator_memo[ "mnee_help_anim_y" ] = 0
+					pen.c.scroll_memo[ "mnee_help" ].py = 0
 				end
 
 				pen.new_image( help_x + 2, help_y + w_anim[2] - 11, pic_z - 0.02, "mods/mnee/files/pics/button_43_B.png" )

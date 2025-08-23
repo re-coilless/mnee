@@ -1264,7 +1264,7 @@ function pen.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 	--ctrl + c through global var (with buffer of up to 50 last copies + store last 10 in a setting + autocompletion should have buffer data integrated)
 
 	--keyboards are defined within each individual pen.new_input, the position is obtained from a setting
-	--every input has style id, report back when new style is being activated, default style has no virtual keyboard unless gamepad is connected (do global button gamepad support next)
+	--every input has style id, report back when new style is being activated
 	
 	if( is_updated ) then
 		text = pen.c.input_data.buffer end
@@ -1274,14 +1274,13 @@ end
 function mnee.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 	--custom mnee styled keyboard with anim
 	--type checking (unicode, ascii only, alphabetical ascii only, numbers only)
-
-	--localization layouts (store the choice in a setting; localization is achieved through predefined char-to-char tables, should work with shifted and alted, in lists.lua)
-	--all keys are images, allow adding scaled down variants
+	--no virtual keyboard unless gamepad is connected (do global button gamepad support next)
+	--localization layouts (store the choice in a setting)
 
 	--CN: https://en.wikipedia.org/wiki/Chinese_input_method
 	--JP: https://en.wikipedia.org/wiki/Japanese_language_and_computers
 	--KO: https://en.wikipedia.org/wiki/Korean_language_and_computers
-
+	
 	return pen.try( pen.new_input, {
 		iid, pic_x, pic_y, pic_z, size_x, size_y, text, data
 	}, function( log, _, pic_x, pic_y )

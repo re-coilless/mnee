@@ -6,7 +6,7 @@
 	<RectAnimation
 		name="stand"
 		pos_x="146"
-		pos_y="62"
+		pos_y="121"
 		frame_width="10"
 		frame_height="10"
 		frame_count="1"

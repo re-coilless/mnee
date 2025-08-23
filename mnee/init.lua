@@ -157,6 +157,13 @@ function OnModInit()
 			end)
 		end)
 	end
+
+	--add missing symbols to vanilla fonts (index font patching goes here too)
+	--all keys are images, allow adding scaled down variants
+	local keyboards = dofile_once( "mods/mnee/lists.lua" )[7]
+
+	--generate all pic xmls (pen.FILE_XML_KEY)
+	--compile a new table and write to pen.FILE_KEYBOARD
 end
 
 function OnWorldPreUpdate()

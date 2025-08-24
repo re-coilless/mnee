@@ -676,8 +676,8 @@ local full_twin = {
 local full_keys = {
 	{
 		[""] = {
-			name = "Latin", off = 158, is_hd = false,
-			file = "mods/mnee/files/pics/keyboard.png",
+			name = "Latin", off = 158,
+			path = "mods/mnee/files/pics/keyboard/",
 		},
 
 		["`"] = { "`", "~",    "©", "∞" },
@@ -735,7 +735,7 @@ local full_keys = {
 	{
 		[""] = {
 			name = "Русский", off = 316,
-			file = "mods/mnee/files/pics/keyboard.png",
+			path = "mods/mnee/files/pics/keyboard/",
 		},
 
 		["`"] = { "ё", "Ё" },
@@ -793,7 +793,7 @@ local full_keys = {
 	-- korean = {
 	--	[""] = {
 	--		name = "", off = 0, is_hd = true,
-	--		file = "mods/mnee/files/pics/keyboard.png",
+	--		path = "mods/mnee/files/pics/keyboard/_hd.png",
 	--	},
 
 	-- 	["`"] = { "`", "~",    "", "",    "", "",    "", "" },
@@ -804,6 +804,59 @@ local full_keys = {
 	-- japanese = {},
 }
 
+local full_offs = {
+	["`"] = { 3, 3 },
+	["/"] = { 14, 3 },
+	["1"] = { 25, 3 },
+	["2"] = { 36, 3 },
+	["3"] = { 47, 3 },
+	["4"] = { 58, 3 },
+	["5"] = { 69, 3 },
+	["6"] = { 80, 3 },
+	["7"] = { 91, 3 },
+	["8"] = { 102, 3 },
+	["9"] = { 113, 3 },
+	["0"] = { 124, 3 },
+	["-"] = { 135, 3 },
+	["="] = { 146, 3 },
+	
+	["\\"] = { 14, 14 },
+	["q"] = { 25, 14 },
+	["w"] = { 36, 14 },
+	["e"] = { 47, 14 },
+	["r"] = { 58, 14 },
+	["t"] = { 69, 14 },
+	["y"] = { 80, 14 },
+	["u"] = { 91, 14 },
+	["i"] = { 102, 14 },
+	["o"] = { 113, 14 },
+	["p"] = { 124, 14 },
+	["\'"] = { 135, 14 },
+	
+	["a"] = { 25, 25 },
+	["s"] = { 36, 25 },
+	["d"] = { 47, 25 },
+	["f"] = { 58, 25 },
+	["g"] = { 69, 25 },
+	["h"] = { 80, 25 },
+	["j"] = { 91, 25 },
+	["k"] = { 102, 25 },
+	["l"] = { 113, 25 },
+	["["] = { 124, 25 },
+	["]"] = { 135, 25 },
+	
+	["z"] = { 36, 36 },
+	["x"] = { 47, 36 },
+	["c"] = { 58, 36 },
+	["v"] = { 69, 36 },
+	["b"] = { 80, 36 },
+	["n"] = { 91, 36 },
+	["m"] = { 102, 36 },
+	[","] = { 113, 36 },
+	["."] = { 124, 36 },
+	[";"] = { 135, 36 },
+}
+
 --<{> MAGICAL APPEND MARKER <}>--
 
-return { full_board, full_mouse, full_joy, full_shifted, full_fancy, full_twin, full_keys }
+return { full_board, full_mouse, full_joy, full_shifted, full_fancy, full_twin, full_keys, full_offs }

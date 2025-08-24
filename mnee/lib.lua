@@ -1262,9 +1262,6 @@ function pen.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 	--holding to repeat input (arrows and backspace)
 	--finish highlighting; ctrl + a
 	--ctrl + c through global var (with buffer of up to 50 last copies + store last 10 in a setting + autocompletion should have buffer data integrated)
-
-	--keyboards are defined within each individual pen.new_input, the position is obtained from a setting
-	--every input has style id, report back when new style is being activated
 	
 	if( is_updated ) then
 		text = pen.c.input_data.buffer end
@@ -1272,15 +1269,51 @@ function pen.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 end
 
 function mnee.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
-	--custom mnee styled keyboard with anim
 	--type checking (unicode, ascii only, alphabetical ascii only, numbers only)
 	--no virtual keyboard unless gamepad is connected (do global button gamepad support next)
-	--localization layouts (store the choice in a setting)
 
 	--CN: https://en.wikipedia.org/wiki/Chinese_input_method
 	--JP: https://en.wikipedia.org/wiki/Japanese_language_and_computers
 	--KO: https://en.wikipedia.org/wiki/Korean_language_and_computers
-	
+
+	data = data or {}
+	data.kb_func = function( input, is_shifted, is_ctrled, is_alted )
+		local old_style = GlobalsGetValue( pen.GLOBAL_KEYBOARD_STYLE, "" )
+		if( old_style ~= "mnee" ) then
+			--reset anim timer
+			GlobalsSetValue( pen.GLOBAL_KEYBOARD_STYLE, "mnee" )
+		end
+		
+		local board = dofile_once( pen.FILE_KEYBOARD )
+		local offs = dofile_once( "mods/mnee/lists.lua" )[8]
+		
+		--hotkey to switch layouts
+		--hotkey to open global buffer memo
+		--bg anim is same as tips, keys appear in cascading wave from top left corner
+		--localization layouts (store the choice in a setting)
+		--rmb space to insert tab, rmb backspace to delete a word
+		--rmb the dragger to confirm the input
+		--inputting shift works on hold, all the rest functions as toggles
+		--increase z off of button highlighter and render the board with separate gui object
+
+		local layout = 1 --from a setting
+		local type = 1 --shift, alt, ctrl
+
+		local clicked, r_clicked = false, false
+
+		local pic_x, pic_y = 100, 50 --from a setting
+		local pic_z = pen.LAYERS.DEBUG + 1000
+		for i,key in pairs( board[ layout ]) do
+			clicked = mnee.new_button( pic_x + offs[i][1] - 1, pic_y + offs[i][2] - 1,
+				pic_z, key[ type ][1], { auid = table.concat({ "mnee_kb_l", layout, "_k", i, "_s", type })})
+			if( clicked ) then mnee.play_sound( "keys/key_2_generic" ); input = key[ type ][2] end
+		end
+
+		pen.new_image( pic_x, pic_y, pic_z + 1, "mods/mnee/files/pics/keyboard/board.xml" )--, { can_click = true })
+
+		return input
+	end
+
 	return pen.try( pen.new_input, {
 		iid, pic_x, pic_y, pic_z, size_x, size_y, text, data
 	}, function( log, _, pic_x, pic_y )

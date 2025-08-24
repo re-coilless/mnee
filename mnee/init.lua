@@ -159,11 +159,33 @@ function OnModInit()
 	end
 
 	--add missing symbols to vanilla fonts (index font patching goes here too)
-	--all keys are images, allow adding scaled down variants
-	local keyboards = dofile_once( "mods/mnee/lists.lua" )[7]
+	--hd keys (scaled down to 0.25 size)
 
-	--generate all pic xmls (pen.FILE_XML_KEY)
-	--compile a new table and write to pen.FILE_KEYBOARD
+	local keyboard = {}
+	local key_data = dofile_once( "mods/mnee/lists.lua" )[7]
+	local key_offs = dofile_once( "mods/mnee/lists.lua" )[8]
+	for i,layout in ipairs( key_data ) do
+		keyboard[i] = { name = layout.name }
+
+		local path = layout[""].path.."_.png"
+		local off_x, off_y = layout[""].off or 0, 0
+		pen.t.loop( layout, function( k, key )
+			if( k == "" ) then return end
+			keyboard[i][k] = {}
+
+			for e,symbol in ipairs( key ) do
+				off_y = 48*( e - 1 )
+				local id = table.concat({
+					"key_l", i, "_k", string.byte( k ), "_s", e })
+				local pic = string.gsub( string.gsub( string.gsub( pen.FILE_XML_KEY, "%[PATH%]", path ),
+					"%[POS_X%]", off_x + key_offs[k][1]), "%[POS_Y%]", off_y + key_offs[k][2])
+				keyboard[i][k][e] = { layout[""].path..id..".xml", symbol }
+				pen.magic_write( keyboard[i][k][e][1], pic )
+			end
+		end)
+	end
+
+	pen.magic_write( pen.FILE_KEYBOARD, "return "..pen.t.parse( keyboard ))
 end
 
 function OnWorldPreUpdate()

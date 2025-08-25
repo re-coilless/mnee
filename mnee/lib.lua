@@ -991,19 +991,17 @@ function mnee.mnin( mode, id, data )
 	end
 	return func[1]( unpack( inval ))
 end
+
 ---Static full keyboard input with shifting support and special keys.
 ---@param kb_func fun( is_shifted:boolean, is_ctrled:boolean, is_alted:boolean ): input:string
----@param no_shifting? boolean
 ---@return string|number|nil
-function mnee.get_keyboard_input( kb_func, no_shifting )
+function mnee.get_keyboard_input( kb_func )
 	local lists = dofile_once( "mods/mnee/lists.lua" )
 
-	local is_shifted = not( no_shifting ) and (
+	local is_shifted = not( pen.vld( kb_func )) and (
 		InputIsKeyDown( 225 --[[Left Shift]]) or InputIsKeyDown( 229 --[[Right Shift]]))
-	local is_ctrled = not( no_shifting ) and (
-		InputIsKeyDown( 224 --[[Left Control]]) or InputIsKeyDown( 228 --[[Right Control]]))
-	local is_alted = not( no_shifting ) and (
-		InputIsKeyDown( 226 --[[Left Alt]]) or InputIsKeyDown( 230 --[[Right Alt]]))
+	local is_ctrled = InputIsKeyJustDown( 224 --[[Left Ctrl]]) or InputIsKeyJustDown( 228 --[[Right Ctrl]])
+	local is_alted = InputIsKeyJustDown( 226 --[[Left Alt]]) or InputIsKeyJustDown( 230 --[[Right Alt]])
 
 	local input = ""
 	for i = 4,56 do
@@ -1034,8 +1032,9 @@ function mnee.get_keyboard_input( kb_func, no_shifting )
 	end
 
 	if( pen.vld( kb_func )) then
+		is_shifted = InputIsKeyJustDown( 225 --[[Left Shift]]) or InputIsKeyJustDown( 229 --[[Right Shift]])
 		input = kb_func( input, is_shifted, is_ctrled, is_alted ) or input end
-	if( pen.vld( input )) then return input end
+	if(( input or "" ) ~= "" ) then return input end
 end
 
 function pen.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
@@ -1128,7 +1127,7 @@ function pen.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 		if( not( will_highlight ) and is_moving ) then pen.c.input_data.hdata = {} end
 
 		local a, b = "", ""
-		local input = mnee.get_keyboard_input( data.kb_func, false ) or ""
+		local input = mnee.get_keyboard_input( data.kb_func ) or ""
 		if( input ~= "" or ( will_highlight and ( is_moving or pen.c.input_data.hdata[2] == nil ))) then
 			local c = pen.c.input_data.index or 0
 			local s = pen.c.input_data.space_num or 0
@@ -1270,7 +1269,6 @@ end
 
 function mnee.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 	--type checking (unicode, ascii only, alphabetical ascii only, numbers only)
-	--no virtual keyboard unless gamepad is connected (do global button gamepad support next)
 
 	--CN: https://en.wikipedia.org/wiki/Chinese_input_method
 	--JP: https://en.wikipedia.org/wiki/Japanese_language_and_computers
@@ -1287,27 +1285,67 @@ function mnee.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 		local board = dofile_once( pen.FILE_KEYBOARD )
 		local offs = dofile_once( "mods/mnee/lists.lua" )[8]
 		
-		--hotkey to switch layouts
+		--hotkey to switch layouts (store the choice in a setting)
 		--hotkey to open global buffer memo
 		--bg anim is same as tips, keys appear in cascading wave from top left corner
-		--localization layouts (store the choice in a setting)
-		--rmb space to insert tab, rmb backspace to delete a word
-		--rmb the dragger to confirm the input
-		--inputting shift works on hold, all the rest functions as toggles
 		--increase z off of button highlighter and render the board with separate gui object
 
-		local layout = 1 --from a setting
-		local type = 1 --shift, alt, ctrl
+		local is_alt, is_ctrl = mnee.G.kb_alt, mnee.G.kb_ctrl
+		local is_shift = InputIsKeyDown( 225 --[[Left Shift]])
+			or InputIsKeyDown( 229 --[[Right Shift]]) or mnee.G.kb_shift
 
+		local type = 1
+		if( is_alt ) then type = type + 4 end
+		if( is_ctrl ) then type = type + 2 end
+		if( is_shift ) then type = type + 1 end
+		local layout = 1 --from a setting
+
+		local sfx = "keys/key_2_"
 		local clicked, r_clicked = false, false
 
 		local pic_x, pic_y = 100, 50 --from a setting
 		local pic_z = pen.LAYERS.DEBUG + 1000
 		for i,key in pairs( board[ layout ]) do
-			clicked = mnee.new_button( pic_x + offs[i][1] - 1, pic_y + offs[i][2] - 1,
-				pic_z, key[ type ][1], { auid = table.concat({ "mnee_kb_l", layout, "_k", i, "_s", type })})
-			if( clicked ) then mnee.play_sound( "keys/key_2_generic" ); input = key[ type ][2] end
+			local k = key[ type ] or key[ type - 2 ] or key[ type - 4 ] or key[ type - 6 ]
+			clicked = mnee.new_button( pic_x + offs[i][1] - 1, pic_y + offs[i][2] - 1, pic_z, ( k or key[1])[1],
+				{ auid = table.concat({ "mnee_kb_l", layout, "_k", i, "_s", type }), _clicked = ( input == i )})
+			if( clicked ) then mnee.play_sound( sfx.."generic" ); input = key[ type ][2] end
 		end
+
+		clicked = mnee.new_button( pic_x + 2, pic_y + 13, pic_z,
+			"mods/mnee/files/pics/keyboard/key_alt_"..( is_alt and "B" or "A" )..".xml",
+			{ auid = "mnee_kb_alt", _clicked = is_alted })
+		if( clicked ) then mnee.play_sound( sfx.."special" ); mnee.G.kb_alt = not( mnee.G.kb_alt ) end
+		clicked = mnee.new_button( pic_x + 2, pic_y + 24, pic_z,
+			"mods/mnee/files/pics/keyboard/key_ctrl_"..( is_ctrl and "B" or "A" )..".xml",
+			{ auid = "mnee_kb_ctrl", _clicked = is_ctrled })
+		if( clicked ) then mnee.play_sound( sfx.."special" ); mnee.G.kb_ctrl = not( mnee.G.kb_ctrl ) end
+		clicked = mnee.new_button( pic_x + 13, pic_y + 24, pic_z,
+			"mods/mnee/files/pics/keyboard/key_shift_"..( is_shift and "B" or "A" )..".xml", { auid = "mnee_kb_shift" })
+		if( clicked or is_shifted ) then mnee.play_sound( sfx.."special" ) end
+		if( clicked ) then mnee.G.kb_shift = not( mnee.G.kb_shift ) end
+		
+		local no_input = input == ""
+		clicked, r_clicked = mnee.new_button( --rmb space to insert new line
+			pic_x + 13, pic_y + 35, pic_z, "mods/mnee/files/pics/keyboard/key_space.xml",
+			{ auid = "mnee_kb_space", _clicked = ( input == " " ), _r_clicked = ( input == 3 or input == -3 )})
+		if( clicked or r_clicked ) then mnee.play_sound( sfx.."special" ) end
+		if( r_clicked and no_input ) then input = data.is_live and 3 or -3 end
+		if( clicked ) then input = " " end
+
+		clicked, r_clicked = mnee.new_button( --rmb backspace to delete a word
+			pic_x + 145, pic_y + 13, pic_z, "mods/mnee/files/pics/keyboard/key_backspace.xml",
+			{ auid = "mnee_kb_backspace", _clicked = ( input == 2 ), _r_clicked = ( input == -2 )})
+		if( clicked or r_clicked ) then mnee.play_sound( sfx.."special" ) end
+		if( clicked ) then input = 2 elseif( r_clicked ) then input = -2 end
+
+		clicked = mnee.new_button( pic_x + 145, pic_y + 24, pic_z, --rmb to open buffer menu
+			"mods/mnee/files/pics/keyboard/key_layout_A.xml", { auid = "mnee_kb_layout" })
+		
+		clicked = mnee.new_button( pic_x + 1, pic_y + 35, pic_z + 1.5, --rmb the dragger to confirm the input
+			"mods/mnee/files/pics/keyboard/dragger_left_A.xml", { auid = "mnee_kb_dragger_l", highlight = false })
+		clicked = mnee.new_button( pic_x + 145, pic_y + 35, pic_z + 1.5,
+			"mods/mnee/files/pics/keyboard/dragger_right_A.xml", { auid = "mnee_kb_dragger_r", highlight = false })
 
 		pen.new_image( pic_x, pic_y, pic_z + 1, "mods/mnee/files/pics/keyboard/board.xml" )--, { can_click = true })
 

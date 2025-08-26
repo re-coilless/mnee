@@ -4076,10 +4076,13 @@ function pen.new_button( pic_x, pic_y, pic_z, pic, data )
 	if( data.is_centered ) then off_x, off_y = pen.rotate_offset( -w/2, -h/2, data.angle ) end
 	data.clicked, data.r_clicked, data.is_hovered = pen.new_interface( pic_x + off_x, pic_y + off_y, w, h, pic_iz, data )
 
+	data.clicked = data.clicked or data._clicked
 	if( data.lmb_event ~= nil and data.clicked ) then
 		pic_x, pic_y, pic_z, pic, data = data.lmb_event( pic_x, pic_y, pic_z, pic, data ) end
+	data.r_clicked = data.r_clicked or data._r_clicked
 	if( data.rmb_event ~= nil and data.r_clicked ) then
 		pic_x, pic_y, pic_z, pic, data = data.rmb_event( pic_x, pic_y, pic_z, pic, data ) end
+	data.is_hovered = data.is_hovered or data._is_hovered
 	if( data.hov_event ~= nil and data.is_hovered ) then
 		pic_x, pic_y, pic_z, pic, data = data.hov_event( pic_x, pic_y, pic_z, pic, data )
 	elseif( data.idle_event ~= nil ) then
@@ -4134,11 +4137,14 @@ end
 function pen.uncutter( func )
 	local _,_,_,orig_gui = pen.gui_builder( GuiCreate())
 
-	local x, y = unpack( pen.c.cutter_dims.xy )
-	local w, h = unpack( pen.c.cutter_dims.wh )
-	pen.c.cutter_dims = nil
-	local out = { func( x, y, w, h )}
-	pen.c.cutter_dims = { xy = { x, y }, wh = { w, h }}
+	local out = {}
+	if( pen.vld( pen.c.cutter_dims )) then
+		local x, y = unpack( pen.c.cutter_dims.xy )
+		local w, h = unpack( pen.c.cutter_dims.wh )
+		pen.c.cutter_dims = nil
+		out = { func( x, y, w, h )}
+		pen.c.cutter_dims = { xy = { x, y }, wh = { w, h }}
+	else out = { func( 0, 0, pen.get_screen_data())} end
 	
 	pen.gui_builder( false )
 	if( orig_gui ) then pen.gui_builder( orig_gui ) end
@@ -4953,6 +4959,7 @@ pen.GLOBAL_INTERFACE_Z = "PENMAN_INTERFACE_Z"
 pen.GLOBAL_TIPZ_RESOLVER = "PENMAN_TIPZ_RESOLVER"
 pen.GLOBAL_DRAGGER_SAFETY = "PENMAN_DRAGGER_FRAME"
 pen.GLOBAL_INTERFACE_MEMO = "PENMAN_INTERFACE_MEMO"
+pen.GLOBAL_KEYBOARD_STYLE = "PENMAN_KEYBOARD_STYLE"
 pen.GLOBAL_TIPZ_RESOLVER_FRAME = "PENMAN_TIPZ_FRAME"
 pen.GLOBAL_INTERFACE_FRAME = "PENMAN_INTERFACE_FRAME"
 pen.GLOBAL_UNSCROLLER_SAFETY = "PENMAN_UNSCROLLER_FRAME"
@@ -5177,11 +5184,11 @@ pen.FONT_MODS = {
 		if( idt.safety < frame_num ) then
 			idt.safety, idt.new_lin = frame_num, 0
 			idt.is_space, idt.space_num = false, 0
-			idt.drift.r = idt.drift.r or InputIsKeyJustDown( 79 --[[Right]])
-			idt.drift.l = idt.drift.l or InputIsKeyJustDown( 80 --[[Left]])
-			idt.drift.d = idt.drift.d or InputIsKeyJustDown( 81 --[[Down]])
-			idt.drift.u = idt.drift.u or InputIsKeyJustDown( 82 --[[Up]])
-			idt.drift.hl = ( idt.drift.r or idt.drift.l or idt.drift.d or idt.drift.u )
+			local r, l = InputIsKeyJustDown( 79 --[[Right]]), InputIsKeyJustDown( 80 --[[Left]])
+			local d, u = InputIsKeyJustDown( 81 --[[Down]]), InputIsKeyJustDown( 82 --[[Up]])
+			idt.drift.r, idt.drift.l = idt.drift.r or r, idt.drift.l or l
+			idt.drift.d, idt.drift.u = idt.drift.d or d, idt.drift.u or u
+			idt.drift.hl = ( r or l or d or u )
 				and ( InputIsKeyDown( 225 --[[Left Shift]]) or InputIsKeyDown( 229 --[[Right Shift]]))
 		end
 		
@@ -8287,7 +8294,7 @@ pen.FILE_XML_FONT = [[
 
 pen.FILE_XML_KEY = [[
 <Sprite
-	filename="[FILENAME]"
+	filename="[PATH]"
 	default_animation="stand"
 	>
 	

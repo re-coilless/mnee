@@ -313,6 +313,24 @@ mod_settings =
 		value_default = true,
 		scope = MOD_SETTING_SCOPE_RUNTIME,
 	},
+
+	{
+		id = "KB_POS",
+		ui_name = "Keyboard Position",
+		ui_description = "",
+		hidden = true,
+		value_default = "|470|300|",
+		text_max_length = 100000,
+		scope = MOD_SETTING_SCOPE_RUNTIME,
+	},
+	{
+		id = "KB_LAYOUT",
+		ui_name = "Keyboard Layout",
+		ui_description = "",
+		hidden = true,
+		value_default = 1,
+		scope = MOD_SETTING_SCOPE_RUNTIME,
+	},
 }
 
 function ModSettingsUpdate( init_scope )

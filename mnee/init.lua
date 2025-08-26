@@ -23,9 +23,7 @@ function OnModInit()
 	})
 
 	-- also try splitscreen for kappa
-	-- add search functionality to mnee scroller
 	-- make procedural pause screen keyboard/mouse/gamepad that highlights all the bind's keys on hover of one of them (also add option to hide stuff from this menu; list all binds to the side in a scrolllist and highlight on hover)
-	--add vertical window resizing that snaps to always have the whole number of buttons shown
 
 	mnee.G.m_list = mnee.G.m_list or ""
 

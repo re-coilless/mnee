@@ -68,8 +68,28 @@ _BINDINGS[ "mnee" ] = {
 		--keys_alt = pen.t.unarray({ "right_ctrl", "m" }), --[SECONDARY KEYS]
 	},
 	
-	off = {
+	layout = {
 		order_id = "b",
+		is_clean = true,
+		
+		name = "$mnee_layout",
+		desc = "$mnee_layout_desc",
+
+		keys = pen.t.unarray({ "right_ctrl", "." }),
+	},
+
+	clipboard = {
+		order_id = "c",
+		is_clean = true,
+		
+		name = "$mnee_clipboard",
+		desc = "$mnee_clipboard_desc",
+		
+		keys = pen.t.unarray({ "right_ctrl", "right_shift", "." }),
+	},
+
+	off = {
+		order_id = "d",
 		is_clean = true,
 		
 		name = "$mnee_nope",
@@ -79,7 +99,7 @@ _BINDINGS[ "mnee" ] = {
 	},
 	
 	profile_change = {
-		order_id = "c",
+		order_id = "e",
 		is_clean = true,
 
 		name = "$mnee_profile",

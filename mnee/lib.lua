@@ -1023,11 +1023,17 @@ function mnee.get_keyboard_input( kb_func )
 			break
 		end
 	end
+	for i = 1,4 do
+		if( InputIsKeyJustDown( 83 + i )) then
+			input = string.sub( lists[1][ 83 + i ], -1 ); break
+		end
+	end
 	for i = 1,10 do
 		if( InputIsKeyJustDown( 88 + i )) then
 			input = string.sub( tostring( i ), -1 ); break
 		end
 	end
+	if( InputIsKeyJustDown( 99 )) then input = "." end
 
 	if( pen.vld( kb_func )) then
 		is_shifted = InputIsKeyJustDown( 225 --[[Left Shift]])
@@ -1260,7 +1266,7 @@ function pen.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 
 	--holding to repeat input (arrows and backspace)
 	--finalize highlighting; ctrl + a
-	--ctrl + c through global var (with buffer of up to 25 last copies in a setting)
+	--ctrl + c/v/x through mnee.KB_CLIPBOARD (with buffer of up to 25 last copies in a setting)
 	
 	if( is_updated ) then
 		text = pen.c.input_data.buffer end
@@ -1268,12 +1274,6 @@ function pen.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 end
 
 function mnee.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
-	--type checking (unicode, ascii only, alphabetical ascii only, numbers only)
-
-	--CN: https://en.wikipedia.org/wiki/Chinese_input_method
-	--JP: https://en.wikipedia.org/wiki/Japanese_language_and_computers
-	--KO: https://en.wikipedia.org/wiki/Korean_language_and_computers
-
 	data = data or {}
 	data.kb_func = function( input, is_shifted, is_ctrled, is_alted )
 		local old_style = GlobalsGetValue( pen.GLOBAL_KEYBOARD_STYLE, "" )
@@ -1282,13 +1282,17 @@ function mnee.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 			GlobalsSetValue( pen.GLOBAL_KEYBOARD_STYLE, "mnee" )
 		end
 		
+		--CN: https://en.wikipedia.org/wiki/Chinese_input_method
+		--JP: https://en.wikipedia.org/wiki/Japanese_language_and_computers
+		--KO: https://en.wikipedia.org/wiki/Korean_language_and_computers
+
 		local board = dofile_once( pen.FILE_KEYBOARD )
-		local meta = dofile_once( "mods/mnee/lists.lua" )[7]
-		local offs = dofile_once( "mods/mnee/lists.lua" )[8]
+		local lists = dofile_once( "mods/mnee/lists.lua" )
+		local meta, offs, nums = lists[7], lists[8], lists[9]
 		
+		--replace raw ctrl switch with alt+ctrl to allow for hotkeys
 		--bg anim is same as tips, keys appear in cascading wave from top left corner
-		--hotkey to switch layouts (store the choice in a setting)
-		--hotkey to open global buffer memo
+		--clipboard
 		
 		local is_alt = InputIsKeyDown( 226 --[[Left Alt]])
 			or InputIsKeyDown( 230 --[[Right Alt]]) or mnee.G.kb_alt
@@ -1296,11 +1300,11 @@ function mnee.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 			or InputIsKeyDown( 228 --[[Right Ctrl]]) or mnee.G.kb_ctrl
 		local is_shift = InputIsKeyDown( 225 --[[Left Shift]])
 			or InputIsKeyDown( 229 --[[Right Shift]]) or mnee.G.kb_shift
-
-		local type = 1
-		if( is_alt ) then type = type + 4 end
-		if( is_ctrl ) then type = type + 2 end
-		if( is_shift ) then type = type + 1 end
+		
+		local kind = 1
+		if( is_alt ) then kind = kind + 4 end
+		if( is_ctrl ) then kind = kind + 2 end
+		if( is_shift ) then kind = kind + 1 end
 		local layout = pen.setting_get( "mnee.KB_LAYOUT" )
 
 		local sfx = "keys/key_2_"
@@ -1308,12 +1312,15 @@ function mnee.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 		local clicked, r_clicked, is_hovered = false, false, false
 		local pic_x, pic_y = unpack( pen.t.pack( pen.setting_get( "mnee.KB_POS" )))
 		
+		local no_input = input == ""
 		local pic_z = pen.LAYERS.DEBUG + 1000
 		for i,key in pairs( board[ layout ]) do
-			local k = key[ type ] or key[ type - 2 ] or key[ type - 4 ] or key[ type - 6 ]
-			clicked = mnee.new_button( pic_x + offs[i][1] - 1, pic_y + offs[i][2] - 1, pic_z, ( k or key[1])[1],
-				{ auid = table.concat({ "mnee_kb_l", layout, "_k", i, "_s", type }), _clicked = ( input == i )})
-			if( clicked ) then mnee.play_sound( sfx.."generic" ); input = key[ type ][2] end
+			local np = ( i == "-" and input == "+" ) or ( i == "8" and input == "*" )
+			local k = key[ kind ] or key[ kind - 2 ] or key[ kind - 4 ] or key[ kind - 6 ]
+			clicked = mnee.new_button( pic_x + offs[i][1] - 1, pic_y + offs[i][2] - 1, pic_z, ( k or key[1])[1], {
+				auid = table.concat({ "mnee_kb_l", layout, "_k", i, "_s", kind }), _clicked = ( input == i ) or np })
+			if( clicked and no_input ) then input = key[ kind ][2] end
+			if( clicked ) then mnee.play_sound( sfx.."generic" ) end
 		end
 
 		clicked = mnee.new_button( pic_x + 2, pic_y + 13, pic_z,
@@ -1329,7 +1336,6 @@ function mnee.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 		if( clicked or is_shifted ) then mnee.play_sound( sfx.."special" ) end
 		if( clicked ) then mnee.G.kb_shift = not( mnee.G.kb_shift ) end
 		
-		local no_input = input == ""
 		clicked, r_clicked, is_hovered = mnee.new_button(
 			pic_x + 13, pic_y + 35, pic_z, "mods/mnee/files/pics/keyboard/key_space.xml",
 			{ auid = "mnee_kb_space", _clicked = ( input == " " ), _r_clicked = ( input == 3 or input == -3 )})
@@ -1344,12 +1350,17 @@ function mnee.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 		if( clicked or r_clicked ) then mnee.play_sound( sfx.."special" ) end
 		if( r_clicked ) then input = -2 elseif( clicked ) then input = 2 end
 
+		mnee.ignore_service_mode = true
 		clicked, r_clicked, is_hovered = mnee.new_button( pic_x + 145, pic_y + 24, pic_z,
-			"mods/mnee/files/pics/keyboard/key_layout_A.xml", { auid = "mnee_kb_layout" })
-		mnee.new_tooltip({ GameTextGet( "$mnee_layout", meta[ layout ][""].name ),
+			"mods/mnee/files/pics/keyboard/key_layout_A.xml", { auid = "mnee_kb_layout",
+			_clicked = mnee.mnin( "bind", { "mnee", "layout" }, { pressed = true, vip = true }),
+			_r_clicked = mnee.mnin( "bind", { "mnee", "clipboard" }, { pressed = true, vip = true })})
+		mnee.new_tooltip({ GameTextGet( "$mnee_this_layout", meta[ layout ][""].name ),
 			GameTextGet( "$mnee_rmb_layout" )}, { is_active = is_hovered, pic_z = pic_z - 10 })
 		if( clicked ) then mnee.play_sound( "switch_page" );
 			pen.setting_set( "mnee.KB_LAYOUT", layout >= #board and 1 or layout + 1 ) end
+		if( clicked or r_clicked ) then input = "" end
+		mnee.ignore_service_mode = nil
 		
 		new_x, new_y, state, _, r_clicked, is_hovered = pen.new_dragger( "mnee_kb_dragger_l", pic_x + 1, pic_y + 35, 10, 10, pic_z )
 		if( new_x - 1 ~= pic_x or new_y - 35 ~= pic_y ) then pen.setting_set( "mnee.KB_POS", pen.t.pack({ new_x - 1, new_y - 35 })) end
@@ -1368,8 +1379,16 @@ function mnee.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 		pen.new_image( pic_x + 145, pic_y + 35, pic_z + 1.5,
 			"mods/mnee/files/pics/keyboard/dragger_right_"..( is_hovered and "B" or "A" )..".xml" )
 		if( r_clicked ) then input = data.is_live and -3 or 3 end
-
+		
 		pen.new_image( pic_x, pic_y, pic_z + 1, "mods/mnee/files/pics/keyboard/board.xml", { can_click = true })
+		
+		if( input ~= "" and type( input ) == "string" ) then
+			if( data.force_numerical ) then --add in-line calculation (use pen.w2c to assemble the formula)
+				if( nums[ input ] == nil ) then return "" end
+			elseif( data.ban_unicode ) then
+				if( string.byte( input ) > 127 ) then return "" end
+			end
+		end
 
 		return input
 	end

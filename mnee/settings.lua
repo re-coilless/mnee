@@ -331,6 +331,15 @@ mod_settings =
 		value_default = 1,
 		scope = MOD_SETTING_SCOPE_RUNTIME,
 	},
+	{
+		id = "KB_CLIPBOARD",
+		ui_name = "Keyboard Clipboard",
+		ui_description = "",
+		hidden = true,
+		value_default = "",
+		text_max_length = 100000,
+		scope = MOD_SETTING_SCOPE_RUNTIME,
+	},
 }
 
 function ModSettingsUpdate( init_scope )

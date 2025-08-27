@@ -857,6 +857,29 @@ local full_offs = {
 	[";"] = { 135, 36 },
 }
 
+local full_nums = {
+	["1"] = 1,
+	["2"] = 1,
+	["3"] = 1,
+	["4"] = 1,
+	["5"] = 1,
+	["6"] = 1,
+	["7"] = 1,
+	["8"] = 1,
+	["9"] = 1,
+	["0"] = 1,
+	["."] = 1,
+	["e"] = 1,
+	["-"] = 1,
+	["*"] = 1,
+	["/"] = 1,
+	["+"] = 1,
+	["^"] = 1,
+	["%"] = 1,
+	["("] = 1,
+	[")"] = 1,
+}
+
 --<{> MAGICAL APPEND MARKER <}>--
 
-return { full_board, full_mouse, full_joy, full_shifted, full_fancy, full_twin, full_keys, full_offs }
+return { full_board, full_mouse, full_joy, full_shifted, full_fancy, full_twin, full_keys, full_offs, full_nums }

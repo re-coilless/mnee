@@ -34,7 +34,7 @@ if( not( gonna_rebind )) then
     if( clicked ) then
         mnee.G.gui_active = false
         mnee.G.help_active = false
-        mnee.play_sound( "close_window" )
+        pen.play_sound( pen.TUNES.PRSP.CLOSE )
     end
     
     clicked = mnee.new_button( pic_x + pic_w - 15, pic_y + 2, pic_z,
@@ -42,7 +42,7 @@ if( not( gonna_rebind )) then
         auid = "window_alt",
         tip = GameTextGet( "$mnee_alt"..( mnee.G.show_alt and "B" or "A" )),
         highlight = pen.PALETTE.PRSP[ mnee.G.show_alt and "PURPLE" or "WHITE" ]})
-    if( clicked ) then mnee.G.show_alt = not( mnee.G.show_alt ); mnee.play_sound( "button_special" ) end
+    if( clicked ) then mnee.G.show_alt = not( mnee.G.show_alt ); pen.play_sound( pen.TUNES.PRSP.CLICK_ALT ) end
     
     local help_x, help_y = pic_x + 101, pic_y + 99
     if( pen.setting_get( "mnee.FRONTEND" ) == 1 ) then
@@ -64,7 +64,7 @@ if( not( gonna_rebind )) then
 					return mnee.new_tooltip({ name..GameTextGet( "$mnee_fold"..( is_folded and "B" or "A" )), ( is_fancy and pen.vld( _MNEEDATA[i].desc )) and pen.magic_translate( _MNEEDATA[i].desc ) or "" }, { is_active = is_hovered })
 				end)
                 if( clicked ) then
-                    mnee.play_sound( "switch_page" )
+                    pen.play_sound( pen.TUNES.PRSP.SWITCH )
                     folded_nodes[i] = not( is_folded ) and 1 or nil
                     pen.setting_set( "mnee.FOLDED_NODES", pen.t.pack( pen.t.unarray( folded_nodes )))
                 end
@@ -128,7 +128,7 @@ if( not( gonna_rebind )) then
                                 mnee.G.current_binding = e
                                 mnee.G.doing_axis = is_axis
                                 mnee.G.btn_axis_mode = is_axis and r_clicked
-                                mnee.play_sound( "select" )
+                                pen.play_sound( pen.TUNES.PRSP.SELECT )
                                 
                                 if( not( b.never_advanced )) then
                                     mnee.G.advanced_mode = b.is_advanced
@@ -137,7 +137,7 @@ if( not( gonna_rebind )) then
                                 else mnee.G.advanced_mode = false end
                             else
                                 GamePrint( GameTextGet( "$mnee_error" ).." "..GameTextGet( "$mnee_no_change" ))
-                                mnee.play_sound( "error" )
+                                pen.play_sound( pen.TUNES.PRSP.ERROR )
                             end
                         end
                         
@@ -150,7 +150,7 @@ if( not( gonna_rebind )) then
                                 KEYS[i][ b.axes[1]].keys[ profile ] = nil
                                 KEYS[i][ b.axes[2]].keys[ profile ] = nil
                             else KEYS[i][e].keys[ profile ] = nil end
-                            mnee.play_sound( "clear_all" )
+                            pen.play_sound( pen.TUNES.PRSP.RESET )
                             gonna_update = true
                             
                             if( _MNEEDATA[i] ~= nil ) then
@@ -194,7 +194,7 @@ if( not( gonna_rebind )) then
                     tip = { name, is_current and (( is_fancy and _MNEEDATA[i].desc ~= nil ) and pen.magic_translate( _MNEEDATA[i].desc ) or "" ) or GameTextGet( "$mnee_lmb_keys" )}})
                 pen.new_text( t_x + 43/2, t_y, pic_z - 0.01, name, {
                     dims = {39,0}, is_centered_x = true, color = pen.PALETTE.PRSP[ is_current and "RED" or "WHITE" ]})
-                if( clicked ) then mnee.G.binding_page, mnee.G.current_mod = 1, i; mnee.play_sound( "button_special" ) end
+                if( clicked ) then mnee.G.binding_page, mnee.G.current_mod = 1, i; pen.play_sound( pen.TUNES.PRSP.CLICK_ALT ) end
             end, order_func = mnee.mod_sorter,
         }}, function( log, pic_x, pic_y )
             pen.new_shadowed_text( mnee.G.pos[1], mnee.G.pos[2] - 11, pen.LAYERS.DEBUG,
@@ -254,7 +254,7 @@ if( not( gonna_rebind )) then
                             mnee.G.current_binding = i
                             mnee.G.doing_axis = is_axis
                             mnee.G.btn_axis_mode = is_axis and r_clicked
-                            mnee.play_sound( "select" )
+                            pen.play_sound( pen.TUNES.PRSP.SELECT )
                             
                             if( not( v.never_advanced )) then
                                 mnee.G.advanced_mode = v.is_advanced
@@ -263,7 +263,7 @@ if( not( gonna_rebind )) then
                             else mnee.G.advanced_mode = false end
                         else
                             GamePrint( GameTextGet( "$mnee_error" ).." "..GameTextGet( "$mnee_no_change" ))
-                            mnee.play_sound( "error" )
+                            pen.play_sound( pen.TUNES.PRSP.ERROR )
                         end
                     end
                     
@@ -276,7 +276,7 @@ if( not( gonna_rebind )) then
                             KEYS[ mnee.G.current_mod ][ v.axes[1]].keys[ profile ] = nil
                             KEYS[ mnee.G.current_mod ][ v.axes[2]].keys[ profile ] = nil
                         else KEYS[ mnee.G.current_mod ][ i ].keys[ profile ] = nil end
-                        mnee.play_sound( "clear_all" )
+                        pen.play_sound( pen.TUNES.PRSP.RESET )
                         gonna_update = true
                         
                         if( _MNEEDATA[ mnee.G.current_mod ] ~= nil ) then
@@ -305,7 +305,7 @@ if( not( gonna_rebind )) then
             for bind,bind_tbl in pairs( KEYS[ mnee.G.current_mod ]) do
                 if( bind_tbl.axes == nil ) then KEYS[ mnee.G.current_mod ][ bind ].keys[ profile ] = nil end
             end
-            mnee.play_sound( "clear_all" )
+            pen.play_sound( pen.TUNES.PRSP.RESET )
             gonna_update = true
             
             if( _MNEEDATA[ mnee.G.current_mod ] ~= nil ) then
@@ -329,7 +329,7 @@ if( not( gonna_rebind )) then
         highlight = pen.PALETTE.PRSP.PURPLE,
     })
     if( clicked ) then
-        mnee.play_sound( mnee.G.help_active and "close_window" or "open_window" )
+        pen.play_sound( pen.TUNES.PRSP[ mnee.G.help_active and "CLOSE" or "OPEN" ])
         mnee.G.help_active = not( mnee.G.help_active )
         mnee.G.pos_help = { mnee.G.pos[1] - 202, mnee.G.pos[2] + 5 }
         if( mnee.G.help_active ) then pen.atimer( "help_window", nil, true ) end
@@ -343,8 +343,8 @@ if( not( gonna_rebind )) then
         dims = {-17,0}, is_centered_x = true, color = pen.PALETTE.PRSP[ is_disabled and "WHITE" or "RED" ]})
     if( clicked ) then
         if( is_disabled ) then
-            GameRemoveFlagRun( mnee.TOGGLER ); mnee.play_sound( "capture" )
-        else GameAddFlagRun( mnee.TOGGLER ); mnee.play_sound( "uncapture" ) end
+            GameRemoveFlagRun( mnee.TOGGLER ); pen.play_sound( pen.TUNES.PRSP.PICK )
+        else GameAddFlagRun( mnee.TOGGLER ); pen.play_sound( pen.TUNES.PRSP.DROP ) end
     end
     
     clicked, r_clicked = mnee.new_button( pic_x + 136, pic_y + 22, pic_z,
@@ -354,7 +354,7 @@ if( not( gonna_rebind )) then
     pen.new_text( pic_x + 147, pic_y + 22, pic_z - 0.01, "RST", {
         dims = {-17,0}, is_centered_x = true, color = pen.PALETTE.PRSP.WHITE })
     if( r_clicked ) then
-        mnee.play_sound( "delete" )
+        pen.play_sound( pen.TUNES.PRSP.DELETE )
         pen.setting_set( "mnee.SETUP", "" )
         pen.setting_set( "mnee.PROFILE", 2 )
         pen.setting_set( "mnee.BINDINGS", "" )
@@ -369,7 +369,7 @@ if( not( gonna_rebind )) then
         pen.new_text( pic_x + 147, pic_y + 66, pic_z - 0.01, "STP", {
             dims = {-17,0}, is_centered_x = true, color = pen.PALETTE.PRSP[ mnee.G.stp_panel and "RED" or "WHITE" ]})
         if( clicked ) then
-            mnee.play_sound( mnee.G.stp_panel and "close_window" or "open_window" )
+            pen.play_sound( pen.TUNES.PRSP[ mnee.G.stp_panel and "CLOSE" or "OPEN" ])
             if( mnee.G.ctl_panel ) then mnee.G.ctl_panel = false end
             mnee.G.stp_panel = not( mnee.G.stp_panel )
             if( mnee.G.stp_panel ) then pen.atimer( "stp_window", nil, true ) end
@@ -383,7 +383,7 @@ if( not( gonna_rebind )) then
     pen.new_text( pic_x + 146.5, pic_y + 77, pic_z - 0.01, "CTL", {
         dims = {-17,0}, is_centered_x = true, color = pen.PALETTE.PRSP[ mnee.G.ctl_panel and "RED" or "WHITE" ]})
     if( clicked ) then
-        mnee.play_sound( mnee.G.ctl_panel and "close_window" or "open_window" )
+        pen.play_sound( pen.TUNES.PRSP[ mnee.G.ctl_panel and "CLOSE" or "OPEN" ])
         if( mnee.G.stp_panel ) then mnee.G.stp_panel = false end
         mnee.G.ctl_panel = not( mnee.G.ctl_panel )
         if( mnee.G.ctl_panel ) then pen.atimer( "ctl_window", nil, true ) end
@@ -432,7 +432,7 @@ if( not( gonna_rebind )) then
                     for bind,bind_tbl in pairs( KEYS[ mnee.G.current_mod ]) do
                         if( bind_tbl.axes == nil ) then KEYS[ mnee.G.current_mod ][ bind ].keys[ profile ] = nil end
                     end
-                    mnee.play_sound( "switch_page" )
+                    pen.play_sound( pen.TUNES.PRSP.SWITCH )
                     gonna_update = true
                 end
 
@@ -460,7 +460,7 @@ if( not( gonna_rebind )) then
                 GameTextGet( "$mnee_rmb_scan"..( mnee.stl.jauto and "B" or "A" ))}})  
         if( r_clicked ) then
             pen.setting_set( "mnee.CTRL_AUTOMAPPING", not( mnee.stl.jauto ))
-            mnee.play_sound( "button_special" )
+            pen.play_sound( pen.TUNES.PRSP.CLICK_ALT )
         end
         
         for i = 1,4 do
@@ -480,7 +480,7 @@ if( not( gonna_rebind )) then
                 if( mnee.G.jpad_count > 0 or mnee.G.jpad_maps[i] > 4 ) then
                     if( is_real ~= -1 ) then
                         mnee.jpad_update( -i )
-                        mnee.play_sound( "delete" )
+                        pen.play_sound( pen.TUNES.PRSP.DELETE )
                     else mnee.stl.jslots[i] = true end
 
                     if( mnee.stl.jauto ) then
@@ -490,12 +490,12 @@ if( not( gonna_rebind )) then
                     end
                 else
                     GamePrint( GameTextGet( "$mnee_no_jpads" ))
-                    mnee.play_sound( "error" )
+                    pen.play_sound( pen.TUNES.PRSP.ERROR )
                 end
             end
             if( is_real == -1 and r_clicked ) then
                 mnee.G.jpad_maps[i] = 5
-                mnee.play_sound( "select" )
+                pen.play_sound( pen.TUNES.PRSP.SELECT )
             end
         end
         
@@ -600,7 +600,7 @@ else
             else mnee.G.btn_axis_counter = mnee.G.btn_axis_counter + 1 end
 
             mnee.G.gui_retoggler = false
-            mnee.play_sound( "confirm" )
+            pen.play_sound( pen.TUNES.PRSP.CONFIRM )
         end
     else
         local help_tip = GameTextGet( "$mnee_binding_"..( doing_jpad and "axis" or ( mnee.G.advanced_mode and "advanced" or "simple" )))
@@ -612,7 +612,7 @@ else
             highlight = pen.PALETTE.PRSP.PURPLE,
         })
         if( clicked ) then
-            mnee.play_sound( mnee.G.help_active and "close_window" or "open_window" )
+            pen.play_sound( pen.TUNES.PRSP[ mnee.G.help_active and "CLOSE" or "OPEN" ])
             mnee.G.help_active = not( mnee.G.help_active )
             mnee.G.pos_help = { mnee.G.pos[1] - 202, mnee.G.pos[2] + 5 }
             if( mnee.G.help_active ) then pen.atimer( "help_window", nil, true ) end
@@ -673,7 +673,7 @@ else
             mnee.G.doing_axis = false
             mnee.G.btn_axis_mode = false
             mnee.G.advanced_mode = false
-            mnee.play_sound( "error" )
+            pen.play_sound( pen.TUNES.PRSP.ERROR )
             return
         end
         
@@ -698,7 +698,7 @@ else
             else this_b[ k_type ] = { "is_axis", "_", } end
             if( nuke_em == 1 ) then this_b.main = this_b.alt end
             mnee.G.gui_retoggler = true
-            mnee.play_sound( "delete" )
+            pen.play_sound( pen.TUNES.PRSP.DELETE )
         elseif( doing_jpad ) then
             local champ = { 0, 0 }
             for ax,v in pairs( mnee.get_axes()) do
@@ -709,7 +709,7 @@ else
             if( champ[1] ~= 0 ) then
                 this_b[ key_type ] = { "is_axis", champ[1]}
                 mnee.G.gui_retoggler = true
-                mnee.play_sound( "switch_dimension" )
+                pen.play_sound( pen.TUNES.PRSP.SWITCH_ALT )
             end
         elseif( enter_down ) then
             changed = false
@@ -731,7 +731,7 @@ else
             end
             this_b[ key_type ] = new_bind
             mnee.G.gui_retoggler = true
-            mnee.play_sound( "switch_dimension" )
+            pen.play_sound( pen.TUNES.PRSP.SWITCH_ALT )
         end
         
         if( mnee.G.gui_retoggler ) then

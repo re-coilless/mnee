@@ -23,6 +23,7 @@ function OnModInit()
 	})
 
 	-- also try splitscreen for kappa
+	-- gamepad gui support is fully within mnee
 	-- make procedural pause screen keyboard/mouse/gamepad that highlights all the bind's keys on hover of one of them (also add option to hide stuff from this menu; list all binds to the side in a scrolllist and highlight on hover)
 
 	mnee.G.m_list = mnee.G.m_list or ""
@@ -241,7 +242,7 @@ function OnWorldPreUpdate()
 	GlobalsSetValue( mnee.G_DOWN, active_core )
 	
 	if( mnee.mnin( "bind", { "mnee", "menu" }, { pressed = true, vip = true })) then
-		mnee.play_sound( mnee.G.gui_active and "close_window" or "open_window" )
+		pen.play_sound( pen.TUNES.PRSP[ mnee.G.gui_active and "CLOSE" or "OPEN" ])
 		if( mnee.G.gui_active ) then mnee.G.help_active = false end
 		mnee.G.gui_active = not( mnee.G.gui_active )
 		if( mnee.G.gui_active ) then pen.atimer( "main_window", nil, true ) end
@@ -252,13 +253,13 @@ function OnWorldPreUpdate()
 			GameRemoveFlagRun( mnee.TOGGLER )
 		else GameAddFlagRun( mnee.TOGGLER ) end
 		GamePrint( GameTextGet( table.concat({ "$mnee_", ( has_flag and "" or "no_" ), "input" })))
-		mnee.play_sound( has_flag and "capture" or "uncapture" )
+		pen.play_sound( pen.TUNES.PRSP[ has_flag and "PICK" or "DROP" ])
 	end
 	if( mnee.mnin( "bind", { "mnee", "profile_change" }, { pressed = true })) then
 		local prf = pen.setting_get( "mnee.PROFILE" ) == 2 and 3 or 2
 		pen.setting_set( "mnee.PROFILE", prf )
 		GamePrint( GameTextGet( "$mnee_this_profile" )..": "..string.char( prf + 64 ))
-		mnee.play_sound( "switch_page" )
+		pen.play_sound( pen.TUNES.PRSP.SWITCH )
 		GlobalsSetValue( mnee.UPDATER, frame_num )
 	end
 	
@@ -298,7 +299,7 @@ function OnWorldPreUpdate()
 			pen.new_text( pic_x - off - 90/2, pic_y + 20, pic_z - 0.01,
 				GameTextGet( "$mnee_tipA" ), { is_centered_x = true, color = pen.PALETTE.PRSP.RED })
 			if( clicked ) then
-				mnee.play_sound( mnee.G.gui_active and "close_window" or "open_window" )
+				pen.play_sound( pen.TUNES.PRSP[ mnee.G.gui_active and "CLOSE" or "OPEN" ])
 				mnee.G.gui_active, mnee.G.help_active = not( mnee.G.gui_active ), false
 				if( mnee.G.gui_active ) then pen.atimer( "main_window", nil, true ) end
 			end
@@ -309,14 +310,14 @@ function OnWorldPreUpdate()
 				GameTextGet( "$mnee_tipB" ), { is_centered_x = true, color = pen.PALETTE.PRSP.WHITE })
 			if( clicked ) then
 				GameAddFlagRun( mnee.NO_REMINDER )
-				mnee.play_sound( "close_window" )
+				pen.play_sound( pen.TUNES.PRSP.CLOSE )
 				mnee.G.help_active = false
 			end
 
 			clicked = mnee.new_button( pic_x - 5, pic_y + 20, pic_z,
 				"mods/mnee/files/pics/help.png", { auid = "help_reminder", highlight = pen.PALETTE.PRSP.PURPLE })
 			if( clicked ) then
-				mnee.play_sound( mnee.G.help_active and "close_window" or "open_window" )
+				pen.play_sound( pen.TUNES.PRSP[ mnee.G.help_active and "CLOSE" or "OPEN" ])
 				mnee.G.help_active = not( mnee.G.help_active )
 				if( mnee.G.help_active ) then pen.atimer( "help_window", nil, true ) end
 			end
@@ -377,7 +378,7 @@ function OnWorldPreUpdate()
 				end
 
 				if( update ) then
-					mnee.play_sound( "switch_page" )
+					pen.play_sound( pen.TUNES.PRSP.SWITCH )
 					pen.c.estimator_memo[ "mnee_help_anim_y" ] = 0
 					pen.c.scroll_memo[ "mnee_help" ].py = 0
 				end
@@ -397,12 +398,12 @@ function OnWorldPreUpdate()
 			if( not( mnee.stl.jauto )) then
 				if(( ctl or -1 ) == -1 ) then
 					GamePrint( GameTextGet( "$mnee_error" ))
-					mnee.play_sound( "error" )
-				else mnee.play_sound( "confirm" ) end
+					pen.play_sound( pen.TUNES.PRSP.ERROR )
+				else pen.play_sound( pen.TUNES.PRSP.CONFIRM ) end
 			end
 		elseif( gslot ) then
 			GamePrint( GameTextGet( "$mnee_no_slot" ))
-			mnee.play_sound( "error" )
+			pen.play_sound( pen.TUNES.PRSP.ERROR )
 		end
 	end
 end

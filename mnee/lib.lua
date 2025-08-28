@@ -609,12 +609,6 @@ function mnee.bind2string( bind, key_type, binding_data )
 	return out.."]"
 end
 
----Plays event from mods/mnee/files/sfx/mnee.bank at camera pos.
----@param event string
-function mnee.play_sound( event )
-	pen.play_sound({ "mods/mnee/files/sfx/mnee.bank", event })
-end
-
 ---Draws a button themed after Prospero Inc.
 ---@param pic_x number
 ---@param pic_y number
@@ -682,10 +676,9 @@ function mnee.new_tooltip( text, data )
 		
 		local scale_x = pen.animate({2,size_x}, d.t, { ease_in = "exp1.1", ease_out = "wav1.5", frames = d.frames })
 		local scale_y = pen.animate({2,size_y}, d.t, { ease_out = "sin", frames = d.frames })
-		pen.new_image( pic_x, pic_y, pic_z + 0.02,
-			"mods/mnee/files/pics/dot_purple_dark.png", { s_x = scale_x, s_y = scale_y })
-		pen.new_image( pic_x + 1, pic_y + 1, pic_z + 0.01,
-			"mods/mnee/files/pics/dot_white.png", { s_x = scale_x - 2, s_y = scale_y - 2 })
+		pen.new_pixel( pic_x, pic_y, pic_z + 0.02,
+			pen.PALETTE.PRSP[( d.is_special or false ) and "RED" or "BLUE" ], scale_x, scale_y )
+		pen.new_pixel( pic_x + 1, pic_y + 1, pic_z + 0.01, pen.PALETTE.PRSP.WHITE, scale_x - 2, scale_y - 2 )
 	end)
 end
 
@@ -712,10 +705,8 @@ function mnee.new_pager( pic_x, pic_y, pic_z, data )
 		click = { clicked[1] and 1 or ( r_clicked[1] and -1 or 0 ), clicked[2] and 1 or ( r_clicked[2] and -1 or 0 )}
 	})
 	if( sfx_type == 1 ) then
-		mnee.play_sound( "button_special" )
-	elseif( sfx_type == -1 ) then
-		mnee.play_sound( "switch_page" )
-	end
+		pen.play_sound( pen.TUNES.PRSP.CLICK_ALT )
+	elseif( sfx_type == -1 ) then pen.play_sound( pen.TUNES.PRSP.SWITCH ) end
 	
 	if( data.compact_mode ) then t_y = t_y - 11 else t_x = pic_x + 11 end
 	pen.new_image( t_x, t_y, pic_z,
@@ -1064,11 +1055,11 @@ function pen.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 		clicked, r_clicked, is_hovered = pen.new_interface( pic_x, pic_y, size_x, size_y, pic_z )
 	end
 
+	local do_lmb, do_rmb = false, false
 	local is_updated, is_confirmed = false, false
 	data.lmb_event = data.lmb_event or function( pic_x, pic_y, pic_z, pic, d )
-		pen.c.input_data = {}
+		pen.c.input_data, do_lmb = {}, true
 		GlobalsSetValue( pen.GLOBAL_INPUT_STATE, is_active and "_" or d.uid )
-		pen.play_sound( pen.TUNES.VNL[ is_active and "RESET" or "CLICK" ])
 		return pic_x, pic_y, pic_z, pic, d
 	end
 	if( data.lmb_event ~= nil and clicked ) then
@@ -1109,18 +1100,6 @@ function pen.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 	local t = text
 	if( is_active ) then t = pen.c.input_data.buffer or text end
 	if( clicked and not( is_active )) then pen.c.input_data.buffer = text end
-	
-	data.pic_func = data.pic_func or function( pic_x, pic_y, pic_z, pic, d )
-		pen.new_tooltip( "", {
-			tid = d.uid,
-			is_active = true,
-			pic_z = pic_z + 0.1,
-			pos = { pic_x - d.edging, pic_y - d.edging },
-			is_special = is_active,
-			dims = { size_x, size_y },
-		})
-	end
-	data.pic_func( pic_x, pic_y, pic_z, pic, data )
 	
 	if( is_active ) then
 		is_updated = data.is_live
@@ -1245,24 +1224,33 @@ function pen.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 	end
 	
 	if( is_confirmed ) then
-		is_updated = true
-		pen.play_sound( pen.TUNES.VNL.BUY )
+		is_updated, do_rmb = true, true
 		GlobalsSetValue( pen.GLOBAL_INPUT_STATE, "_" )
 	end
 
-	pen.new_scroller( iid.."_scroller", pic_x, pic_y, pic_z, size_x, size_y, function( scroll_pos )
-		if( not( data.no_wrap )) then data.dims = { size_x, -1 } end
+	data.vis_func = data.vis_func or function( pic_x, pic_y, pic_z, size_x, size_y, is_active, do_lmb, do_rmb, do_hov, t, data )
+		if( do_lmb ) then
+			pen.play_sound( pen.TUNES.VNL[ is_active and "RESET" or "CLICK" ])
+		elseif( do_rmb ) then pen.play_sound( pen.TUNES.VNL.BUY ) end
 		
-		if( is_active ) then
-			t = pen.c.input_data.buffer
-			data.no_culling, data.fully_featured = true, true
-			pen.new_text( scroll_pos[2], scroll_pos[1], pic_z - 1, "{>cursor>{"..( t or "" ).."}<cursor<}", data )
-		elseif( is_hovered ) then data.color = data.color_highlight or pen.PALETTE.VNL.YELLOW end
-		
-		data.no_culling, data.fully_featured = false, false
-		local dims, new_line = pen.new_text( scroll_pos[2], scroll_pos[1], pic_z, t, data )
-		return { dims[2] + ( string.sub( t, -1, -1 ) == "\n" and new_line or 0 ) + 1, dims[1]}
-	end, data )
+		pen.new_tooltip( "", {
+			tid = data.uid, is_active = true, is_special = is_active,
+			dims = { size_x, size_y }, pic_z = pic_z + 0.1, pos = { pic_x - data.edging, pic_y - data.edging }})
+		pen.new_scroller( data.uid.."_scroller", pic_x, pic_y, pic_z, size_x, size_y, function( scroll_pos )
+			if( not( data.no_wrap )) then data.dims = { size_x, -1 } end
+			
+			if( is_active ) then
+				t = pen.c.input_data.buffer
+				data.no_culling, data.fully_featured = true, true
+				pen.new_text( scroll_pos[2], scroll_pos[1], pic_z - 1, "{>cursor>{"..( t or "" ).."}<cursor<}", data )
+			elseif( do_hov ) then data.color = pen.PALETTE.VNL.YELLOW end
+			
+			data.no_culling, data.fully_featured = false, false
+			local dims, new_line = pen.new_text( scroll_pos[2], scroll_pos[1], pic_z, t, data )
+			return { dims[2] + ( string.sub( t, -1, -1 ) == "\n" and new_line or 0 ) + 1, dims[1]}
+		end, data )
+	end
+	data.vis_func( pic_x, pic_y, pic_z, size_x, size_y, is_active, do_lmb, do_rmb, is_hovered, t, data )
 
 	--holding to repeat input (arrows and backspace)
 	--finalize highlighting; ctrl + a
@@ -1290,24 +1278,31 @@ function mnee.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 		local lists = dofile_once( "mods/mnee/lists.lua" )
 		local meta, offs, nums = lists[7], lists[8], lists[9]
 		
-		--replace raw ctrl switch with alt+ctrl to allow for hotkeys
 		--bg anim is same as tips, keys appear in cascading wave from top left corner
+		--anim for layout swap
 		--clipboard
 		
 		local is_alt = InputIsKeyDown( 226 --[[Left Alt]])
 			or InputIsKeyDown( 230 --[[Right Alt]]) or mnee.G.kb_alt
-		local is_ctrl = InputIsKeyDown( 224 --[[Left Ctrl]])
-			or InputIsKeyDown( 228 --[[Right Ctrl]]) or mnee.G.kb_ctrl
 		local is_shift = InputIsKeyDown( 225 --[[Left Shift]])
 			or InputIsKeyDown( 229 --[[Right Shift]]) or mnee.G.kb_shift
+		local is_ctrled = ( InputIsKeyJustDown( 226 --[[Left Alt]]) or InputIsKeyJustDown( 230 --[[Right Alt]]))
+			and ( InputIsKeyDown( 224 --[[Left Ctrl]]) or InputIsKeyDown( 228 --[[Right Ctrl]]))
+		local is_ctrl = mnee.G.kb_ctrl
 		
+		local is_return = false
+		if( not( data.is_live )) then
+			is_return = not( is_shift ) and input == 3
+			if( is_shift and input == 3 ) then input = -3 end
+		else is_return = is_shift and input == 3 end
+
 		local kind = 1
 		if( is_alt ) then kind = kind + 4 end
 		if( is_ctrl ) then kind = kind + 2 end
 		if( is_shift ) then kind = kind + 1 end
 		local layout = pen.setting_get( "mnee.KB_LAYOUT" )
 
-		local sfx = "keys/key_2_"
+		local sfx = "keys/key_6_"
 		local new_x, new_y, state = 0, 0, 0
 		local clicked, r_clicked, is_hovered = false, false, false
 		local pic_x, pic_y = unpack( pen.t.pack( pen.setting_get( "mnee.KB_POS" )))
@@ -1319,35 +1314,36 @@ function mnee.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 			local k = key[ kind ] or key[ kind - 2 ] or key[ kind - 4 ] or key[ kind - 6 ]
 			clicked = mnee.new_button( pic_x + offs[i][1] - 1, pic_y + offs[i][2] - 1, pic_z, ( k or key[1])[1], {
 				auid = table.concat({ "mnee_kb_l", layout, "_k", i, "_s", kind }), _clicked = ( input == i ) or np })
-			if( clicked and no_input ) then input = key[ kind ][2] end
-			if( clicked ) then mnee.play_sound( sfx.."generic" ) end
+			if( clicked and no_input ) then input = key[ kind ][2] end --this should work for layout change, numpad keys and normal typing
+			if( clicked ) then pen.play_sound({ "mods/mnee/files/sfx/mnee.bank", sfx.."generic" }) end
 		end
-
+		
+		sfx = { "mods/mnee/files/sfx/mnee.bank", sfx.."special" }
 		clicked = mnee.new_button( pic_x + 2, pic_y + 13, pic_z,
-			"mods/mnee/files/pics/keyboard/key_alt_"..( is_alt and "B" or "A" )..".xml", { auid = "mnee_kb_alt" })
-		if( clicked or is_alted ) then mnee.play_sound( sfx.."special" ) end
-		if( clicked ) then mnee.G.kb_alt = not( mnee.G.kb_alt ) end
+			"mods/mnee/files/pics/keyboard/key_ctrl_"..( is_ctrl and "B" or "A" )..".xml",
+			{ auid = "mnee_kb_ctrl", _clicked = is_ctrled })
+		if( clicked ) then pen.play_sound( sfx ); mnee.G.kb_ctrl = not( mnee.G.kb_ctrl ) end
 		clicked = mnee.new_button( pic_x + 2, pic_y + 24, pic_z,
-			"mods/mnee/files/pics/keyboard/key_ctrl_"..( is_ctrl and "B" or "A" )..".xml", { auid = "mnee_kb_ctrl" })
-		if( clicked or is_ctrled ) then mnee.play_sound( sfx.."special" ) end
-		if( clicked ) then mnee.G.kb_ctrl = not( mnee.G.kb_ctrl ) end
+			"mods/mnee/files/pics/keyboard/key_alt_"..( is_alt and "B" or "A" )..".xml", { auid = "mnee_kb_alt" })
+		if( clicked or is_alted ) then pen.play_sound( sfx ) end
+		if( clicked ) then mnee.G.kb_alt = not( mnee.G.kb_alt ) end
 		clicked = mnee.new_button( pic_x + 13, pic_y + 24, pic_z,
 			"mods/mnee/files/pics/keyboard/key_shift_"..( is_shift and "B" or "A" )..".xml", { auid = "mnee_kb_shift" })
-		if( clicked or is_shifted ) then mnee.play_sound( sfx.."special" ) end
+		if( clicked or is_shifted ) then pen.play_sound( sfx ) end
 		if( clicked ) then mnee.G.kb_shift = not( mnee.G.kb_shift ) end
 		
 		clicked, r_clicked, is_hovered = mnee.new_button(
 			pic_x + 13, pic_y + 35, pic_z, "mods/mnee/files/pics/keyboard/key_space.xml",
 			{ auid = "mnee_kb_space", _clicked = ( input == " " ), _r_clicked = ( input == 3 or input == -3 )})
 		mnee.new_tooltip( GameTextGet( "$mnee_rmb_space" ), { is_active = is_hovered, pic_z = pic_z - 10 })
-		if( clicked or r_clicked ) then mnee.play_sound( sfx.."special" ) end
+		if( clicked or r_clicked ) then pen.play_sound( sfx ) end
 		if( r_clicked and no_input ) then input = data.is_live and 3 or -3 end
 		if( clicked ) then input = " " end
 
 		clicked, r_clicked = mnee.new_button(
 			pic_x + 145, pic_y + 13, pic_z, "mods/mnee/files/pics/keyboard/key_backspace.xml",
 			{ auid = "mnee_kb_backspace", _clicked = ( input == 2 ), _r_clicked = ( input == 2 and is_shift )})
-		if( clicked or r_clicked ) then mnee.play_sound( sfx.."special" ) end
+		if( clicked or r_clicked ) then pen.play_sound( sfx ) end
 		if( r_clicked ) then input = -2 elseif( clicked ) then input = 2 end
 
 		mnee.ignore_service_mode = true
@@ -1357,7 +1353,7 @@ function mnee.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 			_r_clicked = mnee.mnin( "bind", { "mnee", "clipboard" }, { pressed = true, vip = true })})
 		mnee.new_tooltip({ GameTextGet( "$mnee_this_layout", meta[ layout ][""].name ),
 			GameTextGet( "$mnee_rmb_layout" )}, { is_active = is_hovered, pic_z = pic_z - 10 })
-		if( clicked ) then mnee.play_sound( "switch_page" );
+		if( clicked ) then pen.play_sound( pen.TUNES.PRSP.SWITCH );
 			pen.setting_set( "mnee.KB_LAYOUT", layout >= #board and 1 or layout + 1 ) end
 		if( clicked or r_clicked ) then input = "" end
 		mnee.ignore_service_mode = nil
@@ -1369,7 +1365,7 @@ function mnee.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 			is_active = ( state == 0 and is_hovered ), pic_z = pic_z - 10 })
 		pen.new_image( pic_x + 1, pic_y + 35, pic_z + 1.5,
 			"mods/mnee/files/pics/keyboard/dragger_left_"..( is_hovered and "B" or "A" )..".xml" )
-		if( r_clicked ) then input = data.is_live and -3 or 3 end
+		if( r_clicked or is_return ) then input = data.is_live and -3 or 3 end
 		
 		new_x, new_y, state, _, r_clicked, is_hovered = pen.new_dragger( "mnee_kb_dragger_r", pic_x + 145, pic_y + 35, 10, 10, pic_z )
 		if( new_x - 145 ~= pic_x or new_y - 35 ~= pic_y ) then pen.setting_set( "mnee.KB_POS", pen.t.pack({ new_x - 145, new_y - 35 })) end
@@ -1378,7 +1374,7 @@ function mnee.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 			is_active = ( state == 0 and is_hovered ), pic_z = pic_z - 10 })
 		pen.new_image( pic_x + 145, pic_y + 35, pic_z + 1.5,
 			"mods/mnee/files/pics/keyboard/dragger_right_"..( is_hovered and "B" or "A" )..".xml" )
-		if( r_clicked ) then input = data.is_live and -3 or 3 end
+		if( r_clicked or is_return ) then input = data.is_live and -3 or 3 end
 		
 		pen.new_image( pic_x, pic_y, pic_z + 1, "mods/mnee/files/pics/keyboard/board.xml", { can_click = true })
 		
@@ -1391,6 +1387,29 @@ function mnee.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 		end
 
 		return input
+	end
+	data.vis_func = function( pic_x, pic_y, pic_z, size_x, size_y, is_active, do_lmb, do_rmb, do_hov, t, data )
+		if( do_lmb ) then
+			pen.play_sound( pen.TUNES.PRSP[ is_active and "DROP" or "PICK" ])
+		elseif( do_rmb ) then pen.play_sound( pen.TUNES.PRSP.CONFIRM ) end
+		
+		mnee.new_tooltip( "", {
+			tid = data.uid, is_active = true, is_special = is_active,
+			dims = { size_x, size_y }, pic_z = pic_z + 0.1, pos = { pic_x - data.edging, pic_y }}) --why do I need to correct pic_x
+		mnee.new_scroller( data.uid.."_scroller", pic_x, pic_y, pic_z, size_x, size_y, function( scroll_pos )
+			if( not( data.no_wrap )) then
+				data.dims = { size_x, -1 } end
+			if( is_active ) then
+				t = pen.c.input_data.buffer
+				data.no_culling, data.fully_featured = true, true
+				pen.new_text( scroll_pos[2], scroll_pos[1], pic_z - 1, "{>cursor>{"..( t or "" ).."}<cursor<}", data )
+			end
+
+			data.no_culling, data.fully_featured = false, false
+			data.color = pen.PALETTE.PRSP[ is_active and "BLUE" or ( do_hov and "RED" or "BLUE" )]
+			local dims, new_line = pen.new_text( scroll_pos[2], scroll_pos[1], pic_z, t, data )
+			return { dims[2] + ( string.sub( t, -1, -1 ) == "\n" and new_line or 0 ) + 1, dims[1]}
+		end, data )
 	end
 
 	return pen.try( pen.new_input, {
@@ -1429,6 +1448,27 @@ mnee.SPECIAL_KEYS = pen.t.unarray({
 mnee.BANNED_KEYS = pen.t.unarray({
 	"left_windows", "right_windows",
 })
+
+pen.TUNES.PRSP = {
+	CLICK = {"mods/mnee/files/sfx/mnee.bank","button_generic"},
+	CLICK_ALT = {"mods/mnee/files/sfx/mnee.bank","button_special"},
+	SELECT = {"mods/mnee/files/sfx/mnee.bank","select"},
+	CONFIRM = {"mods/mnee/files/sfx/mnee.bank","confirm"},
+	SWITCH = {"mods/mnee/files/sfx/mnee.bank","switch_page"},
+	SWITCH_ALT = {"mods/mnee/files/sfx/mnee.bank","switch_dimension"},
+	DELETE = {"mods/mnee/files/sfx/mnee.bank","delete"},
+	RESET = {"mods/mnee/files/sfx/mnee.bank","clear_all"},
+	ERROR = {"mods/mnee/files/sfx/mnee.bank","error"},
+
+	PICK = {"mods/mnee/files/sfx/mnee.bank","capture"},
+	DROP = {"mods/mnee/files/sfx/mnee.bank","uncapture"},
+	OPEN = {"mods/mnee/files/sfx/mnee.bank","open_window"},
+	CLOSE = {"mods/mnee/files/sfx/mnee.bank","close_window"},
+	FOLD = {"mods/mnee/files/sfx/mnee.bank","minimize"},
+	UNFOLD = {"mods/mnee/files/sfx/mnee.bank","unminimize"},
+	BOOT = {"mods/mnee/files/sfx/mnee.bank","open_main"},
+	BOOT_LONG = {"mods/mnee/files/sfx/mnee.bank","bootup"},
+}
 
 mnee.INMODES = {
 	guied = function( ctrl_body, active )

@@ -1,5 +1,8 @@
-ModRegisterAudioEventMappings( "mods/mnee/files/sfx/GUIDs.txt" )
+ModRegisterAudioEventMappings( "mods/mnee/files/GUIDs.txt" )
 
+penman_d = penman_d or ModImageMakeEditable
+penman_r = penman_r or ModTextFileGetContent
+penman_w = penman_w or ModTextFileSetContent
 function OnModInit()
 	dofile_once( "mods/mnee/lib.lua" )
 	pen.add_translations( "mods/mnee/files/translations.csv" )
@@ -23,7 +26,6 @@ function OnModInit()
 	})
 
 	-- also try splitscreen for kappa
-	-- gamepad gui support is fully within mnee
 	-- make procedural pause screen keyboard/mouse/gamepad that highlights all the bind's keys on hover of one of them (also add option to hide stuff from this menu; list all binds to the side in a scrolllist and highlight on hover)
 
 	mnee.G.m_list = mnee.G.m_list or ""
@@ -157,7 +159,22 @@ function OnModInit()
 		end)
 	end
 
-	--add missing symbols to vanilla fonts (index font patching goes here too)
+	--add missing symbols to vanilla fonts (looks like pic_paster y coord is fucked)
+	pen.magic_write( "data/fonts/_font_pixel.xml", pen.magic_read( "data/fonts/font_pixel.xml" ))
+	pen.lib.font_builder( "data/fonts/_font_pixel.xml", {
+		[176] = { pos = { 2, 9, 2 }, rect_w = 2, rect_h = 11 },
+	}, "mods/mnee/files/pics/keyboard/_font.png" )
+	pen.magic_write( "data/fonts/_font_pixel_noshadow.xml", pen.magic_read( "data/fonts/font_pixel_noshadow.xml" ))
+	pen.lib.font_builder( "data/fonts/_font_pixel_noshadow.xml", {
+		[176] = { pos = { 2, 32, 2 }, rect_w = 2, rect_h = 11 },
+	}, "mods/mnee/files/pics/keyboard/_font.png" )
+	pen.magic_write( "data/fonts/_font_small_numbers.xml", pen.magic_read( "data/fonts/font_small_numbers.xml" ))
+	pen.lib.font_builder( "data/fonts/_font_small_numbers.xml", {
+		[45] = { pos = { 2, 54, 4 }, rect_w = 4, rect_h = 6 },
+		[66] = { pos = { 7, 54, 6 }, rect_w = 6, rect_h = 6 },
+		[101] = { pos = { 14, 54, 4 }, rect_w = 4, rect_h = 6 },
+	}, "mods/mnee/files/pics/keyboard/_font.png" )
+
 	--hd keys (scaled down to 0.25 size)
 
 	local keyboard = {}
@@ -192,7 +209,9 @@ function OnWorldPreUpdate()
 	if( not( GameHasFlagRun( mnee.INITER ))) then return pen.gui_builder( false ) end
 	local ctrl_body = mnee.get_ctrl()
 	if( not( pen.vld( ctrl_body, true ))) then return pen.gui_builder( false ) end
-	
+	pen.new_image( -1000, 50, -9999999, "data/fonts/font_pixel_ppb1.png" )
+	pen.new_image( 0, 100, -9999999, "mods/mnee/files/pics/keyboard/_font.png" )
+
 	mnee.clean_exe()
 	mnee.clean_disarmer()
 	mnee.jpad_next( true )
@@ -424,6 +443,12 @@ function OnPlayerSpawned( hooman )
 	GlobalsSetValue( mnee.G_EXE, pen.DIV_1 )
 	GlobalsSetValue( mnee.G_DISARMER, pen.DIV_1 )
 	GlobalsSetValue( mnee.G_AXES_MEMO, pen.DIV_1 )
+
+	GlobalsSetValue( pen.GLOBAL_FONT_REMAP, pen.t.pack( pen.t.unarray({
+		["data/fonts/font_pixel.xml"] = "data/fonts/_font_pixel.xml",
+		["data/fonts/font_pixel_noshadow.xml"] = "data/fonts/_font_pixel_noshadow.xml",
+		["data/fonts/font_small_numbers.xml"] = "data/fonts/_font_small_numbers.xml",
+	})))
 	
 	local world_id = GameGetWorldStateEntity()
 	local entity_id = pen.get_child( world_id, "mnee_ctrl" )

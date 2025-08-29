@@ -741,9 +741,11 @@ function mnee.new_scroller( sid, pic_x, pic_y, pic_z, size_x, size_y, func, data
 		pen.PALETTE.PRSP.PURPLE, pen.PALETTE.PRSP.BLUE
 	}
 	
-	pen.new_pixel( pic_x + size_x, pic_y, pic_z - 0.03, pen.PALETTE.PRSP.BLUE, 3, 1 )
-	pen.new_pixel( pic_x + size_x, pic_y + size_y - 1, pic_z - 0.03, pen.PALETTE.PRSP.BLUE, 3, 1 )
-	pen.new_pixel( pic_x + size_x + 1, pic_y, pic_z - 0.08, pen.PALETTE.PRSP.PURPLE, 1, size_y )
+	if( not( data.is_compact )) then
+		pen.new_pixel( pic_x + size_x, pic_y, pic_z - 0.03, pen.PALETTE.PRSP.BLUE, 3, 1 )
+		pen.new_pixel( pic_x + size_x, pic_y + size_y - 1, pic_z - 0.03, pen.PALETTE.PRSP.BLUE, 3, 1 )
+		pen.new_pixel( pic_x + size_x + 1, pic_y, pic_z - 0.08, pen.PALETTE.PRSP.PURPLE, 1, size_y )
+	end
 
 	return pen.try( pen.new_scroller, {
 		sid, pic_x, pic_y, pic_z, size_x, size_y, func, data
@@ -1252,9 +1254,10 @@ function pen.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 	end
 	data.vis_func( pic_x, pic_y, pic_z, size_x, size_y, is_active, do_lmb, do_rmb, is_hovered, t, data )
 
+	--finalize highlighting
+
 	--holding to repeat input (arrows and backspace)
-	--finalize highlighting; ctrl + a
-	--ctrl + c/v/x through mnee.KB_CLIPBOARD (with buffer of up to 25 last copies in a setting)
+	--ctrl + a/c/v/x through mnee.KB_CLIPBOARD (with buffer of up to 25 last copies in a setting)
 	
 	if( is_updated ) then
 		text = pen.c.input_data.buffer end
@@ -1278,6 +1281,7 @@ function mnee.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 		local lists = dofile_once( "mods/mnee/lists.lua" )
 		local meta, offs, nums = lists[7], lists[8], lists[9]
 		
+		--ctrl + backspace instead of shift
 		--bg anim is same as tips, keys appear in cascading wave from top left corner
 		--anim for layout swap
 		--clipboard
@@ -1286,7 +1290,7 @@ function mnee.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 			or InputIsKeyDown( 230 --[[Right Alt]]) or mnee.G.kb_alt
 		local is_shift = InputIsKeyDown( 225 --[[Left Shift]])
 			or InputIsKeyDown( 229 --[[Right Shift]]) or mnee.G.kb_shift
-		local is_ctrled = ( InputIsKeyJustDown( 226 --[[Left Alt]]) or InputIsKeyJustDown( 230 --[[Right Alt]]))
+		is_ctrled = ( InputIsKeyJustDown( 226 --[[Left Alt]]) or InputIsKeyJustDown( 230 --[[Right Alt]]))
 			and ( InputIsKeyDown( 224 --[[Left Ctrl]]) or InputIsKeyDown( 228 --[[Right Ctrl]]))
 		local is_ctrl = mnee.G.kb_ctrl
 		
@@ -1297,8 +1301,8 @@ function mnee.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 		else is_return = is_shift and input == 3 end
 
 		local kind = 1
-		if( is_alt ) then kind = kind + 4 end
-		if( is_ctrl ) then kind = kind + 2 end
+		if( is_alt ) then kind = kind + 2 end
+		if( is_ctrl ) then kind = kind + 4 end
 		if( is_shift ) then kind = kind + 1 end
 		local layout = pen.setting_get( "mnee.KB_LAYOUT" )
 
@@ -1314,11 +1318,11 @@ function mnee.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 			local k = key[ kind ] or key[ kind - 2 ] or key[ kind - 4 ] or key[ kind - 6 ]
 			clicked = mnee.new_button( pic_x + offs[i][1] - 1, pic_y + offs[i][2] - 1, pic_z, ( k or key[1])[1], {
 				auid = table.concat({ "mnee_kb_l", layout, "_k", i, "_s", kind }), _clicked = ( input == i ) or np })
-			if( clicked and no_input ) then input = key[ kind ][2] end --this should work for layout change, numpad keys and normal typing
-			if( clicked ) then pen.play_sound({ "mods/mnee/files/sfx/mnee.bank", sfx.."generic" }) end
+			if( clicked ) then pen.play_sound({ "mods/mnee/files/mnee.bank", sfx.."generic" }) end
+			if( clicked and not( np )) then input = ( k or key[1])[2] end
 		end
 		
-		sfx = { "mods/mnee/files/sfx/mnee.bank", sfx.."special" }
+		sfx = { "mods/mnee/files/mnee.bank", sfx.."special" }
 		clicked = mnee.new_button( pic_x + 2, pic_y + 13, pic_z,
 			"mods/mnee/files/pics/keyboard/key_ctrl_"..( is_ctrl and "B" or "A" )..".xml",
 			{ auid = "mnee_kb_ctrl", _clicked = is_ctrled })
@@ -1388,6 +1392,7 @@ function mnee.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 
 		return input
 	end
+	data.cursor_color = pen.PALETTE.PRSP.RED
 	data.vis_func = function( pic_x, pic_y, pic_z, size_x, size_y, is_active, do_lmb, do_rmb, do_hov, t, data )
 		if( do_lmb ) then
 			pen.play_sound( pen.TUNES.PRSP[ is_active and "DROP" or "PICK" ])
@@ -1395,19 +1400,21 @@ function mnee.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 		
 		mnee.new_tooltip( "", {
 			tid = data.uid, is_active = true, is_special = is_active,
-			dims = { size_x, size_y }, pic_z = pic_z + 0.1, pos = { pic_x - data.edging, pic_y }}) --why do I need to correct pic_x
-		mnee.new_scroller( data.uid.."_scroller", pic_x, pic_y, pic_z, size_x, size_y, function( scroll_pos )
+			dims = { size_x, size_y }, pic_z = pic_z + 0.1, pos = { pic_x - data.edging, pic_y }})
+		if( do_hov ) then pen.new_pixel( pic_x - data.edging - 1, pic_y - 1,
+			pic_z + 0.15, pen.PALETTE.PRSP[ is_active and "BLUE" or "RED" ], size_x + 6, size_y + 6 ) end
+		mnee.new_scroller( data.uid.."_scroller", pic_x, pic_y + 1, pic_z, size_x, size_y + 2, function( scroll_pos )
 			if( not( data.no_wrap )) then
 				data.dims = { size_x, -1 } end
 			if( is_active ) then
 				t = pen.c.input_data.buffer
 				data.no_culling, data.fully_featured = true, true
-				pen.new_text( scroll_pos[2], scroll_pos[1], pic_z - 1, "{>cursor>{"..( t or "" ).."}<cursor<}", data )
+				pen.new_text( scroll_pos[2], scroll_pos[1] - 1, pic_z - 1, "{>cursor>{"..( t or "" ).."}<cursor<}", data )
 			end
 
 			data.no_culling, data.fully_featured = false, false
 			data.color = pen.PALETTE.PRSP[ is_active and "BLUE" or ( do_hov and "RED" or "BLUE" )]
-			local dims, new_line = pen.new_text( scroll_pos[2], scroll_pos[1], pic_z, t, data )
+			local dims, new_line = pen.new_text( scroll_pos[2], scroll_pos[1] - 1, pic_z, t, data )
 			return { dims[2] + ( string.sub( t, -1, -1 ) == "\n" and new_line or 0 ) + 1, dims[1]}
 		end, data )
 	end
@@ -1450,24 +1457,24 @@ mnee.BANNED_KEYS = pen.t.unarray({
 })
 
 pen.TUNES.PRSP = {
-	CLICK = {"mods/mnee/files/sfx/mnee.bank","button_generic"},
-	CLICK_ALT = {"mods/mnee/files/sfx/mnee.bank","button_special"},
-	SELECT = {"mods/mnee/files/sfx/mnee.bank","select"},
-	CONFIRM = {"mods/mnee/files/sfx/mnee.bank","confirm"},
-	SWITCH = {"mods/mnee/files/sfx/mnee.bank","switch_page"},
-	SWITCH_ALT = {"mods/mnee/files/sfx/mnee.bank","switch_dimension"},
-	DELETE = {"mods/mnee/files/sfx/mnee.bank","delete"},
-	RESET = {"mods/mnee/files/sfx/mnee.bank","clear_all"},
-	ERROR = {"mods/mnee/files/sfx/mnee.bank","error"},
+	CLICK = {"mods/mnee/files/mnee.bank","button_generic"},
+	CLICK_ALT = {"mods/mnee/files/mnee.bank","button_special"},
+	SELECT = {"mods/mnee/files/mnee.bank","select"},
+	CONFIRM = {"mods/mnee/files/mnee.bank","confirm"},
+	SWITCH = {"mods/mnee/files/mnee.bank","switch_page"},
+	SWITCH_ALT = {"mods/mnee/files/mnee.bank","switch_dimension"},
+	DELETE = {"mods/mnee/files/mnee.bank","delete"},
+	RESET = {"mods/mnee/files/mnee.bank","clear_all"},
+	ERROR = {"mods/mnee/files/mnee.bank","error"},
 
-	PICK = {"mods/mnee/files/sfx/mnee.bank","capture"},
-	DROP = {"mods/mnee/files/sfx/mnee.bank","uncapture"},
-	OPEN = {"mods/mnee/files/sfx/mnee.bank","open_window"},
-	CLOSE = {"mods/mnee/files/sfx/mnee.bank","close_window"},
-	FOLD = {"mods/mnee/files/sfx/mnee.bank","minimize"},
-	UNFOLD = {"mods/mnee/files/sfx/mnee.bank","unminimize"},
-	BOOT = {"mods/mnee/files/sfx/mnee.bank","open_main"},
-	BOOT_LONG = {"mods/mnee/files/sfx/mnee.bank","bootup"},
+	PICK = {"mods/mnee/files/mnee.bank","capture"},
+	DROP = {"mods/mnee/files/mnee.bank","uncapture"},
+	OPEN = {"mods/mnee/files/mnee.bank","open_window"},
+	CLOSE = {"mods/mnee/files/mnee.bank","close_window"},
+	FOLD = {"mods/mnee/files/mnee.bank","minimize"},
+	UNFOLD = {"mods/mnee/files/mnee.bank","unminimize"},
+	BOOT = {"mods/mnee/files/mnee.bank","open_main"},
+	BOOT_LONG = {"mods/mnee/files/mnee.bank","bootup"},
 }
 
 mnee.INMODES = {

@@ -734,10 +734,10 @@ end
 function mnee.new_scroller( sid, pic_x, pic_y, pic_z, size_x, size_y, func, data )
 	data = data or {}
 	data.bar_colors = data.bar_colors or {
-		pen.PALETTE.PRSP.BLUE, pen.PALETTE.PRSP.RED,
-		pen.PALETTE.PRSP.BLUE, pen.PALETTE.PRSP.RED,
-		pen.PALETTE.PRSP.BLUE, pen.PALETTE.PRSP.RED,
-		pen.PALETTE.PRSP.BLUE, pen.PALETTE.PRSP.RED,
+		pen.PALETTE.PRSP[ data.is_compact and "PURPLE" or "BLUE" ], pen.PALETTE.PRSP.RED,
+		pen.PALETTE.PRSP[ data.is_compact and "PURPLE" or "BLUE" ], pen.PALETTE.PRSP.RED,
+		pen.PALETTE.PRSP[ data.is_compact and "PURPLE" or "BLUE" ], pen.PALETTE.PRSP.RED,
+		pen.PALETTE.PRSP[ data.is_compact and "PURPLE" or "BLUE" ], pen.PALETTE.PRSP.RED,
 		pen.PALETTE.PRSP.PURPLE, pen.PALETTE.PRSP.BLUE
 	}
 	

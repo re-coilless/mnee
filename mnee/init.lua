@@ -296,6 +296,8 @@ function OnWorldPreUpdate()
 		end
 	end
 
+	--controller focusing handling
+
 	local button_deadzone = pen.setting_get( "mnee.DEADZONE_BUTTON" )/20
 	local active_core = mnee.get_current_keys()..pen.t.loop_concat( pen.t.unarray( mnee.get_axes()), function( i, v )
 		if( math.abs( v[2]) < button_deadzone ) then return end

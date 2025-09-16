@@ -988,13 +988,11 @@ pen.new_interface = function( pic_x, pic_y, s_x, s_y, pic_z, data )
 	data = data or {}
 	data.emulator = data.emulator or function( pic_x, pic_y, pic_z, s_x, s_y, clicked, r_clicked, is_hovered, data )
 		if( not( data.focus )) then return clicked, r_clicked, is_hovered end
-		--if focus[1] is number, then only corresponding controller can focus
-		--L3 on main controller should open mnee window (note this everywhere)
 
 		local may_focus, fid, is_vip = unpack( data.focus )
 		local k = pen.t.loop({ 1, 2, 3, 4 }, function( i )
 			if( may_focus ~= true and may_focus ~= i ) then return end
-			local state = GlobalsGetValue( pen.GLOBAL_JPAD_FOCUS..i, "_")--"" )
+			local state = GlobalsGetValue( pen.GLOBAL_JPAD_FOCUS..i, "" )
 			
 			if( state == "_" ) then
 				local focus_loop = GlobalsGetValue( pen.GLOBAL_JPAD_FOCUS_LOOP..i, "" )
@@ -1013,41 +1011,105 @@ pen.new_interface = function( pic_x, pic_y, s_x, s_y, pic_z, data )
 					GlobalsSetValue( pen.GLOBAL_JPAD_FOCUS..i, target[1])
 					GlobalsSetValue( pen.GLOBAL_JPAD_FOCUS_TARGET..i, "" )
 				end
-			elseif( state ~= fid ) then --should only start looping once the swap request has been issued
-				if( pen.vld( pen.c.controller_focus )) then
-					local d_x = pen.c.controller_focus[1] - pic_x
-					local d_y = pen.c.controller_focus[2] - pic_y
-					local angle, dist = math.atan2( d_y, d_x ), math.sqrt( d_x^2 + d_y^2 )
+			elseif( state ~= fid ) then
+				local is_looping = GlobalsGetValue( pen.GLOBAL_JPAD_TARGET_LOOP..i, "" ) ~= ""
+				if( pen.vld( pen.c.controller_focus ) and is_looping ) then
+					local d_x = pic_x - pen.c.controller_focus[1]
+					local d_y = pic_y - pen.c.controller_focus[2]
+					local dist = math.sqrt( d_x^2 + d_y^2 )
+					local angle = math.atan2( d_y, d_x )
 
-					local side = pen.GLOBAL_JPAD_TARGET_D
-					if( angle < math.rad( -135 ) and angle > math.rad( 135 )) then
-						side = pen.GLOBAL_JPAD_TARGET_L
-					elseif( angle > math.rad( -45 ) and angle < math.rad( 45 )) then
-						side = pen.GLOBAL_JPAD_TARGET_R
-					elseif( angle >= math.rad( -135 ) and angle <= math.rad( -45 )) then
-						side = pen.GLOBAL_JPAD_TARGET_U
-					end
+					local quads = {{ -135,-45,2 }, { 45,135,1 }, { -45,45,4 }, { 135,-135,3 }}
+					pen.t.loop( quads, function( n, v )
+						local extra = quads[ v[3]]
+						local is_valid = ( angle >= math.rad( v[1]) and angle <= math.rad( v[2]))
+							or ( n == 4 and ( angle >= math.rad( v[1]) or angle <= math.rad( v[2])))
+						local is_extra = ( angle >= math.rad( extra[1]) and angle <= math.rad( extra[2]))
+							or ( v[3] == 4 and ( angle >= math.rad( extra[1]) or angle <= math.rad( extra[2])))
+						local side = pen[ "GLOBAL_JPAD_TARGET_"..({ "U", "D", "R", "L" })[n]]
+						local t = pen.t.pack( GlobalsGetValue( side..i, "|_|0|_|0|" ))
 
-					-- dpad/left_stick to switch between
+						local side_id, side_dist, extra_id, extra_dist = unpack( t )
+						if( is_valid and ( side_id == "_" or side_dist > dist )) then
+							GlobalsSetValue( side..i, pen.t.pack({ fid, dist, extra_id, extra_dist }))
+						elseif( is_extra and ( extra_id == "_" or extra_dist < dist )) then
+							GlobalsSetValue( side..i, pen.t.pack({ side_id, side_dist, fid, dist }))
+						end
+					end)
 				end
 			else
+				local go_up = mnee.mnin( "key", i.."gpd_up", { pressed = true })
+				local go_down = mnee.mnin( "key", i.."gpd_down", { pressed = true })
+				local go_left = mnee.mnin( "key", i.."gpd_left", { pressed = true })
+				local go_right = mnee.mnin( "key", i.."gpd_right", { pressed = true })
+
+				local will_swap = go_up or go_down or go_left or go_right
+				local may_swap = GlobalsGetValue( pen.GLOBAL_JPAD_TARGET_LOOP..i, "" )
+				if( will_swap and may_swap == "" ) then
+					pen.c.controller_swap = { go_up, go_down, go_left, go_right }
+					GlobalsSetValue( pen.GLOBAL_JPAD_TARGET_LOOP..i, fid )
+				end
+				
+				if( may_swap == fid ) then
+					local new_target = "_"
+					if( pen.c.controller_swap[1]) then
+						new_target = pen.t.pack( GlobalsGetValue( pen.GLOBAL_JPAD_TARGET_U..i, "|_|0|_|0|" ))
+					elseif( pen.c.controller_swap[2]) then
+						new_target = pen.t.pack( GlobalsGetValue( pen.GLOBAL_JPAD_TARGET_D..i, "|_|0|_|0|" ))
+					elseif( pen.c.controller_swap[3]) then
+						new_target = pen.t.pack( GlobalsGetValue( pen.GLOBAL_JPAD_TARGET_L..i, "|_|0|_|0|" ))
+					elseif( pen.c.controller_swap[4]) then
+						new_target = pen.t.pack( GlobalsGetValue( pen.GLOBAL_JPAD_TARGET_R..i, "|_|0|_|0|" ))
+					end
+
+					pen.c.controller_swap = nil
+					GlobalsSetValue( pen.GLOBAL_JPAD_TARGET_LOOP..i, "" )
+					GlobalsSetValue( pen.GLOBAL_JPAD_TARGET_U..i, "|_|0|_|0|" )
+					GlobalsSetValue( pen.GLOBAL_JPAD_TARGET_D..i, "|_|0|_|0|" )
+					GlobalsSetValue( pen.GLOBAL_JPAD_TARGET_L..i, "|_|0|_|0|" )
+					GlobalsSetValue( pen.GLOBAL_JPAD_TARGET_R..i, "|_|0|_|0|" )
+
+					local t = new_target[ new_target[1] == "_" and 3 or 1 ]
+					if( t ~= "_" ) then GlobalsSetValue( pen.GLOBAL_JPAD_FOCUS..i, t ) end
+				end
+
 				pen.c.controller_focus = { data.real_x, data.real_y }
 				return i
 			end
 
-			--A for lmb (dragger should work in full 2D plane), Y for rmb, R1 for shift, R2 for ctrl, L2 for alt, L1 for free roam, R3 to focus/unfocus
-			--gamepad selection visualization is circular blinking of every corner between two colors unique for every player
-
-			--do not allow two controllers to focus on same widget
+			--if focus[1] is number, then only corresponding controller can focus
+			--gpd_l3 on main controller should open mnee window (note this everywhere)
 			--make sure that focus will be lost of gui object disappearance (pen.GLOBAL_JPAD_FOCUS_SAFETY)
 			--controllers should be mnee inmode guied too (do this automatically as soon as global is not "")
-			--interpolation for visualizer movement
+			--interpolation for visualizer movement + special effect for initial focusing
 		end)
 
-		if(( k or 0 ) > 0 ) then --put player colors into the global table
-			pen.new_pixel( pic_x, pic_y, pen.LAYERS.DEBUG, {100,255,100,0.75}, s_x, s_y, nil, data.angle )
+		local is_jpad = false
+		if(( k or 0 ) > 0 ) then
+			local pic = "mods/mnee/files/pics/corner.png"
+			pen.new_image( pic_x, pic_y, pen.LAYERS.DEBUG, pic,
+				{ color = pen.PALETTE[ "P"..k.."_A" ], s_x = 0.5, s_y = 0.5, angle = data.angle })
+			pen.new_image( pic_x + s_x, pic_y, pen.LAYERS.DEBUG, pic,
+				{ color = pen.PALETTE[ "P"..k.."_A" ], s_x = -0.5, s_y = 0.5, angle = data.angle })
+			pen.new_image( pic_x, pic_y + s_y, pen.LAYERS.DEBUG, pic,
+				{ color = pen.PALETTE[ "P"..k.."_A" ], s_x = 0.5, s_y = -0.5, angle = data.angle })
+			pen.new_image( pic_x + s_x, pic_y + s_y, pen.LAYERS.DEBUG, pic,
+				{ color = pen.PALETTE[ "P"..k.."_A" ], s_x = -0.5, s_y = -0.5, angle = data.angle })
+
+			if( mnee.mnin( "key", k.."gpd_r3", { pressed = true })) then
+				GlobalsSetValue( pen.GLOBAL_JPAD_FOCUS..k, "" )
+			end
+			--gpd_r1 for shift, gpd_r2 for ctrl, gpd_l2 for alt
+			--gpd_l1 for free focus with both dpad and left stick
+
+			--tips, draggers, scrollers
+			--gamepad selection visualization is circular blinking of every corner between two colors unique for every player
+
+			is_hovered, is_jpad = true, true
+			clicked = mnee.mnin( "key", k.."gpd_a", { pressed = true }) --dragger should work in full 2D plane
+			r_clicked = mnee.mnin( "key", k.."gpd_y", { pressed = true })
 		end
-		return clicked, r_clicked, is_hovered
+		return clicked, r_clicked, is_hovered, is_jpad
 	end
 
 	return pen._new_interface( pic_x, pic_y, s_x, s_y, pic_z, data )

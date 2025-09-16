@@ -3192,7 +3192,8 @@ function pen.rate_creature( entity_id, hooman, data )--hamis at 20m is 1
 	return pen.vld( final_value ) and final_value or 0
 end
 
-function pen.magic_particles( x, y, r, data )
+--wrapper that allows one to easily create normal sprite tier emitters with animation support
+function pen.magic_particles( x, y, r, data ) --thanks Copi
 	data = data or {}
 	if( not( ModDoesFileExist( pen.FILE_MAGIC_EMITTER ))) then
 		if( pen.magic_write and not( pen.c.magic_emitter_file )) then
@@ -3924,7 +3925,7 @@ function pen.new_interface( pic_x, pic_y, s_x, s_y, pic_z, data )
 		if( got_cutter ) then pic_x, pic_y = pen.c.cutter_dims.xy[1] + pic_x, pen.c.cutter_dims.xy[2] + pic_y end
 		is_hovered = pen.check_bounds( m_pos, { s_x, s_y }, { pic_x, pic_y, data.angle }, data.distance_func )
 	end
-	
+
 	if( is_hovered ) then
 		if( data.is_debugging ) then
 			pen.new_pixel( local_x, local_y, pen.LAYERS.DEBUG, {255,100,100,0.75}, s_x, s_y, nil, data.angle )
@@ -3971,6 +3972,9 @@ function pen.new_interface( pic_x, pic_y, s_x, s_y, pic_z, data )
 		is_hovered = is_new or not( data.ignore_multihover )
 	end
 
+	if( pen.vld( data.emulator )) then
+		data.real_x, data.real_y = pic_x, pic_y
+		return data.emulator( local_x, local_y, pic_z, s_x, s_y, clicked, r_clicked, is_hovered, data ) end
 	return clicked, r_clicked, is_hovered
 end
 
@@ -4952,25 +4956,38 @@ pen.FLAG_INTERFACE_TOGGLE = "PENMAN_INTERFACE_DOWN"
 
 pen.GLOBAL_SCREEN_X = "PENMAN_SCREEN_X"
 pen.GLOBAL_SCREEN_Y = "PENMAN_SCREEN_Y"
-pen.GLOBAL_INPUT_STATE = "PENMAN_INPUT_STATE"
-pen.GLOBAL_INPUT_FRAME = "PENMAN_INPUT_FRAME"
+pen.GLOBAL_WHO_SHOT = "PENMAN_WHO_SHOT"
+pen.GLOBAL_FONT_REMAP = "PENMAN_FONT_REMAP"
 pen.GLOBAL_VIRTUAL_ID = "PENMAN_VIRTUAL_INDEX"
-pen.GLOBAL_INTERFACE_Z = "PENMAN_INTERFACE_Z"
-pen.GLOBAL_TIPZ_RESOLVER = "PENMAN_TIPZ_RESOLVER"
 pen.GLOBAL_DRAGGER_SAFETY = "PENMAN_DRAGGER_FRAME"
-pen.GLOBAL_INTERFACE_MEMO = "PENMAN_INTERFACE_MEMO"
-pen.GLOBAL_KEYBOARD_STYLE = "PENMAN_KEYBOARD_STYLE"
-pen.GLOBAL_TIPZ_RESOLVER_FRAME = "PENMAN_TIPZ_FRAME"
-pen.GLOBAL_INTERFACE_FRAME = "PENMAN_INTERFACE_FRAME"
+pen.GLOBAL_SETTINGS_CACHE = "PENMAN_SETTINGS_CACHE"
 pen.GLOBAL_UNSCROLLER_SAFETY = "PENMAN_UNSCROLLER_FRAME"
+
+pen.GLOBAL_INTERFACE_Z = "PENMAN_INTERFACE_Z"
+pen.GLOBAL_INTERFACE_MEMO = "PENMAN_INTERFACE_MEMO"
+pen.GLOBAL_INTERFACE_FRAME = "PENMAN_INTERFACE_FRAME"
 pen.GLOBAL_INTERFACE_FRAME_Z = "PENMAN_INTERFACE_FRAME_Z"
 pen.GLOBAL_INTERFACE_SAFETY_LL = "PENMAN_INTERFACE_SAFETY_LL"
 pen.GLOBAL_INTERFACE_SAFETY_TL = "PENMAN_INTERFACE_SAFETY_TL"
 pen.GLOBAL_INTERFACE_SAFETY_LR = "PENMAN_INTERFACE_SAFETY_LR"
 pen.GLOBAL_INTERFACE_SAFETY_TR = "PENMAN_INTERFACE_SAFETY_TR"
-pen.GLOBAL_SETTINGS_CACHE = "PENMAN_SETTINGS_CACHE"
-pen.GLOBAL_FONT_REMAP = "PENMAN_FONT_REMAP"
-pen.GLOBAL_WHO_SHOT = "PENMAN_WHO_SHOT"
+
+pen.GLOBAL_TIPZ_RESOLVER = "PENMAN_TIPZ_RESOLVER"
+pen.GLOBAL_TIPZ_RESOLVER_FRAME = "PENMAN_TIPZ_FRAME"
+
+pen.GLOBAL_INPUT_STATE = "PENMAN_INPUT_STATE"
+pen.GLOBAL_INPUT_FRAME = "PENMAN_INPUT_FRAME"
+pen.GLOBAL_KEYBOARD_STYLE = "PENMAN_KEYBOARD_STYLE"
+
+pen.GLOBAL_JPAD_FOCUS = "PENMAN_JPAD_FOCUS_"
+pen.GLOBAL_JPAD_FOCUS_LOOP = "PENMAN_JPAD_FOCUS_LOOP_"
+pen.GLOBAL_JPAD_FOCUS_TARGET = "PENMAN_JPAD_FOCUS_TARGET_"
+pen.GLOBAL_JPAD_FOCUS_SAFETY = "PENMAN_JPAD_FOCUS_SAFETY_"
+pen.GLOBAL_JPAD_TARGET_LOOP = "PENMAN_JPAD_TARGET_LOOP_"
+pen.GLOBAL_JPAD_TARGET_L = "PENMAN_JPAD_TARGET_L_"
+pen.GLOBAL_JPAD_TARGET_R = "PENMAN_JPAD_TARGET_R_"
+pen.GLOBAL_JPAD_TARGET_U = "PENMAN_JPAD_TARGET_U_"
+pen.GLOBAL_JPAD_TARGET_D = "PENMAN_JPAD_TARGET_D_"
 
 pen.MARKER_TAB = "\\_"
 pen.MARKER_FANCY_TEXT = { "{>%S->{", "}<%S-<}", "{%-}%S-{%-}" }
@@ -5451,6 +5468,16 @@ pen.PALETTE = {
 	ERR = {255,0,0}, _="ffff0000",
 	W = {255,255,255}, _="ffffffff",
 	SHADOW = {46,34,47}, _="ff2e222f",
+	
+	P1_A = {245,132,132}, _="fff58484",
+	P1_B = {69,49,68}, _="ff453144",
+	P2_A = {136,121,247}, _="ff8879f7",
+	P2_B = {41,69,79}, _="ff29454f",
+	P3_A = {105,153,93}, _="ff69995d",
+	P3_B = {48,63,46}, _="ff303f2e",
+	P4_A = {218,175,102}, _="ffdaaf66",
+	P4_B = {72,64,49}, _="ff484031",
+	
 	VNL = {
 		HP = {135,191,28}, _="ff87bf1c",
 		RED = {208,70,70}, _="ffd04646",
@@ -5504,9 +5531,9 @@ pen.PALETTE = {
 	PRSP = {
 		RED = {245,132,132}, _="fff58484",
 		BLUE = {136,121,247}, _="ff8879f7",
+		GREEN = {105,153,93}, _="ff69995d",
 		GREY = {176,176,176}, _="ffb0b0b0",
 		WHITE = {238,226,206}, _="ffeee2ce",
-		GREEN = {157,245,132}, _="ff9df584",
 		PURPLE = {179,141,232}, _="ffb38de8",
 	},
 	N40 = { --ammo types, classes, misc colors
@@ -5538,7 +5565,7 @@ pen.PALETTE = {
 		PURPLE_5 = {162,62,140}, _="ffa23e8c",
 		PURPLE_6 = {198,81,151}, _="ffc65197",
 	},
-	SWRD = {
+	HEIR = {
 		IRON_1 = {32,46,55}, _="ff202e37",
 		IRON_2 = {57,74,80}, _="ff394a50",
 		IRON_3 = {87,114,119}, _="ff577277",

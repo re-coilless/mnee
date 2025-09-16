@@ -296,14 +296,19 @@ function OnWorldPreUpdate()
 		end
 	end
 
-	--controller focusing handling
-
 	local button_deadzone = pen.setting_get( "mnee.DEADZONE_BUTTON" )/20
 	local active_core = mnee.get_current_keys()..pen.t.loop_concat( pen.t.unarray( mnee.get_axes()), function( i, v )
 		if( math.abs( v[2]) < button_deadzone ) then return end
 		return { string.gsub( v[1], "gpd_axis", "gpd_btn" ), "_", ( v[2] > 0 and "+" or "-" ), pen.DIV_1 }
 	end)
 	GlobalsSetValue( mnee.G_DOWN, active_core )
+	
+	for i = 1,4 do
+		local state = GlobalsGetValue( pen.GLOBAL_JPAD_FOCUS..i, "" )
+		if( state == "" and mnee.mnin( "key", i.."gpd_r3", { pressed = true })) then
+			GlobalsSetValue( pen.GLOBAL_JPAD_FOCUS..i, "_" )
+		end
+	end
 	
 	if( mnee.mnin( "bind", { "mnee", "menu" }, { pressed = true, vip = true })) then
 		pen.play_sound( pen.TUNES.PRSP[ mnee.G.gui_active and "CLOSE" or "OPEN" ])

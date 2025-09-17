@@ -1010,6 +1010,15 @@ pen.new_interface = function( pic_x, pic_y, s_x, s_y, pic_z, data )
 					GlobalsSetValue( pen.GLOBAL_JPAD_FOCUS_LOOP..i, "" )
 					GlobalsSetValue( pen.GLOBAL_JPAD_FOCUS..i, target[1])
 					GlobalsSetValue( pen.GLOBAL_JPAD_FOCUS_TARGET..i, "" )
+
+					local w, h = pen.get_screen_data()
+					pen.c.estimator_memo = pen.c.estimator_memo or {}
+					pen.c.estimator_memo[ "jpad_focus_pos_x_"..i ] = 0
+					pen.c.estimator_memo[ "jpad_focus_pos_y_"..i ] = 0
+					pen.c.estimator_memo[ "jpad_focus_size_x_"..i ] = w
+					pen.c.estimator_memo[ "jpad_focus_size_y_"..i ] = h
+					GlobalsSetValue( pen.GLOBAL_JPAD_POS..i, "|0|0|" )
+					GlobalsSetValue( pen.GLOBAL_JPAD_SIZE..i, pen.t.pack({ w, h }))
 				end
 			elseif( state ~= fid ) then
 				local is_looping = GlobalsGetValue( pen.GLOBAL_JPAD_TARGET_LOOP..i, "" ) ~= ""
@@ -1077,36 +1086,63 @@ pen.new_interface = function( pic_x, pic_y, s_x, s_y, pic_z, data )
 				return i
 			end
 
-			--if focus[1] is number, then only corresponding controller can focus
-			--gpd_l3 on main controller should open mnee window (note this everywhere)
-			--make sure that focus will be lost of gui object disappearance (pen.GLOBAL_JPAD_FOCUS_SAFETY)
-			--controllers should be mnee inmode guied too (do this automatically as soon as global is not "")
-			--interpolation for visualizer movement + special effect for initial focusing
+			--if not is_vip zones is present, the focus attempt fails
+			--make sure that focus will be lost on gui object disappearance (pen.GLOBAL_JPAD_FOCUS_SAFETY)
 		end)
 
 		local is_jpad = false
 		if(( k or 0 ) > 0 ) then
+			local z = pen.LAYERS.DEBUG - k
 			local pic = "mods/mnee/files/pics/corner.png"
-			pen.new_image( pic_x, pic_y, pen.LAYERS.DEBUG, pic,
-				{ color = pen.PALETTE[ "P"..k.."_A" ], s_x = 0.5, s_y = 0.5, angle = data.angle })
-			pen.new_image( pic_x + s_x, pic_y, pen.LAYERS.DEBUG, pic,
-				{ color = pen.PALETTE[ "P"..k.."_A" ], s_x = -0.5, s_y = 0.5, angle = data.angle })
-			pen.new_image( pic_x, pic_y + s_y, pen.LAYERS.DEBUG, pic,
-				{ color = pen.PALETTE[ "P"..k.."_A" ], s_x = 0.5, s_y = -0.5, angle = data.angle })
-			pen.new_image( pic_x + s_x, pic_y + s_y, pen.LAYERS.DEBUG, pic,
-				{ color = pen.PALETTE[ "P"..k.."_A" ], s_x = -0.5, s_y = -0.5, angle = data.angle })
+			local anim = math.sin( GameGetFrameNum()/15 ) + 1
+			
+			local pos = pen.t.pack( GlobalsGetValue( pen.GLOBAL_JPAD_POS..k, "|0|0|" ))
+			if( pos[1] ~= pic_x or pos[2] ~= pic_y ) then
+				GlobalsSetValue( pen.GLOBAL_JPAD_POS..k, pen.t.pack({
+					pen.estimate( "jpad_focus_pos_x_"..k, pic_x, "wgt0.5" ),
+					pen.estimate( "jpad_focus_pos_y_"..k, pic_y, "wgt0.5" )}))
+			end
+			local size = pen.t.pack( GlobalsGetValue( pen.GLOBAL_JPAD_SIZE..k, "|0|0|" ))
+			if( size[1] ~= s_x or size[2] ~= s_y ) then
+				GlobalsSetValue( pen.GLOBAL_JPAD_SIZE..k, pen.t.pack({
+					pen.estimate( "jpad_focus_size_x_"..k, s_x, "wgt0.5" ),
+					pen.estimate( "jpad_focus_size_y_"..k, s_y, "wgt0.5" )}))
+			end
 
+			pen.new_image( pos[1] - 1, pos[2] - 1, z, pic,
+				{ color = pen.PALETTE[ "P"..k.."_A" ], s_x = 0.5, s_y = 0.5, alpha = anim })
+			pen.new_image( pos[1] - 1, pos[2] - 1, z + 0.1, pic,
+				{ color = pen.PALETTE[ "P"..k.."_B" ], s_x = 0.5, s_y = 0.5, alpha = 0.75 })
+			pen.new_image( pos[1] + size[1] + 1, pos[2] - 1, z, pic,
+				{ color = pen.PALETTE[ "P"..k.."_A" ], s_x = -0.5, s_y = 0.5, alpha = 1 - anim })
+			pen.new_image( pos[1] + size[1] + 1, pos[2] - 1, z + 0.1, pic,
+				{ color = pen.PALETTE[ "P"..k.."_B" ], s_x = -0.5, s_y = 0.5, alpha = 0.75 })
+			pen.new_image( pos[1] - 1, pos[2] + size[2] + 1, z, pic,
+				{ color = pen.PALETTE[ "P"..k.."_A" ], s_x = 0.5, s_y = -0.5, alpha = 1 - anim })
+			pen.new_image( pos[1] - 1, pos[2] + size[2] + 1, z + 0.1, pic,
+				{ color = pen.PALETTE[ "P"..k.."_B" ], s_x = 0.5, s_y = -0.5, alpha = 0.75 })
+			pen.new_image( pos[1] + size[1] + 1, pos[2] + size[2] + 1, z, pic,
+				{ color = pen.PALETTE[ "P"..k.."_A" ], s_x = -0.5, s_y = -0.5, alpha = anim })
+			pen.new_image( pos[1] + size[1] + 1, pos[2] + size[2] + 1, z + 0.1, pic,
+				{ color = pen.PALETTE[ "P"..k.."_B" ], s_x = -0.5, s_y = -0.5, alpha = 0.75 })
+			
 			if( mnee.mnin( "key", k.."gpd_r3", { pressed = true })) then
 				GlobalsSetValue( pen.GLOBAL_JPAD_FOCUS..k, "" )
 			end
-			--gpd_r1 for shift, gpd_r2 for ctrl, gpd_l2 for alt
+			
+			--gpd_l3 on any controller should open mnee window (introduce universal controller bind mode)
+			--gpd_r1 for shift, gpd_r2 for ctrl, gpd_l2 for alt (put all special key getting into a separate func)
 			--gpd_l1 for free focus with both dpad and left stick
+			--right stick with gpd_l1 for moving text cursor
 
-			--tips, draggers, scrollers
-			--gamepad selection visualization is circular blinking of every corner between two colors unique for every player
-
-			is_hovered, is_jpad = true, true
-			clicked = mnee.mnin( "key", k.."gpd_a", { pressed = true }) --dragger should work in full 2D plane
+			--tips (allow adjusting with right stick)
+			--draggers (monkeypatch an emulator func)
+			--scrollers (autoscroll to keep focused visible)
+			--mouse pos (continuously emulate to match with gamepad pos)
+			--mnee.get_axes() and mnee.get_triggers() should get an inmode
+			
+			is_hovered, is_jpad = true, k
+			clicked = mnee.mnin( "key", k.."gpd_a", { pressed = true })
 			r_clicked = mnee.mnin( "key", k.."gpd_y", { pressed = true })
 		end
 		return clicked, r_clicked, is_hovered, is_jpad
@@ -1635,25 +1671,73 @@ mnee.INMODES = {
 			mnee.G.mb_memo[i] = state
 		end
 
+		local vals_jpad = {
+			["gpd_y"] = "gpd_y_gui",
+			["gpd_x"] = "gpd_x_gui",
+			["gpd_a"] = "gpd_a_gui",
+			["gpd_b"] = "gpd_b_gui",
+
+			["gpd_r1"] = "gpd_r1_gui",
+			["gpd_r2"] = "gpd_r2_gui",
+			["gpd_r3"] = "gpd_r3_gui",
+			["gpd_l1"] = "gpd_l1_gui",
+			["gpd_l2"] = "gpd_l2_gui",
+			["gpd_l3"] = "gpd_l3_gui",
+
+			["gpd_up"] = "gpd_up_gui",
+			["gpd_down"] = "gpd_down_gui",
+			["gpd_left"] = "gpd_left_gui",
+			["gpd_right"] = "gpd_right_gui",
+
+			["gpd_select"] = "gpd_select_gui",
+			["gpd_start"] = "gpd_start_gui",
+
+			["gpd_btn_lh_%+"] = "gpd_btn_lh_+_gui",
+			["gpd_btn_lh_%-"] = "gpd_btn_lh_-_gui",
+			["gpd_btn_lv_%+"] = "gpd_btn_lv_+_gui",
+			["gpd_btn_lv_%-"] = "gpd_btn_lv_-_gui",
+			["gpd_btn_rh_%+"] = "gpd_btn_rh_+_gui",
+			["gpd_btn_rh_%-"] = "gpd_btn_rh_-_gui",
+			["gpd_btn_rv_%+"] = "gpd_btn_rv_+_gui",
+			["gpd_btn_rv_%-"] = "gpd_btn_rv_-_gui",
+		}
+
+		pen.t.loop({ 1, 2, 3, 4 }, function( i )
+			if( GlobalsGetValue( pen.GLOBAL_JPAD_FOCUS..i, "" ) == "" ) then return end
+			for old,new in pairs( vals_jpad ) do active = string.gsub( active, old, new ) end
+		end)
+
 		return active
 	end,
 
-	guied_instant = function( ctrl_body, active )
-		local ctrl_comp = EntityGetFirstComponentIncludingDisabled( ctrl_body, "ControlsComponent" )
+	-- guied_instant = function( ctrl_body, active )
+	-- 	local ctrl_comp = EntityGetFirstComponentIncludingDisabled( ctrl_body, "ControlsComponent" )
 		
-		local vals = {
-			{ "mButtonDownLeftClick", "mouse_left", "mouse_left_gui" },
-			{ "mButtonDownRightClick", "mouse_right", "mouse_right_gui" },
-			{ "mButtonDownChangeItemL", "mouse_wheel_up", "mouse_wheel_up_gui" },
-			{ "mButtonDownChangeItemR", "mouse_wheel_down", "mouse_wheel_down_gui" },
-		}
+	-- 	local vals = {
+	-- 		{ "mButtonDownLeftClick", "mouse_left", "mouse_left_gui" },
+	-- 		{ "mButtonDownRightClick", "mouse_right", "mouse_right_gui" },
+	-- 		{ "mButtonDownChangeItemL", "mouse_wheel_up", "mouse_wheel_up_gui" },
+	-- 		{ "mButtonDownChangeItemR", "mouse_wheel_down", "mouse_wheel_down_gui" },
+	-- 	}
 		
-		for i,v in ipairs( vals ) do
-			local is_going = ComponentGetValue2( ctrl_comp, v[1])
-			if( not( is_going )) then active = string.gsub( active, v[2], v[3]) end
-		end
+	-- 	for i,v in ipairs( vals ) do
+	-- 		local is_going = ComponentGetValue2( ctrl_comp, v[1])
+	-- 		if( not( is_going )) then active = string.gsub( active, v[2], v[3]) end
+	-- 	end
 
-		return active
+	-- 	return active
+	-- end,
+}
+
+mnee.AXES_INMODES = {
+	guied = function( ctrl_body, state )
+		return state
+	end,
+}
+
+mnee.TRIGGERS_INMODES = {
+	guied = function( ctrl_body, state )
+		return state
 	end,
 }
 

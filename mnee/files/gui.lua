@@ -502,7 +502,8 @@ if( not( gonna_rebind )) then
         pen.new_image( t_x - 10, t_y - 2, pic_z + 1, "mods/mnee/files/pics/controller_panel.png", { can_click = true })
     end; ::continue::
     
-    mnee.G.pos[1], mnee.G.pos[2] = pen.new_dragger( "mnee_window", pic_x, pic_y, 142, 9 )
+    mnee.G.pos[1], mnee.G.pos[2] = pen.new_dragger( "mnee_window",
+        pic_x, pic_y, 142, 9, nil, { focus = { true, "mnee_window_dragger", true }})
     pen.new_image( pic_x + w_anim[1]*pic_w/2, pic_y + w_anim[2]*pic_h/2, pic_z + 0.05,
         "mods/mnee/files/pics/window.png", { s_x = 1 - w_anim[1], s_y = 1 - w_anim[2], can_click = true })
     

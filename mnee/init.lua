@@ -181,7 +181,7 @@ function OnModInit()
 		[242] = { pos = { 118, 10 }, rect_w = 4 }, --[ò]
 		[210] = { pos = { 123, 10 }, rect_w = 6 }, --[Ò]
 		[94] = { pos = { 130, 10 }, rect_w = 6 }, --[^]
-		[124] = { pos = { 137, 10 }, rect_w = 2 }, --[|]
+		--[124] = { pos = { 137, 10 }, rect_w = 2 }, --[|]
 		[126] = { pos = { 140, 10 }, rect_w = 6 }, --[~]
 		[172] = { pos = { 147, 10 }, rect_w = 6 }, --[¬]
 		[223] = { pos = { 63, 10 }, rect_w = 6 }, --[ß]
@@ -208,7 +208,7 @@ function OnModInit()
 		[242] = { pos = { 118, 32 }, rect_w = 4 }, --[ò]
 		[210] = { pos = { 123, 32 }, rect_w = 6 }, --[Ò]
 		[94] = { pos = { 130, 32 }, rect_w = 6 }, --[^]
-		[124] = { pos = { 137, 32 }, rect_w = 2 }, --[|]
+		--[124] = { pos = { 137, 32 }, rect_w = 2 }, --[|]
 		[126] = { pos = { 140, 32 }, rect_w = 6 }, --[~]
 		[172] = { pos = { 147, 32 }, rect_w = 6 }, --[¬]
 		[223] = { pos = { 63, 32 }, rect_w = 6 }, --[ß]
@@ -305,8 +305,17 @@ function OnWorldPreUpdate()
 	
 	for i = 1,4 do
 		local state = GlobalsGetValue( pen.GLOBAL_JPAD_FOCUS..i, "" )
-		if( state == "" and mnee.mnin( "key", i.."gpd_r3", { pressed = true })) then
-			GlobalsSetValue( pen.GLOBAL_JPAD_FOCUS..i, "_" )
+		if( state == "" ) then
+			if( mnee.mnin( "key", i.."gpd_r3" )) then
+				if( GlobalsGetValue( pen.GLOBAL_JPAD_DISARMER..i, "0" ) == "0" ) then
+					GlobalsSetValue( pen.GLOBAL_JPAD_DISARMER..i, "1" )
+					GlobalsSetValue( pen.GLOBAL_JPAD_FOCUS..i, "_" )
+				end
+			else GlobalsSetValue( pen.GLOBAL_JPAD_DISARMER..i, "0" ) end
+		elseif( state ~= "_" ) then
+			if( frame_num - tonumber( GlobalsGetValue( pen.GLOBAL_JPAD_SAFETY..i, "0" )) > 3 ) then
+				GlobalsSetValue( pen.GLOBAL_JPAD_FOCUS..i, "" )
+			end
 		end
 	end
 	
@@ -505,10 +514,6 @@ function OnPlayerSpawned( hooman )
 	if( pen.vld( entity_id, true )) then EntityKill( entity_id ) end
 	entity_id = EntityLoad( "mods/mnee/files/ctrl_body.xml" )
 	EntityAddChild( world_id, entity_id )
-	
-	for mode,func in pairs( mnee.INMODES ) do
-		pen.magic_storage( entity_id, "mnee_down_"..mode, "value_string", "" )
-	end
 
 	mnee.update_bindings()
 end

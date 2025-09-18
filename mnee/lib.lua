@@ -208,10 +208,11 @@ end
 ---@param inmode? string The name of the desired mode from mnee.INMODES list.
 ---@return table active_keys { key1, key2, key3, ...}
 function mnee.get_keys( inmode )
-	local ctrl_body = mnee.get_ctrl()
-	local inmode_func = mnee.INMODES[ inmode or "_" ]
 	local keys = GlobalsGetValue( mnee.G_DOWN, "" )
+	local inmode_func = mnee.INMODES[ inmode or "_" ]
 	if( not( pen.vld( inmode_func ))) then return pen.t.pack( keys ) end
+	local ctrl_body = mnee.get_ctrl()
+	if( not( pen.vld( ctrl_body, true ))) then return pen.t.pack( keys ) end
 
 	local frame_num = GameGetFrameNum()
 	local storage = pen.magic_storage( ctrl_body, "mnee_down_"..inmode, nil, nil, true )	
@@ -222,18 +223,44 @@ function mnee.get_keys( inmode )
 	return pen.t.pack( ComponentGetValue2( storage, "value_string" ))
 end
 ---Active gamepad trigger state getter.
+---@param inmode? string The name of the desired mode from mnee.TRIGGER_INMODES list.
 ---@return table trigger_states { 1gpd_l2=v, 1gpd_r2=v, 2gpd_l2=v, ...}
-function mnee.get_triggers()
-	return pen.t.unarray( pen.t.pack( GlobalsGetValue( mnee.G_TRIGGERS, "" )))
+function mnee.get_triggers( inmode )
+	local states = GlobalsGetValue( mnee.G_TRIGGERS, "" )
+	local inmode_func = mnee.TRIGGER_INMODES[ inmode or "_" ]
+	if( not( pen.vld( inmode_func ))) then return pen.t.unarray( pen.t.pack( states )) end
+	local ctrl_body = mnee.get_ctrl()
+	if( not( pen.vld( ctrl_body, true ))) then return pen.t.unarray( pen.t.pack( states )) end
+
+	local frame_num = GameGetFrameNum()
+	local storage = pen.magic_storage( ctrl_body, "mnee_triggers_"..inmode, nil, nil, true )	
+	if( ComponentGetValue2( storage, "value_int" ) ~= frame_num ) then
+		ComponentSetValue2( storage, "value_int", frame_num )
+		ComponentSetValue2( storage, "value_string", inmode_func( ctrl_body, states ))
+	end
+	return pen.t.unarray( pen.t.pack( ComponentGetValue2( storage, "value_string" )))
 end
 ---Active gamepad axis state getter.
+---@param inmode? string The name of the desired mode from mnee.AXIS_INMODES list.
 ---@return table axis_states { 1gpd_axis_lh=v, 1gpd_axis_lv=v, 1gpd_axis_rh=v, 1gpd_axis_rv=v, 2gpd_axis_lh=v, ...}
-function mnee.get_axes()
-	return pen.t.unarray( pen.t.pack( GlobalsGetValue( mnee.G_AXES, "" )))
+function mnee.get_axes( inmode )
+	local states = GlobalsGetValue( mnee.G_AXES, "" )
+	local inmode_func = mnee.AXIS_INMODES[ inmode or "_" ]
+	if( not( pen.vld( inmode_func ))) then return pen.t.unarray( pen.t.pack( states )) end
+	local ctrl_body = mnee.get_ctrl()
+	if( not( pen.vld( ctrl_body, true ))) then return pen.t.unarray( pen.t.pack( states )) end
+
+	local frame_num = GameGetFrameNum()
+	local storage = pen.magic_storage( ctrl_body, "mnee_axes_"..inmode, nil, nil, true )	
+	if( ComponentGetValue2( storage, "value_int" ) ~= frame_num ) then
+		ComponentSetValue2( storage, "value_int", frame_num )
+		ComponentSetValue2( storage, "value_string", inmode_func( ctrl_body, states ))
+	end
+	return pen.t.unarray( pen.t.pack( ComponentGetValue2( storage, "value_string" )))
 end
 
 ---Pressed-but-not-yet-released key list.
----@return table disarmed_key { key_id_1=last_down_frame, key_id_2=last_down_frame, ...}
+---@return table disarmed_keys { key_id_1=last_down_frame, key_id_2=last_down_frame, ...}
 function mnee.get_disarmer()
 	return pen.t.unarray( pen.t.pack( GlobalsGetValue( mnee.G_DISARMER, pen.DIV_1 )))
 end
@@ -989,15 +1016,20 @@ pen.new_interface = function( pic_x, pic_y, s_x, s_y, pic_z, data )
 	data.emulator = data.emulator or function( pic_x, pic_y, pic_z, s_x, s_y, clicked, r_clicked, is_hovered, data )
 		if( not( data.focus )) then return clicked, r_clicked, is_hovered end
 
+		local frame_num = GameGetFrameNum()
 		local may_focus, fid, is_vip = unpack( data.focus )
 		local k = pen.t.loop({ 1, 2, 3, 4 }, function( i )
 			if( may_focus ~= true and may_focus ~= i ) then return end
 			local state = GlobalsGetValue( pen.GLOBAL_JPAD_FOCUS..i, "" )
+
+			for e = i + 1, 4 do
+				if( GlobalsGetValue( pen.GLOBAL_JPAD_FOCUS..e, "" ) == fid ) then return end
+			end
 			
 			if( state == "_" ) then
 				local focus_loop = GlobalsGetValue( pen.GLOBAL_JPAD_FOCUS_LOOP..i, "" )
-				if( focus_loop == "" ) then GlobalsSetValue( pen.GLOBAL_JPAD_FOCUS_LOOP..i, fid ) end
 				local target = pen.t.pack( GlobalsGetValue( pen.GLOBAL_JPAD_FOCUS_TARGET..i, "" ))
+				if( focus_loop == "" ) then GlobalsSetValue( pen.GLOBAL_JPAD_FOCUS_LOOP..i, fid ) end
 
 				if( focus_loop ~= fid ) then
 					local dist = math.sqrt( data.real_x^2 + data.real_y^2 )
@@ -1006,10 +1038,11 @@ pen.new_interface = function( pic_x, pic_y, s_x, s_y, pic_z, data )
 						GlobalsSetValue( pen.GLOBAL_JPAD_FOCUS_TARGET..i, "|"..fid.."|"..dist.."|" )
 					end
 				else
-					pen.c.controller_focus = nil
+					GlobalsSetValue( pen.GLOBAL_JPAD_DOT..i, "" )
 					GlobalsSetValue( pen.GLOBAL_JPAD_FOCUS_LOOP..i, "" )
 					GlobalsSetValue( pen.GLOBAL_JPAD_FOCUS..i, target[1])
 					GlobalsSetValue( pen.GLOBAL_JPAD_FOCUS_TARGET..i, "" )
+					GlobalsSetValue( pen.GLOBAL_JPAD_SAFETY..i, frame_num )
 
 					local w, h = pen.get_screen_data()
 					pen.c.estimator_memo = pen.c.estimator_memo or {}
@@ -1021,13 +1054,13 @@ pen.new_interface = function( pic_x, pic_y, s_x, s_y, pic_z, data )
 					GlobalsSetValue( pen.GLOBAL_JPAD_SIZE..i, pen.t.pack({ w, h }))
 				end
 			elseif( state ~= fid ) then
+				local dot = pen.t.pack( GlobalsGetValue( pen.GLOBAL_JPAD_DOT..i, "" ))
 				local is_looping = GlobalsGetValue( pen.GLOBAL_JPAD_TARGET_LOOP..i, "" ) ~= ""
-				if( pen.vld( pen.c.controller_focus ) and is_looping ) then
-					local d_x = pic_x - pen.c.controller_focus[1]
-					local d_y = pic_y - pen.c.controller_focus[2]
+				if( pen.vld( dot ) and is_looping ) then
+					local d_x, d_y = pic_x - dot[1], pic_y - dot[2]
 					local dist = math.sqrt( d_x^2 + d_y^2 )
 					local angle = math.atan2( d_y, d_x )
-
+					
 					local quads = {{ -135,-45,2 }, { 45,135,1 }, { -45,45,4 }, { 135,-135,3 }}
 					pen.t.loop( quads, function( n, v )
 						local extra = quads[ v[3]]
@@ -1037,7 +1070,7 @@ pen.new_interface = function( pic_x, pic_y, s_x, s_y, pic_z, data )
 							or ( v[3] == 4 and ( angle >= math.rad( extra[1]) or angle <= math.rad( extra[2])))
 						local side = pen[ "GLOBAL_JPAD_TARGET_"..({ "U", "D", "R", "L" })[n]]
 						local t = pen.t.pack( GlobalsGetValue( side..i, "|_|0|_|0|" ))
-
+						
 						local side_id, side_dist, extra_id, extra_dist = unpack( t )
 						if( is_valid and ( side_id == "_" or side_dist > dist )) then
 							GlobalsSetValue( side..i, pen.t.pack({ fid, dist, extra_id, extra_dist }))
@@ -1061,41 +1094,55 @@ pen.new_interface = function( pic_x, pic_y, s_x, s_y, pic_z, data )
 				
 				if( may_swap == fid ) then
 					local new_target = "_"
+					local dft = pen.t.pack({ "_", 0, "_", 0 })
 					if( pen.c.controller_swap[1]) then
-						new_target = pen.t.pack( GlobalsGetValue( pen.GLOBAL_JPAD_TARGET_U..i, "|_|0|_|0|" ))
+						new_target = pen.t.pack( GlobalsGetValue( pen.GLOBAL_JPAD_TARGET_U..i, dft ))
 					elseif( pen.c.controller_swap[2]) then
-						new_target = pen.t.pack( GlobalsGetValue( pen.GLOBAL_JPAD_TARGET_D..i, "|_|0|_|0|" ))
+						new_target = pen.t.pack( GlobalsGetValue( pen.GLOBAL_JPAD_TARGET_D..i, dft ))
 					elseif( pen.c.controller_swap[3]) then
-						new_target = pen.t.pack( GlobalsGetValue( pen.GLOBAL_JPAD_TARGET_L..i, "|_|0|_|0|" ))
+						new_target = pen.t.pack( GlobalsGetValue( pen.GLOBAL_JPAD_TARGET_L..i, dft ))
 					elseif( pen.c.controller_swap[4]) then
-						new_target = pen.t.pack( GlobalsGetValue( pen.GLOBAL_JPAD_TARGET_R..i, "|_|0|_|0|" ))
+						new_target = pen.t.pack( GlobalsGetValue( pen.GLOBAL_JPAD_TARGET_R..i, dft ))
 					end
 
 					pen.c.controller_swap = nil
 					GlobalsSetValue( pen.GLOBAL_JPAD_TARGET_LOOP..i, "" )
-					GlobalsSetValue( pen.GLOBAL_JPAD_TARGET_U..i, "|_|0|_|0|" )
-					GlobalsSetValue( pen.GLOBAL_JPAD_TARGET_D..i, "|_|0|_|0|" )
-					GlobalsSetValue( pen.GLOBAL_JPAD_TARGET_L..i, "|_|0|_|0|" )
-					GlobalsSetValue( pen.GLOBAL_JPAD_TARGET_R..i, "|_|0|_|0|" )
+					GlobalsSetValue( pen.GLOBAL_JPAD_TARGET_U..i, dft )
+					GlobalsSetValue( pen.GLOBAL_JPAD_TARGET_D..i, dft )
+					GlobalsSetValue( pen.GLOBAL_JPAD_TARGET_L..i, dft )
+					GlobalsSetValue( pen.GLOBAL_JPAD_TARGET_R..i, dft )
 
 					local t = new_target[ new_target[1] == "_" and 3 or 1 ]
-					if( t ~= "_" ) then GlobalsSetValue( pen.GLOBAL_JPAD_FOCUS..i, t ) end
+					if( t ~= "_" ) then
+						GlobalsSetValue( pen.GLOBAL_JPAD_FOCUS..i, t )
+						GlobalsSetValue( pen.GLOBAL_JPAD_MIGRATE..i, t )
+						GlobalsSetValue( pen.GLOBAL_JPAD_POS_OLD..i, pen.t.pack({ pic_x, pic_y }))
+						GlobalsSetValue( pen.GLOBAL_JPAD_SIZE_OLD..i, pen.t.pack({ s_x, s_y }))
+					end
 				end
 
-				pen.c.controller_focus = { data.real_x, data.real_y }
+				GlobalsSetValue( pen.GLOBAL_JPAD_DOT..i, pen.t.pack({ data.real_x, data.real_y }))
 				return i
 			end
-
-			--if not is_vip zones is present, the focus attempt fails
-			--make sure that focus will be lost on gui object disappearance (pen.GLOBAL_JPAD_FOCUS_SAFETY)
 		end)
 
 		local is_jpad = false
 		if(( k or 0 ) > 0 ) then
 			local z = pen.LAYERS.DEBUG - k
+			local anim = math.sin( frame_num/15 ) + 1
 			local pic = "mods/mnee/files/pics/corner.png"
-			local anim = math.sin( GameGetFrameNum()/15 ) + 1
-			
+			if( GlobalsGetValue( pen.GLOBAL_JPAD_MIGRATE..k, "" ) == fid ) then
+				GlobalsSetValue( pen.GLOBAL_JPAD_MIGRATE..k, "" )
+				local old_pos = pen.t.pack( GlobalsGetValue( pen.GLOBAL_JPAD_POS_OLD..k, "|0|0|" ))
+				local old_size = pen.t.pack( GlobalsGetValue( pen.GLOBAL_JPAD_SIZE_OLD..k, "|0|0|" ))
+				
+				pen.c.estimator_memo = pen.c.estimator_memo or {}
+				pen.c.estimator_memo[ "jpad_focus_pos_x_"..k ] = old_pos[1]
+				pen.c.estimator_memo[ "jpad_focus_pos_y_"..k ] = old_pos[2]
+				pen.c.estimator_memo[ "jpad_focus_size_x_"..k ] = old_size[1]
+				pen.c.estimator_memo[ "jpad_focus_size_y_"..k ] = old_size[2]
+			end
+
 			local pos = pen.t.pack( GlobalsGetValue( pen.GLOBAL_JPAD_POS..k, "|0|0|" ))
 			if( pos[1] ~= pic_x or pos[2] ~= pic_y ) then
 				GlobalsSetValue( pen.GLOBAL_JPAD_POS..k, pen.t.pack({
@@ -1126,32 +1173,74 @@ pen.new_interface = function( pic_x, pic_y, s_x, s_y, pic_z, data )
 			pen.new_image( pos[1] + size[1] + 1, pos[2] + size[2] + 1, z + 0.1, pic,
 				{ color = pen.PALETTE[ "P"..k.."_B" ], s_x = -0.5, s_y = -0.5, alpha = 0.75 })
 			
-			if( mnee.mnin( "key", k.."gpd_r3", { pressed = true })) then
-				GlobalsSetValue( pen.GLOBAL_JPAD_FOCUS..k, "" )
-			end
-			
-			--gpd_l3 on any controller should open mnee window (introduce universal controller bind mode)
-			--gpd_r1 for shift, gpd_r2 for ctrl, gpd_l2 for alt (put all special key getting into a separate func)
-			--gpd_l1 for free focus with both dpad and left stick
-			--right stick with gpd_l1 for moving text cursor
+			if( mnee.mnin( "key", k.."gpd_r3" )) then
+				if( GlobalsGetValue( pen.GLOBAL_JPAD_DISARMER..k, "0" ) == "0" ) then
+					GlobalsSetValue( pen.GLOBAL_JPAD_DISARMER..k, "1" )
+					GlobalsSetValue( pen.GLOBAL_JPAD_FOCUS..k, "" )
+				end
+			else GlobalsSetValue( pen.GLOBAL_JPAD_DISARMER..k, "0" ) end
+			GlobalsSetValue( pen.GLOBAL_JPAD_SAFETY..k, frame_num )
 
-			--tips (allow adjusting with right stick)
-			--draggers (monkeypatch an emulator func)
+			--left stick to free focus (draws a screen-spanning cross, focuses on the closest one) 
+			--left stick with gpd_l1 for moving text cursor
+
 			--scrollers (autoscroll to keep focused visible)
-			--mouse pos (continuously emulate to match with gamepad pos)
-			--mnee.get_axes() and mnee.get_triggers() should get an inmode
+
+			--mouse pos (add easy mouse pos overrides and match with the center of focused widget)
+			--tips (allow adjusting mouse pos offset with right stick, resets on focus switch)
 			
 			is_hovered, is_jpad = true, k
 			clicked = mnee.mnin( "key", k.."gpd_a", { pressed = true })
 			r_clicked = mnee.mnin( "key", k.."gpd_y", { pressed = true })
+			
+			local disarmer = mnee.get_disarmer()
+			local is_pressed = disarmer[ "key"..k.."gpd_a" ] ~= nil or disarmer[ "key"..k.."gpd_y" ] ~= nil
+			local shadow = is_pressed and 0.25 or 0.05
+			pen.new_pixel( pos[1], pos[2], z, pen.PALETTE[ "P"..k.."_A" ], size[1], size[2], 0.1 )
+			pen.new_pixel( pos[1], pos[2], z + 0.1, pen.PALETTE[ "P"..k.."_B" ], size[1], size[2], shadow )
 		end
+		
 		return clicked, r_clicked, is_hovered, is_jpad
 	end
 
 	return pen._new_interface( pic_x, pic_y, s_x, s_y, pic_z, data )
 end
 
+pen._new_dragger = pen.new_dragger
+pen.new_dragger = function( did, pic_x, pic_y, s_x, s_y, pic_z, data )
+	data = data or {}
+	data.virtualizer = data.virtualizer or function( pic_x, pic_y, state, clicked, jpad )
+		if( state <= 0 and ( jpad or 0 ) > 0 ) then
+			pen.c.controller_dragging = pen.c.controller_dragging or {}
+			pen.c.controller_dragging[ jpad ] = pen.c.controller_dragging[ jpad ] or { pic_x, pic_y }
+
+			local is_going = pen.c.controller_dragging[ jpad ].is_going
+			if( mnee.mnin( "key", jpad.."gpd_a" )) then
+				state = clicked and 1 or 2
+				local axes = mnee.get_axes()
+				local d_x, d_y = axes[ jpad.."gpd_axis_lh" ], axes[ jpad.."gpd_axis_lv" ]
+				pen.c.controller_dragging[ jpad ][1] = pen.c.controller_dragging[ jpad ][1] + 5*d_x
+				pen.c.controller_dragging[ jpad ][2] = pen.c.controller_dragging[ jpad ][2] + 5*d_y
+				pen.c.controller_dragging[ jpad ].is_going = true
+				pic_x = pen.c.controller_dragging[ jpad ][1]
+				pic_y = pen.c.controller_dragging[ jpad ][2]
+			else
+				state = is_going and -1 or 0
+				pen.c.controller_dragging[ jpad ] = nil
+			end
+		end
+
+		return pic_x, pic_y, state, clicked
+	end
+
+	return pen._new_dragger( did, pic_x, pic_y, s_x, s_y, pic_z, data )
+end
+
 -----------------------------------------------------		[KEYBOARD]		-----------------------------------------------------
+
+function mnee.get_special_keys()
+	--gpd_r1 for shift, gpd_r2 for ctrl, gpd_l2 for alt (put all special key getting into a separate func)
+end
 
 ---Static full keyboard input with shifting support and special keys.
 ---@param kb_func fun( is_shifted:boolean, is_ctrled:boolean, is_alted:boolean ): input:string
@@ -1213,11 +1302,11 @@ function pen.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 
 	data = data or {}
 	data.uid = iid
+	data.is_compact = true
 	data.edging = data.edging or 2
 	data.nil_val = data.nil_val or " "
 	data.is_live = data.is_live or false
 	data.no_wrap = data.no_wrap or false
-	data.is_compact = true
 
 	local state = GlobalsGetValue( pen.GLOBAL_INPUT_STATE, "" )
 	local is_active = state == iid
@@ -1704,7 +1793,7 @@ mnee.INMODES = {
 
 		pen.t.loop({ 1, 2, 3, 4 }, function( i )
 			if( GlobalsGetValue( pen.GLOBAL_JPAD_FOCUS..i, "" ) == "" ) then return end
-			for old,new in pairs( vals_jpad ) do active = string.gsub( active, old, new ) end
+			for old,new in pairs( vals_jpad ) do active = string.gsub( active, i..old, i..new ) end
 		end)
 
 		return active
@@ -1729,14 +1818,36 @@ mnee.INMODES = {
 	-- end,
 }
 
-mnee.AXES_INMODES = {
+mnee.TRIGGER_INMODES = {
 	guied = function( ctrl_body, state )
+		local vals = {
+			["gpd_l2!.-!"] = "gpd_l2!0!",
+			["gpd_r2!.-!"] = "gpd_r2!0!",
+		}
+
+		pen.t.loop({ 1, 2, 3, 4 }, function( i )
+			if( GlobalsGetValue( pen.GLOBAL_JPAD_FOCUS..i, "" ) == "" ) then return end
+			for old,new in pairs( vals ) do state = string.gsub( state, i..old, i..new ) end
+		end)
+
 		return state
 	end,
 }
 
-mnee.TRIGGERS_INMODES = {
+mnee.AXIS_INMODES = {
 	guied = function( ctrl_body, state )
+		local vals = {
+			["gpd_axis_lh!.-!"] = "gpd_axis_lh!0!",
+			["gpd_axis_lv!.-!"] = "gpd_axis_lv!0!",
+			["gpd_axis_rh!.-!"] = "gpd_axis_rh!0!",
+			["gpd_axis_rv!.-!"] = "gpd_axis_rv!0!",
+		}
+
+		pen.t.loop({ 1, 2, 3, 4 }, function( i )
+			if( GlobalsGetValue( pen.GLOBAL_JPAD_FOCUS..i, "" ) == "" ) then return end
+			for old,new in pairs( vals ) do state = string.gsub( state, i..old, i..new ) end
+		end)
+
 		return state
 	end,
 }

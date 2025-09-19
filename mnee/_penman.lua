@@ -1362,14 +1362,12 @@ function pen.magic_storage( entity_id, name, field, value, default )
 		if( ComponentGetValue2( comp, "name" ) == name ) then return comp end
 	end)
 
-	if( field ~= nil ) then
-		if( not( pen.vld( out, true )) and default ) then
-			local v = { name = name }
-			if( type( default ) ~= "boolean" ) then v[ field ] = default end
-			out = EntityAddComponent2( entity_id, "VariableStorageComponent", v )
-		end
-		if( pen.vld( out, true )) then return pen.magic_comp( out, field, value ) end
+	if( not( pen.vld( out, true )) and default ) then
+		local v = { name = name }
+		if( field ~= nil and type( default ) ~= "boolean" ) then v[ field ] = default end
+		out = EntityAddComponent2( entity_id, "VariableStorageComponent", v )
 	end
+	if( field ~= nil and pen.vld( out, true )) then return pen.magic_comp( out, field, value ) end
 	return out
 end
 
@@ -4111,7 +4109,7 @@ function pen.new_dragger( did, pic_x, pic_y, s_x, s_y, pic_z, data )
 	
 	local clicked = false
 	local is_going = pen.c.dragger_data[ did ].is_going
-	local real_clicked, r_clicked, is_hovered = pen.new_interface( pic_x, pic_y, s_x, s_y, pic_z, data )
+	local real_clicked, r_clicked, is_hovered, is_jpad = pen.new_interface( pic_x, pic_y, s_x, s_y, pic_z, data )
 	if( not( is_going ) and data.no_dragging ) then return pic_x, pic_y, 0, real_clicked, r_clicked, is_hovered end
 
 	local state = 0
@@ -4133,6 +4131,10 @@ function pen.new_dragger( did, pic_x, pic_y, s_x, s_y, pic_z, data )
 		pen.c.dragger_data[ did ].off = not( data.no_offs ) and { pic_x - m_x, pic_y - m_y } or { 0, 0 }
 	else pen.c.dragger_data[ did ].old_state = mouse_state end
 	
+	if( pen.vld( data.virtualizer )) then
+		pic_x, pic_y, state, clicked = data.virtualizer( pic_x, pic_y, state, real_clicked, is_jpad )
+	end
+
 	if( state > 0 ) then
 		GlobalsSetValue( pen.GLOBAL_DRAGGER_SAFETY, (( data.allow_multihovers or false ) and 1 or -1 )*frame_num ) end
 	return pic_x, pic_y, state, clicked, r_clicked, is_hovered
@@ -4979,9 +4981,17 @@ pen.GLOBAL_INPUT_STATE = "PENMAN_INPUT_STATE"
 pen.GLOBAL_INPUT_FRAME = "PENMAN_INPUT_FRAME"
 pen.GLOBAL_KEYBOARD_STYLE = "PENMAN_KEYBOARD_STYLE"
 
+pen.GLOBAL_JPAD_DOT = "PENMAN_JPAD_DOT_"
 pen.GLOBAL_JPAD_POS = "PENMAN_JPAD_POS_"
 pen.GLOBAL_JPAD_SIZE = "PENMAN_JPAD_SIZE_"
+pen.GLOBAL_JPAD_ALPHA = "PENMAN_JPAD_ALPHA_"
+pen.GLOBAL_JPAD_SPEED = "PENMAN_JPAD_SPEED_"
 pen.GLOBAL_JPAD_FOCUS = "PENMAN_JPAD_FOCUS_"
+pen.GLOBAL_JPAD_SAFETY = "PENMAN_JPAD_SAFETY_"
+pen.GLOBAL_JPAD_MIGRATE = "PENMAN_JPAD_MIGRATE_"
+pen.GLOBAL_JPAD_POS_OLD = "PENMAN_JPAD_POS_OLD_"
+pen.GLOBAL_JPAD_SIZE_OLD = "PENMAN_JPAD_SIZE_OLD_"
+pen.GLOBAL_JPAD_DISARMER = "PENMAN_JPAD_DISARMER_"
 pen.GLOBAL_JPAD_FOCUS_LOOP = "PENMAN_JPAD_FOCUS_LOOP_"
 pen.GLOBAL_JPAD_FOCUS_TARGET = "PENMAN_JPAD_FOCUS_TARGET_"
 pen.GLOBAL_JPAD_FOCUS_SAFETY = "PENMAN_JPAD_FOCUS_SAFETY_"

@@ -1050,6 +1050,9 @@ pen.new_interface = function( pic_x, pic_y, s_x, s_y, pic_z, data )
 					pen.c.estimator_memo[ "jpad_focus_pos_y_"..i ] = 0
 					pen.c.estimator_memo[ "jpad_focus_size_x_"..i ] = w
 					pen.c.estimator_memo[ "jpad_focus_size_y_"..i ] = h
+					
+					GlobalsSetValue( pen.GLOBAL_JPAD_ALPHA..i, "1" )
+					GlobalsSetValue( pen.GLOBAL_JPAD_SPEED..i, "2" )
 					GlobalsSetValue( pen.GLOBAL_JPAD_POS..i, "|0|0|" )
 					GlobalsSetValue( pen.GLOBAL_JPAD_SIZE..i, pen.t.pack({ w, h }))
 				end
@@ -1116,6 +1119,7 @@ pen.new_interface = function( pic_x, pic_y, s_x, s_y, pic_z, data )
 					if( t ~= "_" ) then
 						GlobalsSetValue( pen.GLOBAL_JPAD_FOCUS..i, t )
 						GlobalsSetValue( pen.GLOBAL_JPAD_MIGRATE..i, t )
+						GlobalsSetValue( pen.GLOBAL_JPAD_SPEED..i, "2" )
 						GlobalsSetValue( pen.GLOBAL_JPAD_POS_OLD..i, pen.t.pack({ pic_x, pic_y }))
 						GlobalsSetValue( pen.GLOBAL_JPAD_SIZE_OLD..i, pen.t.pack({ s_x, s_y }))
 					end
@@ -1131,18 +1135,19 @@ pen.new_interface = function( pic_x, pic_y, s_x, s_y, pic_z, data )
 			local z = pen.LAYERS.DEBUG - k
 			local anim = math.sin( frame_num/15 ) + 1
 			local pic = "mods/mnee/files/pics/corner.png"
+			pen.c.estimator_memo = pen.c.estimator_memo or {}
 			if( GlobalsGetValue( pen.GLOBAL_JPAD_MIGRATE..k, "" ) == fid ) then
 				GlobalsSetValue( pen.GLOBAL_JPAD_MIGRATE..k, "" )
 				local old_pos = pen.t.pack( GlobalsGetValue( pen.GLOBAL_JPAD_POS_OLD..k, "|0|0|" ))
 				local old_size = pen.t.pack( GlobalsGetValue( pen.GLOBAL_JPAD_SIZE_OLD..k, "|0|0|" ))
-				
-				pen.c.estimator_memo = pen.c.estimator_memo or {}
+
 				pen.c.estimator_memo[ "jpad_focus_pos_x_"..k ] = old_pos[1]
 				pen.c.estimator_memo[ "jpad_focus_pos_y_"..k ] = old_pos[2]
 				pen.c.estimator_memo[ "jpad_focus_size_x_"..k ] = old_size[1]
 				pen.c.estimator_memo[ "jpad_focus_size_y_"..k ] = old_size[2]
 			end
 
+			local speed = tonumber( GlobalsGetValue( pen.GLOBAL_JPAD_SPEED..k, "0" ))
 			local pos = pen.t.pack( GlobalsGetValue( pen.GLOBAL_JPAD_POS..k, "|0|0|" ))
 			if( pos[1] ~= pic_x or pos[2] ~= pic_y ) then
 				GlobalsSetValue( pen.GLOBAL_JPAD_POS..k, pen.t.pack({
@@ -1155,6 +1160,12 @@ pen.new_interface = function( pic_x, pic_y, s_x, s_y, pic_z, data )
 					pen.estimate( "jpad_focus_size_x_"..k, s_x, "wgt0.5" ),
 					pen.estimate( "jpad_focus_size_y_"..k, s_y, "wgt0.5" )}))
 			end
+			
+			if( speed > 0 ) then
+				local got_x = pen.c.estimator_memo[ "jpad_focus_pos_x_"..k ] == pic_x
+				local got_y = pen.c.estimator_memo[ "jpad_focus_pos_y_"..k ] == pic_y
+				if( got_x and got_y ) then GlobalsSetValue( pen.GLOBAL_JPAD_SPEED..k, speed - 1 ) end
+			else pos = { pic_x, pic_y } end
 
 			pen.new_image( pos[1] - 1, pos[2] - 1, z, pic,
 				{ color = pen.PALETTE[ "P"..k.."_A" ], s_x = 0.5, s_y = 0.5, alpha = anim })
@@ -1181,23 +1192,28 @@ pen.new_interface = function( pic_x, pic_y, s_x, s_y, pic_z, data )
 			else GlobalsSetValue( pen.GLOBAL_JPAD_DISARMER..k, "0" ) end
 			GlobalsSetValue( pen.GLOBAL_JPAD_SAFETY..k, frame_num )
 
-			--left stick to free focus (draws a screen-spanning cross, focuses on the closest one) 
+			--mouse pos (add easy mouse pos overrides and match with the lower center of focused widget)
+			--tips (allow adjusting mouse pos offset with right stick, resets on focus switch)
+			--make sure all advanced widgets have automatic focus id population
+
+			--left stick to free focus (draws a screen-spanning cross, focuses on the closest one upon standstill with cooldown conveyed though the cross fading anim)
 			--left stick with gpd_l1 for moving text cursor
 
 			--scrollers (autoscroll to keep focused visible)
+			--experiment with different center point poses
 
-			--mouse pos (add easy mouse pos overrides and match with the center of focused widget)
-			--tips (allow adjusting mouse pos offset with right stick, resets on focus switch)
-			
 			is_hovered, is_jpad = true, k
 			clicked = mnee.mnin( "key", k.."gpd_a", { pressed = true })
 			r_clicked = mnee.mnin( "key", k.."gpd_y", { pressed = true })
-			
+
 			local disarmer = mnee.get_disarmer()
 			local is_pressed = disarmer[ "key"..k.."gpd_a" ] ~= nil or disarmer[ "key"..k.."gpd_y" ] ~= nil
-			local shadow = is_pressed and 0.25 or 0.05
-			pen.new_pixel( pos[1], pos[2], z, pen.PALETTE[ "P"..k.."_A" ], size[1], size[2], 0.1 )
-			pen.new_pixel( pos[1], pos[2], z + 0.1, pen.PALETTE[ "P"..k.."_B" ], size[1], size[2], shadow )
+			local alpha = tonumber( GlobalsGetValue( pen.GLOBAL_JPAD_ALPHA..k, "0" ))
+			GlobalsSetValue( pen.GLOBAL_JPAD_ALPHA..k, alpha < 0.01 and 0 or 0.85*alpha )
+			local shadow = is_pressed and 0.25 or 0.05; alpha = 1 - alpha
+			
+			pen.new_pixel( pos[1], pos[2], z, pen.PALETTE[ "P"..k.."_A" ], size[1], size[2], 0.1*alpha )
+			pen.new_pixel( pos[1], pos[2], z + 0.1, pen.PALETTE[ "P"..k.."_B" ], size[1], size[2], shadow*alpha )
 		end
 		
 		return clicked, r_clicked, is_hovered, is_jpad
@@ -1219,8 +1235,9 @@ pen.new_dragger = function( did, pic_x, pic_y, s_x, s_y, pic_z, data )
 				state = clicked and 1 or 2
 				local axes = mnee.get_axes()
 				local d_x, d_y = axes[ jpad.."gpd_axis_lh" ], axes[ jpad.."gpd_axis_lv" ]
-				pen.c.controller_dragging[ jpad ][1] = pen.c.controller_dragging[ jpad ][1] + 5*d_x
-				pen.c.controller_dragging[ jpad ][2] = pen.c.controller_dragging[ jpad ][2] + 5*d_y
+				pen.c.controller_dragging[ jpad ][1] = pen.c.controller_dragging[ jpad ][1] + 3*d_x
+				pen.c.controller_dragging[ jpad ][2] = pen.c.controller_dragging[ jpad ][2] + 3*d_y
+				GlobalsSetValue( pen.GLOBAL_JPAD_SPEED..jpad, "0" )
 				pen.c.controller_dragging[ jpad ].is_going = true
 				pic_x = pen.c.controller_dragging[ jpad ][1]
 				pic_y = pen.c.controller_dragging[ jpad ][2]

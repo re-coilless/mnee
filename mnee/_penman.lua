@@ -3778,6 +3778,9 @@ end
 ---Returns on-screen pointer position.
 ---@return number pointer_x, number pointer_y
 function pen.get_mouse_pos()
+	local virt = GlobalsGetValue( pen.GLOBAL_VIRTUAL_UIM, "" )
+	if( pen.vld( virt )) then return unpack( pen.t.pack( virt )) end
+
 	local w, h, _,_, real_w, real_h = pen.get_screen_data()
 	local m_x, m_y = InputGetMousePosOnScreen()
 	return m_x*w/real_w, m_y*h/real_h
@@ -4140,7 +4143,7 @@ function pen.new_dragger( did, pic_x, pic_y, s_x, s_y, pic_z, data )
 	return pic_x, pic_y, state, clicked, r_clicked, is_hovered
 end
 
-function pen.uncutter( func )
+function pen.uncutter( func, pic_x, pic_y )
 	local _,_,_,orig_gui = pen.gui_builder( GuiCreate())
 
 	local out = {}
@@ -4150,7 +4153,7 @@ function pen.uncutter( func )
 		pen.c.cutter_dims = nil
 		out = { func( x, y, w, h )}
 		pen.c.cutter_dims = { xy = { x, y }, wh = { w, h }}
-	else out = { func( 0, 0, pen.get_screen_data())} end
+	else out = { func( pic_x or 0, pic_y or 0, pen.get_screen_data())} end
 	
 	pen.gui_builder( false )
 	if( orig_gui ) then pen.gui_builder( orig_gui ) end
@@ -4811,7 +4814,11 @@ function pen.new_tooltip( text, data, func )
 		local z_resolver = 0
 		local mouse_drift = 5
 		if( not( pen.vld( data.pos ))) then
-			data.pos = { pen.get_mouse_pos()}
+			if( pen.vld( pen.c.jpad_tip_pos ) and pen.c.jpad_tip_pos[1] == data.fid ) then
+				data.pos = { pen.c.jpad_tip_pos[2], pen.c.jpad_tip_pos[3]}
+				pen.c.jpad_tip_pos = nil
+			else data.pos = { pen.get_mouse_pos()} end
+			
 			if( data.is_left == nil ) then data.is_left = w < data.pos[1] + data.dims[1] + 1 end
 			data.pos[1] = data.pos[1] + ( data.is_left and -1 or 1 )*mouse_drift
 			if( data.is_over == nil ) then data.is_over = h < data.pos[2] + data.dims[2] + 1 end
@@ -4977,6 +4984,8 @@ pen.GLOBAL_INTERFACE_SAFETY_TR = "PENMAN_INTERFACE_SAFETY_TR"
 pen.GLOBAL_TIPZ_RESOLVER = "PENMAN_TIPZ_RESOLVER"
 pen.GLOBAL_TIPZ_RESOLVER_FRAME = "PENMAN_TIPZ_FRAME"
 
+pen.GLOBAL_VIRTUAL_UIM = "PENMAN_VIRTUAL_UIM"
+pen.GLOBAL_VIRTUAL_WDM = "PENMAN_VIRTUAL_WDM"
 pen.GLOBAL_INPUT_STATE = "PENMAN_INPUT_STATE"
 pen.GLOBAL_INPUT_FRAME = "PENMAN_INPUT_FRAME"
 pen.GLOBAL_KEYBOARD_STYLE = "PENMAN_KEYBOARD_STYLE"
@@ -4987,6 +4996,8 @@ pen.GLOBAL_JPAD_SIZE = "PENMAN_JPAD_SIZE_"
 pen.GLOBAL_JPAD_ALPHA = "PENMAN_JPAD_ALPHA_"
 pen.GLOBAL_JPAD_SPEED = "PENMAN_JPAD_SPEED_"
 pen.GLOBAL_JPAD_FOCUS = "PENMAN_JPAD_FOCUS_"
+pen.GLOBAL_JPAD_CURSOR = "PENMAN_JPAD_CURSOR_"
+pen.GLOBAL_JPAD_OFFSET = "PENMAN_JPAD_OFFSET_"
 pen.GLOBAL_JPAD_SAFETY = "PENMAN_JPAD_SAFETY_"
 pen.GLOBAL_JPAD_MIGRATE = "PENMAN_JPAD_MIGRATE_"
 pen.GLOBAL_JPAD_POS_OLD = "PENMAN_JPAD_POS_OLD_"

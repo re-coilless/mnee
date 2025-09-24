@@ -3974,7 +3974,6 @@ function pen.new_interface( pic_x, pic_y, s_x, s_y, pic_z, data )
 	end
 
 	if( pen.vld( data.emulator )) then
-		data.real_x, data.real_y = pic_x, pic_y
 		return data.emulator( local_x, local_y, pic_z, s_x, s_y, clicked, r_clicked, is_hovered, data ) end
 	return clicked, r_clicked, is_hovered
 end
@@ -4076,10 +4075,14 @@ function pen.new_button( pic_x, pic_y, pic_z, pic, data )
 	if( data.skip_z_check ) then pic_iz = nil end
 	data.dims = { pen.get_pic_dims( pen.get_hybrid_table( pic )[1], data.update_xml )}
 
-	local off_x, off_y = 0, 0
+	if( type( data.jpad or {}) ~= "table" ) then
+		data.jpad = { "button_"..data.auid.."_focus", data.jpad_vip or false, data.jpad }
+	end
+
+	local off_x, off_y, is_jpad = 0, 0, false
 	local w, h = data.dims[1]*( data.s_x or 1 ), data.dims[2]*( data.s_y or 1 )
 	if( data.is_centered ) then off_x, off_y = pen.rotate_offset( -w/2, -h/2, data.angle ) end
-	data.clicked, data.r_clicked, data.is_hovered = pen.new_interface( pic_x + off_x, pic_y + off_y, w, h, pic_iz, data )
+	data.clicked, data.r_clicked, data.is_hovered, is_jpad = pen.new_interface( pic_x + off_x, pic_y + off_y, w, h, pic_iz, data )
 
 	data.clicked = data.clicked or data._clicked
 	if( data.lmb_event ~= nil and data.clicked ) then
@@ -4093,7 +4096,7 @@ function pen.new_button( pic_x, pic_y, pic_z, pic, data )
 	elseif( data.idle_event ~= nil ) then
 		pic_x, pic_y, pic_z, pic, data = data.idle_event( pic_x, pic_y, pic_z, pic, data ) end
 	data.pic_func( pic_x, pic_y, pic_z, pic, data )
-	return data.clicked, data.r_clicked, data.is_hovered
+	return data.clicked, data.r_clicked, data.is_hovered, is_jpad
 end
 
 function pen.new_dragger( did, pic_x, pic_y, s_x, s_y, pic_z, data )
@@ -4110,13 +4113,17 @@ function pen.new_dragger( did, pic_x, pic_y, s_x, s_y, pic_z, data )
 	-- local d_x, d_y = m_x - pen.c.dragger_data[ did ].old_pos[1], m_y - pen.c.dragger_data[ did ].old_pos[2]
 	-- pen.c.dragger_data[ did ].old_pos = { m_x, m_y }
 	
+	if( type( data.jpad or {}) ~= "table" ) then
+		data.jpad = { "dragger_"..did.."_focus", data.jpad_vip or false, data.jpad }
+	end
+
 	local clicked = false
 	local is_going = pen.c.dragger_data[ did ].is_going
 	local real_clicked, r_clicked, is_hovered, is_jpad = pen.new_interface( pic_x, pic_y, s_x, s_y, pic_z, data )
-	if( not( is_going ) and data.no_dragging ) then return pic_x, pic_y, 0, real_clicked, r_clicked, is_hovered end
+	if( not( is_going ) and data.no_dragging ) then
+		return pic_x, pic_y, 0, real_clicked, r_clicked, is_hovered, is_jpad end
+	local state, mouse_state = 0, InputIsMouseButtonDown( 1 )
 
-	local state = 0
-	local mouse_state = InputIsMouseButtonDown( 1 )
 	if( is_going ) then
 		if( mouse_state ) then
 			state = 2
@@ -4140,10 +4147,10 @@ function pen.new_dragger( did, pic_x, pic_y, s_x, s_y, pic_z, data )
 
 	if( state > 0 ) then
 		GlobalsSetValue( pen.GLOBAL_DRAGGER_SAFETY, (( data.allow_multihovers or false ) and 1 or -1 )*frame_num ) end
-	return pic_x, pic_y, state, clicked, r_clicked, is_hovered
+	return pic_x, pic_y, state, clicked, r_clicked, is_hovered, is_jpad
 end
 
-function pen.uncutter( func, pic_x, pic_y )
+function pen.uncutter( func )
 	local _,_,_,orig_gui = pen.gui_builder( GuiCreate())
 
 	local out = {}
@@ -4153,7 +4160,7 @@ function pen.uncutter( func, pic_x, pic_y )
 		pen.c.cutter_dims = nil
 		out = { func( x, y, w, h )}
 		pen.c.cutter_dims = { xy = { x, y }, wh = { w, h }}
-	else out = { func( pic_x or 0, pic_y or 0, pen.get_screen_data())} end
+	else out = { func( 0, 0, pen.get_screen_data())} end
 	
 	pen.gui_builder( false )
 	if( orig_gui ) then pen.gui_builder( orig_gui ) end
@@ -4228,6 +4235,10 @@ function pen.new_scroller( sid, pic_x, pic_y, pic_z, size_x, size_y, func, data 
 		}
 		color[10] = color[10] or color[9]
 
+		--add hov zone to compat one
+		--allow scrolling line by line through right stick
+		--(do scroll command every once in a while, higher stick angle reduces cooldown)
+
 		local clicked, r_clicked = false, false
 		local is_shifted = not( InputIsKeyDown( 225 ))
 		if( data.is_compact ) then
@@ -4247,10 +4258,11 @@ function pen.new_scroller( sid, pic_x, pic_y, pic_z, size_x, size_y, func, data 
 
 			return out
 		end
-		
-		local _,new_y,state,_,_,is_hovered = pen.new_dragger(
-			sid.."_dragger_y", pic_x, bar_y, 3, bar_height, pic_z )
-		if( data.can_scroll or not( data.hide_bar )) then
+
+		local _,new_y,state,_,_,is_hovered,is_jpad = pen.new_dragger(
+			sid.."_dragger_y", pic_x, bar_y, 3, bar_height, pic_z, { jpad = data.jpad })
+		local may_show = data.can_scroll or is_hovered
+		if( may_show or not( data.hide_bar )) then
 			pen.new_pixel( pic_x + 1, bar_y, pic_z, color[ is_hovered and 10 or 9 ], 1, bar_height )
 			pen.new_pixel( pic_x, bar_y, pic_z, color[ is_hovered and 2 or 1 ], 1, bar_height )
 			pen.new_pixel( pic_x + 2, bar_y, pic_z, color[ is_hovered and 4 or 3 ], 1, bar_height )
@@ -4258,7 +4270,7 @@ function pen.new_scroller( sid, pic_x, pic_y, pic_z, size_x, size_y, func, data 
 		out[1] = { new_y, state }
 		
 		clicked, r_clicked, is_hovered = pen.new_interface( pic_x, pic_y, 3, 3, pic_z )
-		if( data.can_scroll or not( data.hide_bar )) then
+		if( may_show or not( data.hide_bar )) then
 			pen.new_pixel( pic_x + 1, pic_y + 1, pic_z, color[ is_hovered and 10 or 9 ])
 			pen.new_pixel( pic_x + 1, pic_y, pic_z, color[ is_hovered and 6 or 5 ])
 			pen.new_pixel( pic_x, pic_y + 1, pic_z, color[ is_hovered and 6 or 5 ])
@@ -4268,7 +4280,7 @@ function pen.new_scroller( sid, pic_x, pic_y, pic_z, size_x, size_y, func, data 
 		out[2] = { clicked, r_clicked }
 
 		clicked, r_clicked, is_hovered = pen.new_interface( pic_x, pic_y + size_y - 3, 3, 3, pic_z )
-		if( data.can_scroll or not( data.hide_bar )) then
+		if( may_show or not( data.hide_bar )) then
 			pen.new_pixel( pic_x + 1, pic_y + size_y - 2, pic_z, color[ is_hovered and 10 or 9 ])
 			pen.new_pixel( pic_x + 1, pic_y + size_y - 1, pic_z, color[ is_hovered and 6 or 5 ])
 			pen.new_pixel( pic_x, pic_y + size_y - 2, pic_z, color[ is_hovered and 6 or 5 ])
@@ -4309,10 +4321,11 @@ function pen.new_scroller( sid, pic_x, pic_y, pic_z, size_x, size_y, func, data 
 
 			return out
 		end
-
+		
 		local new_x,_,state,_,_,is_hovered = pen.new_dragger(
-			sid.."_dragger_x", bar_x, pic_y, bar_length, 3, pic_z )
-		if( data.can_scroll or not( data.hide_bar )) then
+			sid.."_dragger_x", bar_x, pic_y, bar_length, 3, pic_z, { jpad = data.jpad })
+		local may_show = data.can_scroll or is_hovered
+		if( may_show or not( data.hide_bar )) then
 			pen.new_pixel( bar_x, pic_y + 1, pic_z, color[ is_hovered and 10 or 9 ], bar_length, 1 )
 			pen.new_pixel( bar_x, pic_y, pic_z, color[ is_hovered and 2 or 1 ], bar_length, 1 )
 			pen.new_pixel( bar_x, pic_y + 2, pic_z, color[ is_hovered and 4 or 3 ], bar_length, 1 )
@@ -4320,7 +4333,7 @@ function pen.new_scroller( sid, pic_x, pic_y, pic_z, size_x, size_y, func, data 
 		out[1] = { new_x, state }
 		
 		clicked, r_clicked, is_hovered = pen.new_interface( pic_x, pic_y, 3, 3, pic_z )
-		if( data.can_scroll or not( data.hide_bar )) then
+		if( may_show or not( data.hide_bar )) then
 			pen.new_pixel( pic_x + 1, pic_y + 1, pic_z, color[ is_hovered and 10 or 9 ])
 			pen.new_pixel( pic_x, pic_y + 1, pic_z, color[ is_hovered and 6 or 5 ])
 			pen.new_pixel( pic_x + 1, pic_y, pic_z, color[ is_hovered and 6 or 5 ])
@@ -4330,7 +4343,7 @@ function pen.new_scroller( sid, pic_x, pic_y, pic_z, size_x, size_y, func, data 
 		out[2] = { clicked, r_clicked }
 
 		clicked, r_clicked, is_hovered = pen.new_interface( pic_x + size_x - 3, pic_y, 3, 3, pic_z )
-		if( data.can_scroll or not( data.hide_bar )) then
+		if( may_show or not( data.hide_bar )) then
 			pen.new_pixel( pic_x + size_x - 2, pic_y + 1, pic_z, color[ is_hovered and 10 or 9 ])
 			pen.new_pixel( pic_x + size_x - 1, pic_y + 1, pic_z, color[ is_hovered and 6 or 5 ])
 			pen.new_pixel( pic_x + size_x - 2, pic_y, pic_z, color[ is_hovered and 6 or 5 ])
@@ -4345,6 +4358,10 @@ function pen.new_scroller( sid, pic_x, pic_y, pic_z, size_x, size_y, func, data 
 	data = data or {}
 	pen.c.scroll_memo = pen.c.scroll_memo or {}
 	pen.c.scroll_memo[ sid ] = pen.c.scroll_memo[ sid ] or {}
+
+	if( type( data.jpad or {}) ~= "table" ) then
+		data.jpad = { "scroller_"..sid.."_focus", data.jpad_vip or false, data.jpad }
+	end
 
 	local old_height = pen.c.scroll_memo[ sid ].h or -1
 	local progress_y = pen.c.scroll_memo[ sid ].py or ( data.bottom_start and 1 or 0 )

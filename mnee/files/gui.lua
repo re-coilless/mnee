@@ -59,9 +59,10 @@ if( not( gonna_rebind )) then
                 local is_folded = folded_nodes[i] ~= nil
                 local pos_y = 1 + scroll_pos[1] + 11*( cnt - ( 1 + accum ))
                 local name = pen.magic_translate( is_fancy and _MNEEDATA[i].name or i )
-                clicked, _, is_hovered = pen.new_interface( 1, pos_y + 1, 129, 7, pic_z )
+                clicked, _, is_hovered = pen.new_interface(
+                    1, pos_y + 1, 129, 7, pic_z, { jpad = "mnee_cat_title_"..i })
                 pen.uncutter( function( cut_x, cut_y, cut_w, cut_h )
-					return mnee.new_tooltip({ name..GameTextGet( "$mnee_fold"..( is_folded and "B" or "A" )), ( is_fancy and pen.vld( _MNEEDATA[i].desc )) and pen.magic_translate( _MNEEDATA[i].desc ) or "" }, { is_active = is_hovered })
+					return mnee.new_tooltip({ name..GameTextGet( "$mnee_fold"..( is_folded and "B" or "A" )), ( is_fancy and pen.vld( _MNEEDATA[i].desc )) and pen.magic_translate( _MNEEDATA[i].desc ) or "" }, { is_active = is_hovered, fid = "mnee_cat_title_"..i })
 				end)
                 if( clicked ) then
                     pen.play_sound( pen.TUNES.PRSP.SWITCH )
@@ -114,7 +115,7 @@ if( not( gonna_rebind )) then
                         local name = pen.magic_translate( b.name )
                         clicked, r_clicked = mnee.new_button( 2, pos_y, pic_z,
                             "mods/mnee/files/pics/button_116_"..( is_static and "B" or "A" )..".png", {
-                            auid = table.concat({ i, "_bind_", name }), no_anim = true,
+                            auid = table.concat({ i, "_bind_", name }), no_anim = true, jpad = true,
                             tip = { table.concat({
                                 is_axis and ( GameTextGet( "$mnee_axis", b.jpad_type or "EXTRA" )..( is_static and "" or "\n" )) or "",
                                 is_static and GameTextGet( "$mnee_static" ).."\n" or "",
@@ -132,7 +133,8 @@ if( not( gonna_rebind )) then
                                 
                                 if( not( b.never_advanced )) then
                                     mnee.G.advanced_mode = b.is_advanced
-                                    if( mnee.G.advanced_mode == nil ) then mnee.G.advanced_mode = meta.is_advanced or false end
+                                    if( mnee.G.advanced_mode == nil ) then
+                                        mnee.G.advanced_mode = meta.is_advanced or false end
                                     mnee.G.advanced_mode = mnee.G.advanced_mode or ( r_clicked and not( is_axis ))
                                 else mnee.G.advanced_mode = false end
                             else
@@ -169,7 +171,7 @@ if( not( gonna_rebind )) then
 			end)
 
 			return { height + 5, 1 }
-		end)
+		end, { jpad = true, is_compact = true })
 
         help_x, help_y = pic_x + 141, pic_y + 33
     else
@@ -502,8 +504,8 @@ if( not( gonna_rebind )) then
         pen.new_image( t_x - 10, t_y - 2, pic_z + 1, "mods/mnee/files/pics/controller_panel.png", { can_click = true })
     end; ::continue::
     
-    mnee.G.pos[1], mnee.G.pos[2] = pen.new_dragger( "mnee_window",
-        pic_x, pic_y, 142, 9, nil, { jpad = { "mnee_window_dragger", true }})
+    mnee.G.pos[1], mnee.G.pos[2] = pen.new_dragger(
+        "mnee_window", pic_x, pic_y, 142, 9, nil, { jpad = true, jpad_vip = true })
     pen.new_image( pic_x + w_anim[1]*pic_w/2, pic_y + w_anim[2]*pic_h/2, pic_z + 0.05,
         "mods/mnee/files/pics/window.png", { s_x = 1 - w_anim[1], s_y = 1 - w_anim[2], can_click = true })
     

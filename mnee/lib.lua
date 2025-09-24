@@ -660,7 +660,8 @@ function mnee.new_button( pic_x, pic_y, pic_z, pic, data )
 	data.hov_event = data.hov_event or function( pic_x, pic_y, pic_z, pic, d )
 		if( pen.vld( d.tip )) then
 			pen.uncutter( function( cut_x, cut_y, cut_w, cut_h )
-				return mnee.new_tooltip( d.tip, { is_active = true, min_width = d.min_width })
+				return mnee.new_tooltip( d.tip, { is_active = true,
+					min_width = d.min_width, fid = ( d.jpad or {})[1]})
 			end)
 		end
 		if( d.highlight ) then pen.new_pixel(
@@ -920,7 +921,7 @@ function mnee.mnin_axis( mod_id, bind_id, is_alive, pressed_mode, is_vip, inmode
 	local out, is_gone, is_buttoned, is_jpad = 0, true, false, false
 	for i = 1,2 do
 		local bind = mnee.get_pbd( binding )[ i == 1 and "main" or "alt" ]
-		local value, memo = mnee.get_axes()[ bind[2]] or 0, {}
+		local value, memo = mnee.get_axes( inmode )[ bind[2]] or 0, {}
 		if( bind[2] == "_" ) then
 			goto continue
 		else is_gone = false end
@@ -1015,7 +1016,15 @@ pen.new_interface = function( pic_x, pic_y, s_x, s_y, pic_z, data )
 	data = data or {}
 	data.jpad = pen.get_hybrid_table( data.jpad )
 	data.emulator = data.emulator or function( pic_x, pic_y, pic_z, s_x, s_y, clicked, r_clicked, is_hovered, data )
-		if( not( data.focus )) then return clicked, r_clicked, is_hovered end
+		if( not( pen.vld( data.jpad[1]))) then return clicked, r_clicked, is_hovered end
+
+		if( pen.vld( pen.c.cutter_dims )) then
+			if( pic_x + s_x < 0 ) then return clicked, r_clicked, is_hovered end
+			if( pic_y + s_y < 0 ) then return clicked, r_clicked, is_hovered end
+			if( pic_x - pen.c.cutter_dims.wh[1] > 0 ) then return clicked, r_clicked, is_hovered end
+			if( pic_y - pen.c.cutter_dims.wh[2] > 0 ) then return clicked, r_clicked, is_hovered end
+			pic_x, pic_y = pen.c.cutter_dims.xy[1] + pic_x, pen.c.cutter_dims.xy[2] + pic_y
+		end
 
 		local frame_num = GameGetFrameNum()
 		local fid, is_vip, focus_check = unpack( data.jpad )
@@ -1033,7 +1042,7 @@ pen.new_interface = function( pic_x, pic_y, s_x, s_y, pic_z, data )
 				if( focus_loop == "" ) then GlobalsSetValue( pen.GLOBAL_JPAD_FOCUS_LOOP..i, fid ) end
 
 				if( focus_loop ~= fid ) then
-					local dist = math.sqrt( data.real_x^2 + data.real_y^2 )
+					local dist = math.sqrt( pic_x^2 + pic_y^2 )
 					if( is_vip ) then dist = -99999 end
 					if( target[2] == nil or dist < target[2] ) then
 						GlobalsSetValue( pen.GLOBAL_JPAD_FOCUS_TARGET..i, "|"..fid.."|"..dist.."|" )
@@ -1108,7 +1117,7 @@ pen.new_interface = function( pic_x, pic_y, s_x, s_y, pic_z, data )
 						new_target = pen.t.pack( GlobalsGetValue( pen.GLOBAL_JPAD_TARGET_L..i, dft ))
 					elseif( pen.c.controller_swap[4]) then
 						new_target = pen.t.pack( GlobalsGetValue( pen.GLOBAL_JPAD_TARGET_R..i, dft ))
-					end
+					end --else pick the closest out of all
 
 					pen.c.controller_swap = nil
 					GlobalsSetValue( pen.GLOBAL_JPAD_TARGET_LOOP..i, "" )
@@ -1128,7 +1137,7 @@ pen.new_interface = function( pic_x, pic_y, s_x, s_y, pic_z, data )
 					end
 				end
 
-				GlobalsSetValue( pen.GLOBAL_JPAD_DOT..i, pen.t.pack({ data.real_x, data.real_y }))
+				GlobalsSetValue( pen.GLOBAL_JPAD_DOT..i, pen.t.pack({ pic_x, pic_y }))
 				return i
 			end
 		end)
@@ -1170,23 +1179,6 @@ pen.new_interface = function( pic_x, pic_y, s_x, s_y, pic_z, data )
 				if( got_x and got_y ) then GlobalsSetValue( pen.GLOBAL_JPAD_SPEED..k, speed - 1 ) end
 			else pos = { pic_x, pic_y } end
 
-			pen.new_image( pos[1] - 1, pos[2] - 1, z, pic,
-				{ color = pen.PALETTE[ "P"..k.."_A" ], s_x = 0.5, s_y = 0.5, alpha = anim })
-			pen.new_image( pos[1] - 1, pos[2] - 1, z + 0.1, pic,
-				{ color = pen.PALETTE[ "P"..k.."_B" ], s_x = 0.5, s_y = 0.5, alpha = 0.75 })
-			pen.new_image( pos[1] + size[1] + 1, pos[2] - 1, z, pic,
-				{ color = pen.PALETTE[ "P"..k.."_A" ], s_x = -0.5, s_y = 0.5, alpha = 1 - anim })
-			pen.new_image( pos[1] + size[1] + 1, pos[2] - 1, z + 0.1, pic,
-				{ color = pen.PALETTE[ "P"..k.."_B" ], s_x = -0.5, s_y = 0.5, alpha = 0.75 })
-			pen.new_image( pos[1] - 1, pos[2] + size[2] + 1, z, pic,
-				{ color = pen.PALETTE[ "P"..k.."_A" ], s_x = 0.5, s_y = -0.5, alpha = 1 - anim })
-			pen.new_image( pos[1] - 1, pos[2] + size[2] + 1, z + 0.1, pic,
-				{ color = pen.PALETTE[ "P"..k.."_B" ], s_x = 0.5, s_y = -0.5, alpha = 0.75 })
-			pen.new_image( pos[1] + size[1] + 1, pos[2] + size[2] + 1, z, pic,
-				{ color = pen.PALETTE[ "P"..k.."_A" ], s_x = -0.5, s_y = -0.5, alpha = anim })
-			pen.new_image( pos[1] + size[1] + 1, pos[2] + size[2] + 1, z + 0.1, pic,
-				{ color = pen.PALETTE[ "P"..k.."_B" ], s_x = -0.5, s_y = -0.5, alpha = 0.75 })
-			
 			if( mnee.mnin( "key", k.."gpd_r3" )) then
 				if( GlobalsGetValue( pen.GLOBAL_JPAD_DISARMER..k, "0" ) == "0" ) then
 					GlobalsSetValue( pen.GLOBAL_JPAD_DISARMER..k, "1" )
@@ -1196,27 +1188,31 @@ pen.new_interface = function( pic_x, pic_y, s_x, s_y, pic_z, data )
 			GlobalsSetValue( pen.GLOBAL_JPAD_SAFETY..k, frame_num )
 
 			local axes = mnee.get_axes()
-			local is_special = mnee.mnin( "key", k.."gpd_l1" )
-			local is_dragging = mnee.mnin( "key", k.."gpd_a" )
+			local doing_left =
+				( axes[ k.."gpd_axis_lh" ] or 0 ) ~= 0 or ( axes[ k.."gpd_axis_lv" ] or 0 ) ~= 0
+			local doing_right =
+				( axes[ k.."gpd_axis_rh" ] or 0 ) ~= 0 or ( axes[ k.."gpd_axis_rv" ] or 0 ) ~= 0
+
 			local cross_dft = pen.t.pack({ pic_x + s_x/2, pic_y + s_y/2 })
-			local doing_left = axes[ k.."gpd_axis_lh" ] ~= 0 or axes[ k.."gpd_axis_lv" ] ~= 0
-			local doing_right = axes[ k.."gpd_axis_rh" ] ~= 0 or axes[ k.."gpd_axis_rv" ] ~= 0
 			local tip_off = pen.t.pack( GlobalsGetValue( pen.GLOBAL_JPAD_OFFSET..k, "|0|0|" ))
 			local cross_off = pen.t.pack( GlobalsGetValue( pen.GLOBAL_JPAD_CURSOR..k, cross_dft ))
 			pen.c.jpad_tip_pos = { fid, pic_x + s_x/2 + tip_off[1], pic_y + s_y/2 + tip_off[2]}
 
-			--scrollers (autoscroll on focus switch to keep focused visible, right stick to scroll)
-			--make sure all advanced widgets have automatic focus id population (pen.new_dragger, pen.new_button, pen.new_input, pen.new_scroller)
-			--experiment with different center point poses
+			--pen.get_mouse_pos( in_world, jpad )
+			--make sure all advanced widgets have automatic focus id population (pen.new_input, pen.new_pager)
+			--mnee rebinding should ignore guied inputs
+			--experiment with different center points
 			--make sure all the core mods support controller fully
-			
+
 			local doing_cross = false
-			if( not( is_dragging )) then
+			local is_special = mnee.mnin( "key", k.."gpd_l1" )
+			if( not( mnee.mnin( "key", k.."gpd_a" ))) then --pressing this should instantly apply cross without triggering lmb
 				if( is_special and doing_left ) then
 					--left stick with gpd_l1 for moving text cursor
 				elseif( doing_left ) then
 					doing_cross, cross_off = true, {
-						cross_off[1] + 5*axes[ k.."gpd_axis_lh" ], cross_off[2] + 5*axes[ k.."gpd_axis_lv" ]}
+						cross_off[1] + 5*( axes[ k.."gpd_axis_lh" ] or 0 ),
+						cross_off[2] + 5*( axes[ k.."gpd_axis_lv" ] or 0 )}
 					GlobalsSetValue( pen.GLOBAL_JPAD_CURSOR..k, pen.t.pack( cross_off ))
 					--clear cross on focus or refocus
 				end
@@ -1225,15 +1221,14 @@ pen.new_interface = function( pic_x, pic_y, s_x, s_y, pic_z, data )
 			local cross = 0
 			if( doing_cross ) then
 				if( cross == 0 ) then 
-					--focuses on the closest one
+					--start refocusing loop and write the cross pos into the widget coords
 				end
-			elseif( false ) then --global that indicates that cross is real
-				--draw highlight boxes
 			end
 
 			if( is_special and doing_right ) then
 				tip_off = {
-					tip_off[1] + axes[ k.."gpd_axis_rh" ], tip_off[2] + axes[ k.."gpd_axis_rv" ]}
+					tip_off[1] + ( axes[ k.."gpd_axis_rh" ] or 0 ),
+					tip_off[2] + ( axes[ k.."gpd_axis_rv" ] or 0 )}
 				GlobalsSetValue( pen.GLOBAL_JPAD_OFFSET..k, pen.t.pack( tip_off ))
 			end
 
@@ -1246,21 +1241,41 @@ pen.new_interface = function( pic_x, pic_y, s_x, s_y, pic_z, data )
 			local alpha = tonumber( GlobalsGetValue( pen.GLOBAL_JPAD_ALPHA..k, "0" ))
 			GlobalsSetValue( pen.GLOBAL_JPAD_ALPHA..k, alpha < 0.01 and 0 or 0.85*alpha )
 			local shadow = is_pressed and 0.25 or 0.05; alpha = 1 - alpha
-			
-			pen.new_pixel( pos[1], pos[2], z, pen.PALETTE[ "P"..k.."_A" ], size[1], size[2], 0.1*alpha )
-			pen.new_pixel( pos[1], pos[2], z + 0.1, pen.PALETTE[ "P"..k.."_B" ], size[1], size[2], shadow*alpha )
 
-			pen.uncutter( function( c_x, c_y, cut_w, cut_h )
+			pen.uncutter( function( cut_x, cut_y, cut_w, cut_h )
+				pen.new_image( pos[1] - 1, pos[2] - 1, z, pic,
+					{ color = pen.PALETTE[ "P"..k.."_A" ], s_x = 0.5, s_y = 0.5, alpha = anim })
+				pen.new_image( pos[1] - 1, pos[2] - 1, z + 0.1, pic,
+					{ color = pen.PALETTE[ "P"..k.."_B" ], s_x = 0.5, s_y = 0.5, alpha = 0.75 })
+				pen.new_image( pos[1] + size[1] + 1, pos[2] - 1, z, pic,
+					{ color = pen.PALETTE[ "P"..k.."_A" ], s_x = -0.5, s_y = 0.5, alpha = 1 - anim })
+				pen.new_image( pos[1] + size[1] + 1, pos[2] - 1, z + 0.1, pic,
+					{ color = pen.PALETTE[ "P"..k.."_B" ], s_x = -0.5, s_y = 0.5, alpha = 0.75 })
+				pen.new_image( pos[1] - 1, pos[2] + size[2] + 1, z, pic,
+					{ color = pen.PALETTE[ "P"..k.."_A" ], s_x = 0.5, s_y = -0.5, alpha = 1 - anim })
+				pen.new_image( pos[1] - 1, pos[2] + size[2] + 1, z + 0.1, pic,
+					{ color = pen.PALETTE[ "P"..k.."_B" ], s_x = 0.5, s_y = -0.5, alpha = 0.75 })
+				pen.new_image( pos[1] + size[1] + 1, pos[2] + size[2] + 1, z, pic,
+					{ color = pen.PALETTE[ "P"..k.."_A" ], s_x = -0.5, s_y = -0.5, alpha = anim })
+				pen.new_image( pos[1] + size[1] + 1, pos[2] + size[2] + 1, z + 0.1, pic,
+					{ color = pen.PALETTE[ "P"..k.."_B" ], s_x = -0.5, s_y = -0.5, alpha = 0.75 })
+				
+				pen.new_pixel( pos[1], pos[2], z, pen.PALETTE[ "P"..k.."_A" ], size[1], size[2], 0.1*alpha )
+				pen.new_pixel( pos[1], pos[2], z + 0.1, pen.PALETTE[ "P"..k.."_B" ], size[1], size[2], shadow*alpha )
+
 				if( cross == 0 ) then return end
+				local c_x, c_y = cross_off[1], cross_off[2]
 				pen.new_pixel( c_x - 3 - 0.5, c_y - 0.5, z - 5.1, pen.PALETTE[ "P"..k.."_A" ], 3, 1, cross )
 				pen.new_pixel( c_x + 1 - 0.5, c_y - 0.5, z - 5.1, pen.PALETTE[ "P"..k.."_A" ], 3, 1, cross )
 				pen.new_pixel( c_x - 0.5, c_y - 3 - 0.5, z - 5.1, pen.PALETTE[ "P"..k.."_A" ], 1, 3, cross )
 				pen.new_pixel( c_x - 0.5, c_y + 1 - 0.5, z - 5.1, pen.PALETTE[ "P"..k.."_A" ], 1, 3, cross )
 				pen.new_pixel( c_x - 500 - 0.5, c_y - 0.5, z - 5, pen.PALETTE[ "P"..k.."_B" ], 1000, 1, 0.1*cross )
 				pen.new_pixel( c_x - 0.5, c_y - 500 - 0.5, z - 5, pen.PALETTE[ "P"..k.."_B" ], 1, 1000, 0.1*cross )
-			end, cross_off[1], cross_off[2])
+			end)
+		elseif( false--[[if cross is real]] ) then
+			--draw highlight boxes on hover by cross
 		end
-		
+
 		return clicked, r_clicked, is_hovered, is_jpad
 	end
 
@@ -1278,18 +1293,19 @@ pen.new_dragger = function( did, pic_x, pic_y, s_x, s_y, pic_z, data )
 			local is_going = pen.c.controller_dragging[ jpad ].is_going
 			if( mnee.mnin( "key", jpad.."gpd_a" )) then
 				state = clicked and 1 or 2
+				
 				local axes = mnee.get_axes()
-				local d_x, d_y = axes[ jpad.."gpd_axis_lh" ], axes[ jpad.."gpd_axis_lv" ]
-				pen.c.controller_dragging[ jpad ][1] = pen.c.controller_dragging[ jpad ][1] + 3*d_x
-				pen.c.controller_dragging[ jpad ][2] = pen.c.controller_dragging[ jpad ][2] + 3*d_y
-				GlobalsSetValue( pen.GLOBAL_JPAD_SPEED..jpad, "0" )
 				pen.c.controller_dragging[ jpad ].is_going = true
+				GlobalsSetValue( pen.GLOBAL_JPAD_SPEED..jpad, "0" )
+
+				pen.c.controller_dragging[ jpad ][1] =
+					pen.c.controller_dragging[ jpad ][1] + 3*( axes[ jpad.."gpd_axis_lh" ] or 0 )
 				pic_x = pen.c.controller_dragging[ jpad ][1]
+
+				pen.c.controller_dragging[ jpad ][2] =
+					pen.c.controller_dragging[ jpad ][2] + 3*( axes[ jpad.."gpd_axis_lv" ] or 0 )
 				pic_y = pen.c.controller_dragging[ jpad ][2]
-			else
-				state = is_going and -1 or 0
-				pen.c.controller_dragging[ jpad ] = nil
-			end
+			else state, pen.c.controller_dragging[ jpad ] = is_going and -1 or 0, nil end
 		end
 
 		return pic_x, pic_y, state, clicked

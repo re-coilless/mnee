@@ -3776,14 +3776,25 @@ function pen.get_camera_shake( w, h, real_w, real_h )
 end
 
 ---Returns on-screen pointer position.
+---@param in_world? boolean
+---@param jpad? number
 ---@return number pointer_x, number pointer_y
-function pen.get_mouse_pos()
-	local virt = GlobalsGetValue( pen.GLOBAL_VIRTUAL_UIM, "" )
-	if( pen.vld( virt )) then return unpack( pen.t.pack( virt )) end
+function pen.get_mouse_pos( in_world, jpad )
+	jpad = jpad or 1
+	if( is_world ) then
+		local virt = pen.t.pack( GlobalsGetValue( pen.GLOBAL_JPAD_MWD..jpad, "" ))
+		if(( virt[3] or 0 < GameGetFrameNum())) then return DEBUG_GetMouseWorld() end
+		return virt[1], virt[2]
+	end
 
-	local w, h, _,_, real_w, real_h = pen.get_screen_data()
-	local m_x, m_y = InputGetMousePosOnScreen()
-	return m_x*w/real_w, m_y*h/real_h
+	local virt = pen.t.pack( GlobalsGetValue( pen.GLOBAL_JPAD_MUI..jpad, "" ))
+	if(( virt[3] or 0 < GameGetFrameNum())) then
+		local w, h, _,_, real_w, real_h = pen.get_screen_data()
+		local m_x, m_y = InputGetMousePosOnScreen()
+		return m_x*w/real_w, m_y*h/real_h
+	end
+
+	return virt[1], virt[2]
 end
 
 ---Calculates on-screen position from in-world coordinates.
@@ -3793,9 +3804,7 @@ end
 ---@param no_shake? boolean
 ---@param in_reverse? boolean
 ---@return number pic_x, number pic_y, table scale_values
-function pen.world2gui( x, y, is_raw, no_shake, in_reverse )
-	--thanks to ImmortalDamned for the fix (x2 combo)
-	
+function pen.world2gui( x, y, is_raw, no_shake, in_reverse ) --thanks to ImmortalDamned for the fix (x2 combo)
 	local w, h, view_w, view_h, real_w, real_h = pen.get_screen_data()
 	local massive_balls_x, massive_balls_y = w/view_w, h/view_h
 	
@@ -4075,8 +4084,8 @@ function pen.new_button( pic_x, pic_y, pic_z, pic, data )
 	if( data.skip_z_check ) then pic_iz = nil end
 	data.dims = { pen.get_pic_dims( pen.get_hybrid_table( pic )[1], data.update_xml )}
 
-	if( type( data.jpad or {}) ~= "table" ) then
-		data.jpad = { "button_"..data.auid.."_focus", data.jpad_vip or false, data.jpad }
+	if( type( data.jpad_vip or data.jpad or {}) ~= "table" ) then
+		data.jpad = { "button_"..data.auid.."_focus", data.jpad_vip or false, data.jpad or data.jpad_vip }
 	end
 
 	local off_x, off_y, is_jpad = 0, 0, false
@@ -4113,8 +4122,8 @@ function pen.new_dragger( did, pic_x, pic_y, s_x, s_y, pic_z, data )
 	-- local d_x, d_y = m_x - pen.c.dragger_data[ did ].old_pos[1], m_y - pen.c.dragger_data[ did ].old_pos[2]
 	-- pen.c.dragger_data[ did ].old_pos = { m_x, m_y }
 	
-	if( type( data.jpad or {}) ~= "table" ) then
-		data.jpad = { "dragger_"..did.."_focus", data.jpad_vip or false, data.jpad }
+	if( type( data.jpad_vip or data.jpad or {}) ~= "table" ) then
+		data.jpad = { "dragger_"..did.."_focus", data.jpad_vip or false, data.jpad or data.jpad_vip }
 	end
 
 	local clicked = false
@@ -4235,10 +4244,6 @@ function pen.new_scroller( sid, pic_x, pic_y, pic_z, size_x, size_y, func, data 
 		}
 		color[10] = color[10] or color[9]
 
-		--add hov zone to compat one
-		--allow scrolling line by line through right stick
-		--(do scroll command every once in a while, higher stick angle reduces cooldown)
-
 		local clicked, r_clicked = false, false
 		local is_shifted = not( InputIsKeyDown( 225 ))
 		if( data.is_compact ) then
@@ -4261,6 +4266,11 @@ function pen.new_scroller( sid, pic_x, pic_y, pic_z, size_x, size_y, func, data 
 
 		local _,new_y,state,_,_,is_hovered,is_jpad = pen.new_dragger(
 			sid.."_dragger_y", pic_x, bar_y, 3, bar_height, pic_z, { jpad = data.jpad })
+		if( is_jpad ) then
+			data.go_up = mnee.mnin( "key", is_jpad.."gpd_btn_rv_-", { pressed = true })
+			data.go_down = mnee.mnin( "key", is_jpad.."gpd_btn_rv_+", { pressed = true })
+		end
+
 		local may_show = data.can_scroll or is_hovered
 		if( may_show or not( data.hide_bar )) then
 			pen.new_pixel( pic_x + 1, bar_y, pic_z, color[ is_hovered and 10 or 9 ], 1, bar_height )
@@ -4322,8 +4332,13 @@ function pen.new_scroller( sid, pic_x, pic_y, pic_z, size_x, size_y, func, data 
 			return out
 		end
 		
-		local new_x,_,state,_,_,is_hovered = pen.new_dragger(
+		local new_x,_,state,_,_,is_hovered,is_jpad = pen.new_dragger(
 			sid.."_dragger_x", bar_x, pic_y, bar_length, 3, pic_z, { jpad = data.jpad })
+		if( is_jpad ) then
+			data.go_left = mnee.mnin( "key", is_jpad.."gpd_btn_rh_-", { pressed = true })
+			data.go_right = mnee.mnin( "key", is_jpad.."gpd_btn_rh_+", { pressed = true })
+		end
+
 		local may_show = data.can_scroll or is_hovered
 		if( may_show or not( data.hide_bar )) then
 			pen.new_pixel( bar_x, pic_y + 1, pic_z, color[ is_hovered and 10 or 9 ], bar_length, 1 )
@@ -4359,8 +4374,8 @@ function pen.new_scroller( sid, pic_x, pic_y, pic_z, size_x, size_y, func, data 
 	pen.c.scroll_memo = pen.c.scroll_memo or {}
 	pen.c.scroll_memo[ sid ] = pen.c.scroll_memo[ sid ] or {}
 
-	if( type( data.jpad or {}) ~= "table" ) then
-		data.jpad = { "scroller_"..sid.."_focus", data.jpad_vip or false, data.jpad }
+	if( type( data.jpad_vip or data.jpad or {}) ~= "table" ) then
+		data.jpad = { "scroller_"..sid.."_focus", data.jpad_vip or false, data.jpad or data.jpad_vip }
 	end
 
 	local old_height = pen.c.scroll_memo[ sid ].h or -1
@@ -5001,18 +5016,19 @@ pen.GLOBAL_INTERFACE_SAFETY_TR = "PENMAN_INTERFACE_SAFETY_TR"
 pen.GLOBAL_TIPZ_RESOLVER = "PENMAN_TIPZ_RESOLVER"
 pen.GLOBAL_TIPZ_RESOLVER_FRAME = "PENMAN_TIPZ_FRAME"
 
-pen.GLOBAL_VIRTUAL_UIM = "PENMAN_VIRTUAL_UIM"
-pen.GLOBAL_VIRTUAL_WDM = "PENMAN_VIRTUAL_WDM"
 pen.GLOBAL_INPUT_STATE = "PENMAN_INPUT_STATE"
 pen.GLOBAL_INPUT_FRAME = "PENMAN_INPUT_FRAME"
 pen.GLOBAL_KEYBOARD_STYLE = "PENMAN_KEYBOARD_STYLE"
 
+pen.GLOBAL_JPAD_MUI = "PENMAN_JPAD_MUI_"
+pen.GLOBAL_JPAD_MWD = "PENMAN_JPAD_MWD_"
 pen.GLOBAL_JPAD_DOT = "PENMAN_JPAD_DOT_"
 pen.GLOBAL_JPAD_POS = "PENMAN_JPAD_POS_"
 pen.GLOBAL_JPAD_SIZE = "PENMAN_JPAD_SIZE_"
 pen.GLOBAL_JPAD_ALPHA = "PENMAN_JPAD_ALPHA_"
 pen.GLOBAL_JPAD_SPEED = "PENMAN_JPAD_SPEED_"
 pen.GLOBAL_JPAD_FOCUS = "PENMAN_JPAD_FOCUS_"
+pen.GLOBAL_JPAD_CROSS = "PENMAN_JPAD_CROSS_"
 pen.GLOBAL_JPAD_CURSOR = "PENMAN_JPAD_CURSOR_"
 pen.GLOBAL_JPAD_OFFSET = "PENMAN_JPAD_OFFSET_"
 pen.GLOBAL_JPAD_SAFETY = "PENMAN_JPAD_SAFETY_"
@@ -5028,6 +5044,7 @@ pen.GLOBAL_JPAD_TARGET_L = "PENMAN_JPAD_TARGET_L_"
 pen.GLOBAL_JPAD_TARGET_R = "PENMAN_JPAD_TARGET_R_"
 pen.GLOBAL_JPAD_TARGET_U = "PENMAN_JPAD_TARGET_U_"
 pen.GLOBAL_JPAD_TARGET_D = "PENMAN_JPAD_TARGET_D_"
+pen.GLOBAL_JPAD_TARGET = "PENMAN_JPAD_TARGET_"
 
 pen.MARKER_TAB = "\\_"
 pen.MARKER_FANCY_TEXT = { "{>%S->{", "}<%S-<}", "{%-}%S-{%-}" }

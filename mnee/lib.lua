@@ -1019,12 +1019,14 @@ pen.new_interface = function( pic_x, pic_y, s_x, s_y, pic_z, data )
 		if( not( pen.vld( data.jpad[1]))) then return clicked, r_clicked, is_hovered end
 
 		if( pen.vld( pen.c.cutter_dims )) then
-			if( pic_x + s_x < 0 ) then return clicked, r_clicked, is_hovered end
-			if( pic_y + s_y < 0 ) then return clicked, r_clicked, is_hovered end
-			if( pic_x - pen.c.cutter_dims.wh[1] > 0 ) then return clicked, r_clicked, is_hovered end
-			if( pic_y - pen.c.cutter_dims.wh[2] > 0 ) then return clicked, r_clicked, is_hovered end
+			if( pic_x + s_x < 1 ) then return clicked, r_clicked, is_hovered end
+			if( pic_y + s_y < 1 ) then return clicked, r_clicked, is_hovered end
+			if( pic_x - pen.c.cutter_dims.wh[1] > -1 ) then return clicked, r_clicked, is_hovered end
+			if( pic_y - pen.c.cutter_dims.wh[2] > -1 ) then return clicked, r_clicked, is_hovered end
 			pic_x, pic_y = pen.c.cutter_dims.xy[1] + pic_x, pen.c.cutter_dims.xy[2] + pic_y
 		end
+
+		mnee.ignore_service_mode = true
 
 		local frame_num = GameGetFrameNum()
 		local fid, is_vip, focus_check = unpack( data.jpad )
@@ -1038,14 +1040,15 @@ pen.new_interface = function( pic_x, pic_y, s_x, s_y, pic_z, data )
 			
 			if( state == "_" ) then
 				local focus_loop = GlobalsGetValue( pen.GLOBAL_JPAD_FOCUS_LOOP..i, "" )
-				local target = pen.t.pack( GlobalsGetValue( pen.GLOBAL_JPAD_FOCUS_TARGET..i, "" ))
+				local target = pen.t.pack( GlobalsGetValue( pen.GLOBAL_JPAD_FOCUS_TARGET..i, "|_|0|" ))
 				if( focus_loop == "" ) then GlobalsSetValue( pen.GLOBAL_JPAD_FOCUS_LOOP..i, fid ) end
 
 				if( focus_loop ~= fid ) then
-					local dist = math.sqrt( pic_x^2 + pic_y^2 )
+					local dist = math.sqrt(
+						( pic_x + s_x/2 )^2 + ( pic_y + s_y/2 )^2 )
 					if( is_vip ) then dist = -99999 end
-					if( target[2] == nil or dist < target[2] ) then
-						GlobalsSetValue( pen.GLOBAL_JPAD_FOCUS_TARGET..i, "|"..fid.."|"..dist.."|" )
+					if( target[1] == nil or dist < target[2]) then
+						GlobalsSetValue( pen.GLOBAL_JPAD_FOCUS_TARGET..i, pen.t.pack({ fid, dist }))
 					end
 				else
 					GlobalsSetValue( pen.GLOBAL_JPAD_DOT..i, "" )
@@ -1063,6 +1066,7 @@ pen.new_interface = function( pic_x, pic_y, s_x, s_y, pic_z, data )
 					
 					GlobalsSetValue( pen.GLOBAL_JPAD_ALPHA..i, "1" )
 					GlobalsSetValue( pen.GLOBAL_JPAD_SPEED..i, "2" )
+					GlobalsSetValue( pen.GLOBAL_JPAD_CROSS..i, "0" )
 					GlobalsSetValue( pen.GLOBAL_JPAD_POS..i, "|0|0|" )
 					GlobalsSetValue( pen.GLOBAL_JPAD_OFFSET..i, "|0|0|" )
 					GlobalsSetValue( pen.GLOBAL_JPAD_SIZE..i, pen.t.pack({ w, h }))
@@ -1071,11 +1075,9 @@ pen.new_interface = function( pic_x, pic_y, s_x, s_y, pic_z, data )
 				local dot = pen.t.pack( GlobalsGetValue( pen.GLOBAL_JPAD_DOT..i, "" ))
 				local is_looping = GlobalsGetValue( pen.GLOBAL_JPAD_TARGET_LOOP..i, "" ) ~= ""
 				if( pen.vld( dot ) and is_looping ) then
-					local d_x, d_y = pic_x - dot[1], pic_y - dot[2]
-					local dist = math.sqrt( d_x^2 + d_y^2 )
-					local angle = math.atan2( d_y, d_x )
-					
-					local quads = {{ -135,-45,2 }, { 45,135,1 }, { -45,45,4 }, { 135,-135,3 }}
+					local d_x, d_y = pic_x + s_x/2 - dot[1], pic_y + s_y/2 - dot[2]
+					local dist, angle = math.sqrt( d_x^2 + d_y^2 ), math.atan2( d_y, d_x )
+					local quads = {{ -135,-45,2,-90 }, { 45,135,1,90 }, { -45,45,4,0 }, { 135,-135,3,180 }}
 					pen.t.loop( quads, function( n, v )
 						local extra = quads[ v[3]]
 						local is_valid = ( angle >= math.rad( v[1]) and angle <= math.rad( v[2]))
@@ -1085,19 +1087,32 @@ pen.new_interface = function( pic_x, pic_y, s_x, s_y, pic_z, data )
 						local side = pen[ "GLOBAL_JPAD_TARGET_"..({ "U", "D", "R", "L" })[n]]
 						local t = pen.t.pack( GlobalsGetValue( side..i, "|_|0|_|0|" ))
 						
+						local w = 1
+						if( n == 4 ) then
+							local w1 = pen.get_angular_delta( math.rad( v[4]), angle )/math.rad( 90 )
+							local w2 = pen.get_angular_delta( math.rad( -v[4]), angle )/math.rad( 90 )
+							w = math.min( math.abs( w1 ), math.abs( w2 ))
+						else w = math.abs( pen.get_angular_delta( math.rad( v[4]), angle )/math.rad( 90 )) end
+						local d = dist*math.max( w, 0.25 )^2
+
 						local side_id, side_dist, extra_id, extra_dist = unpack( t )
-						if( is_valid and ( side_id == "_" or side_dist > dist )) then
-							GlobalsSetValue( side..i, pen.t.pack({ fid, dist, extra_id, extra_dist }))
-						elseif( is_extra and ( extra_id == "_" or extra_dist < dist )) then
-							GlobalsSetValue( side..i, pen.t.pack({ side_id, side_dist, fid, dist }))
+						if( is_valid and ( side_id == "_" or side_dist > d )) then
+							GlobalsSetValue( side..i, pen.t.pack({ fid, d, extra_id, extra_dist }))
+						elseif( is_extra and ( extra_id == "_" or extra_dist < d )) then
+							GlobalsSetValue( side..i, pen.t.pack({ side_id, side_dist, fid, d }))
+						end
+
+						t = pen.t.pack( GlobalsGetValue( pen.GLOBAL_JPAD_TARGET..i, "|_|0|" ))
+						if( t[1] == "_" or dist < t[2]) then
+							GlobalsSetValue( pen.GLOBAL_JPAD_TARGET..i, pen.t.pack({ fid, dist }))
 						end
 					end)
 				end
 			else
-				local go_up = mnee.mnin( "key", i.."gpd_up", { pressed = true })
-				local go_down = mnee.mnin( "key", i.."gpd_down", { pressed = true })
-				local go_left = mnee.mnin( "key", i.."gpd_left", { pressed = true })
-				local go_right = mnee.mnin( "key", i.."gpd_right", { pressed = true })
+				local go_up = mnee.mnin( "key", i.."gpd_up", { pressed = true, vip = true })
+				local go_down = mnee.mnin( "key", i.."gpd_down", { pressed = true, vip = true })
+				local go_left = mnee.mnin( "key", i.."gpd_left", { pressed = true, vip = true })
+				local go_right = mnee.mnin( "key", i.."gpd_right", { pressed = true, vip = true })
 
 				local will_swap = go_up or go_down or go_left or go_right
 				local may_swap = GlobalsGetValue( pen.GLOBAL_JPAD_TARGET_LOOP..i, "" )
@@ -1109,6 +1124,8 @@ pen.new_interface = function( pic_x, pic_y, s_x, s_y, pic_z, data )
 				if( may_swap == fid ) then
 					local new_target = "_"
 					local dft = pen.t.pack({ "_", 0, "_", 0 })
+					pen.c.controller_swap = pen.c.controller_swap or {}
+
 					if( pen.c.controller_swap[1]) then
 						new_target = pen.t.pack( GlobalsGetValue( pen.GLOBAL_JPAD_TARGET_U..i, dft ))
 					elseif( pen.c.controller_swap[2]) then
@@ -1117,7 +1134,9 @@ pen.new_interface = function( pic_x, pic_y, s_x, s_y, pic_z, data )
 						new_target = pen.t.pack( GlobalsGetValue( pen.GLOBAL_JPAD_TARGET_L..i, dft ))
 					elseif( pen.c.controller_swap[4]) then
 						new_target = pen.t.pack( GlobalsGetValue( pen.GLOBAL_JPAD_TARGET_R..i, dft ))
-					end --else pick the closest out of all
+					else
+						new_target = pen.t.pack( GlobalsGetValue( pen.GLOBAL_JPAD_TARGET..i, dft ))
+					end
 
 					pen.c.controller_swap = nil
 					GlobalsSetValue( pen.GLOBAL_JPAD_TARGET_LOOP..i, "" )
@@ -1125,19 +1144,21 @@ pen.new_interface = function( pic_x, pic_y, s_x, s_y, pic_z, data )
 					GlobalsSetValue( pen.GLOBAL_JPAD_TARGET_D..i, dft )
 					GlobalsSetValue( pen.GLOBAL_JPAD_TARGET_L..i, dft )
 					GlobalsSetValue( pen.GLOBAL_JPAD_TARGET_R..i, dft )
+					GlobalsSetValue( pen.GLOBAL_JPAD_TARGET..i, dft )
 
-					local t = new_target[ new_target[1] == "_" and 3 or 1 ]
+					local t = new_target[ new_target[1] == "_" and 3 or 1 ] or "_"
 					if( t ~= "_" ) then
 						GlobalsSetValue( pen.GLOBAL_JPAD_FOCUS..i, t )
 						GlobalsSetValue( pen.GLOBAL_JPAD_MIGRATE..i, t )
 						GlobalsSetValue( pen.GLOBAL_JPAD_SPEED..i, "2" )
+						GlobalsSetValue( pen.GLOBAL_JPAD_CROSS..i, "0" )
 						GlobalsSetValue( pen.GLOBAL_JPAD_OFFSET..i, "|0|0|" )
 						GlobalsSetValue( pen.GLOBAL_JPAD_POS_OLD..i, pen.t.pack({ pic_x, pic_y }))
 						GlobalsSetValue( pen.GLOBAL_JPAD_SIZE_OLD..i, pen.t.pack({ s_x, s_y }))
 					end
 				end
 
-				GlobalsSetValue( pen.GLOBAL_JPAD_DOT..i, pen.t.pack({ pic_x, pic_y }))
+				GlobalsSetValue( pen.GLOBAL_JPAD_DOT..i, pen.t.pack({ pic_x + s_x/2, pic_y + s_y/2 }))
 				return i
 			end
 		end)
@@ -1193,36 +1214,38 @@ pen.new_interface = function( pic_x, pic_y, s_x, s_y, pic_z, data )
 			local doing_right =
 				( axes[ k.."gpd_axis_rh" ] or 0 ) ~= 0 or ( axes[ k.."gpd_axis_rv" ] or 0 ) ~= 0
 
-			local cross_dft = pen.t.pack({ pic_x + s_x/2, pic_y + s_y/2 })
+			local cross = tonumber( GlobalsGetValue( pen.GLOBAL_JPAD_CROSS..k, "0" ))
+			local cross_off = pen.t.pack( GlobalsGetValue( pen.GLOBAL_JPAD_CURSOR..k, "" ))
 			local tip_off = pen.t.pack( GlobalsGetValue( pen.GLOBAL_JPAD_OFFSET..k, "|0|0|" ))
-			local cross_off = pen.t.pack( GlobalsGetValue( pen.GLOBAL_JPAD_CURSOR..k, cross_dft ))
 			pen.c.jpad_tip_pos = { fid, pic_x + s_x/2 + tip_off[1], pic_y + s_y/2 + tip_off[2]}
+			cross_off[1], cross_off[2] = cross_off[1] or ( pic_x + s_x/2 ), cross_off[2] or ( pic_y + s_y/2 )
 
-			--pen.get_mouse_pos( in_world, jpad )
+			--right stick scrolling should be not frame based but delay based
 			--make sure all advanced widgets have automatic focus id population (pen.new_input, pen.new_pager)
-			--mnee rebinding should ignore guied inputs
-			--experiment with different center points
 			--make sure all the core mods support controller fully
-
+			
 			local doing_cross = false
-			local is_special = mnee.mnin( "key", k.."gpd_l1" )
-			if( not( mnee.mnin( "key", k.."gpd_a" ))) then --pressing this should instantly apply cross without triggering lmb
+			local is_special = mnee.mnin( "key", k.."gpd_l1", { vip = true })
+			if( not( mnee.mnin( "key", k.."gpd_a", { vip = true }))) then
 				if( is_special and doing_left ) then
 					--left stick with gpd_l1 for moving text cursor
 				elseif( doing_left ) then
 					doing_cross, cross_off = true, {
-						cross_off[1] + 5*( axes[ k.."gpd_axis_lh" ] or 0 ),
-						cross_off[2] + 5*( axes[ k.."gpd_axis_lv" ] or 0 )}
+						cross_off[1] + 2*( axes[ k.."gpd_axis_lh" ] or 0 ),
+						cross_off[2] + 2*( axes[ k.."gpd_axis_lv" ] or 0 )}
 					GlobalsSetValue( pen.GLOBAL_JPAD_CURSOR..k, pen.t.pack( cross_off ))
-					--clear cross on focus or refocus
 				end
 			end
 			
-			local cross = 0
-			if( doing_cross ) then
-				if( cross == 0 ) then 
-					--start refocusing loop and write the cross pos into the widget coords
-				end
+			local is_crossing = cross ~= 0
+			cross = pen.estimate( "jpad_focus_cross_"..k,
+				doing_cross and 1 or 0, doing_cross and "wgt1" or "wgt0.5" )
+			GlobalsSetValue( pen.GLOBAL_JPAD_CROSS..k, cross )
+			if( is_crossing and cross == 0 ) then
+				GlobalsSetValue( pen.GLOBAL_JPAD_CURSOR..k, "" )
+				pen.c.estimator_memo[ "jpad_focus_cross_"..k ] = 0
+				GlobalsSetValue( pen.GLOBAL_JPAD_TARGET_LOOP..k, fid )
+				GlobalsSetValue( pen.GLOBAL_JPAD_DOT..k, pen.t.pack( cross_off ))
 			end
 
 			if( is_special and doing_right ) then
@@ -1233,8 +1256,8 @@ pen.new_interface = function( pic_x, pic_y, s_x, s_y, pic_z, data )
 			end
 
 			is_hovered, is_jpad = true, k
-			clicked = mnee.mnin( "key", k.."gpd_a", { pressed = true })
-			r_clicked = mnee.mnin( "key", k.."gpd_y", { pressed = true })
+			clicked = mnee.mnin( "key", k.."gpd_a", { pressed = true, vip = true })
+			r_clicked = mnee.mnin( "key", k.."gpd_y", { pressed = true, vip = true })
 
 			local disarmer = mnee.get_disarmer()
 			local is_pressed = disarmer[ "key"..k.."gpd_a" ] ~= nil or disarmer[ "key"..k.."gpd_y" ] ~= nil
@@ -1242,6 +1265,8 @@ pen.new_interface = function( pic_x, pic_y, s_x, s_y, pic_z, data )
 			GlobalsSetValue( pen.GLOBAL_JPAD_ALPHA..k, alpha < 0.01 and 0 or 0.85*alpha )
 			local shadow = is_pressed and 0.25 or 0.05; alpha = 1 - alpha
 
+			GlobalsSetValue( pen.GLOBAL_JPAD_MUI..k, pen.t.pack({
+				pos[1] + size[1]/2, pos[2] + size[2]/2, frame_num + 3 }))
 			pen.uncutter( function( cut_x, cut_y, cut_w, cut_h )
 				pen.new_image( pos[1] - 1, pos[2] - 1, z, pic,
 					{ color = pen.PALETTE[ "P"..k.."_A" ], s_x = 0.5, s_y = 0.5, alpha = anim })
@@ -1272,9 +1297,22 @@ pen.new_interface = function( pic_x, pic_y, s_x, s_y, pic_z, data )
 				pen.new_pixel( c_x - 500 - 0.5, c_y - 0.5, z - 5, pen.PALETTE[ "P"..k.."_B" ], 1000, 1, 0.1*cross )
 				pen.new_pixel( c_x - 0.5, c_y - 500 - 0.5, z - 5, pen.PALETTE[ "P"..k.."_B" ], 1, 1000, 0.1*cross )
 			end)
-		elseif( false--[[if cross is real]] ) then
-			--draw highlight boxes on hover by cross
+		else
+			pen.uncutter( function( cut_x, cut_y, cut_w, cut_h )
+				pen.t.loop({ 1, 2, 3, 4 }, function( i )
+					local cross = tonumber( GlobalsGetValue( pen.GLOBAL_JPAD_CROSS..i, "0" ))
+					if( cross == 0 ) then return end
+					local dot = pen.t.pack( GlobalsGetValue( pen.GLOBAL_JPAD_CURSOR..i, "|0|0|" ))
+					if( pen.check_bounds( dot, { s_x, s_y }, { pic_x, pic_y })) then
+						local z = pen.LAYERS.DEBUG - ( i + 5 )
+						pen.new_pixel( pic_x, pic_y, z, pen.PALETTE[ "P"..i.."_A" ], s_x, s_y, 0.2 )
+						pen.new_pixel( pic_x, pic_y, z, pen.PALETTE[ "P"..i.."_B" ], s_x, s_y, 0.1 )
+					end
+				end)
+			end)
 		end
+
+		mnee.ignore_service_mode = nil
 
 		return clicked, r_clicked, is_hovered, is_jpad
 	end
@@ -1290,8 +1328,10 @@ pen.new_dragger = function( did, pic_x, pic_y, s_x, s_y, pic_z, data )
 			pen.c.controller_dragging = pen.c.controller_dragging or {}
 			pen.c.controller_dragging[ jpad ] = pen.c.controller_dragging[ jpad ] or { pic_x, pic_y }
 
+			mnee.ignore_service_mode = true
+
 			local is_going = pen.c.controller_dragging[ jpad ].is_going
-			if( mnee.mnin( "key", jpad.."gpd_a" )) then
+			if( mnee.mnin( "key", jpad.."gpd_a", { vip = true })) then
 				state = clicked and 1 or 2
 				
 				local axes = mnee.get_axes()
@@ -1306,6 +1346,8 @@ pen.new_dragger = function( did, pic_x, pic_y, s_x, s_y, pic_z, data )
 					pen.c.controller_dragging[ jpad ][2] + 3*( axes[ jpad.."gpd_axis_lv" ] or 0 )
 				pic_y = pen.c.controller_dragging[ jpad ][2]
 			else state, pen.c.controller_dragging[ jpad ] = is_going and -1 or 0, nil end
+
+			mnee.ignore_service_mode = nil
 		end
 
 		return pic_x, pic_y, state, clicked
@@ -1316,8 +1358,9 @@ end
 
 -----------------------------------------------------		[KEYBOARD]		-----------------------------------------------------
 
-function mnee.get_special_keys()
-	--gpd_r1 for shift, gpd_r2 for ctrl, gpd_l2 for alt (put all special key getting into a separate func)
+function mnee.get_special_keys( jpad )
+	jpad = jpad or 1
+	--gpd_r1 for shift, gpd_r2 for ctrl, gpd_l2 for alt
 end
 
 ---Static full keyboard input with shifting support and special keys.

@@ -25,6 +25,7 @@ function OnModInit()
 		end,
 	})
 
+	-- fix z levels
 	-- also try splitscreen for kappa
 	-- make procedural pause screen keyboard/mouse/gamepad that highlights all the bind's keys on hover of one of them (also add option to hide stuff from this menu; list all binds to the side in a scrolllist and highlight on hover)
 
@@ -303,10 +304,11 @@ function OnWorldPreUpdate()
 	end)
 	GlobalsSetValue( mnee.G_DOWN, active_core )
 	
+	mnee.ignore_service_mode = true
 	for i = 1,4 do
 		local state = GlobalsGetValue( pen.GLOBAL_JPAD_FOCUS..i, "" )
 		if( state == "" ) then
-			if( mnee.mnin( "key", i.."gpd_r3" )) then
+			if( mnee.mnin( "key", i.."gpd_r3", { vip = true })) then
 				if( GlobalsGetValue( pen.GLOBAL_JPAD_DISARMER..i, "0" ) == "0" ) then
 					GlobalsSetValue( pen.GLOBAL_JPAD_DISARMER..i, "1" )
 					GlobalsSetValue( pen.GLOBAL_JPAD_FOCUS..i, "_" )
@@ -318,6 +320,7 @@ function OnWorldPreUpdate()
 			end
 		end
 	end
+	mnee.ignore_service_mode = nil
 	
 	if( mnee.mnin( "bind", { "mnee", "menu" }, { pressed = true, vip = true })) then
 		pen.play_sound( pen.TUNES.PRSP[ mnee.G.gui_active and "CLOSE" or "OPEN" ])
@@ -373,7 +376,7 @@ function OnWorldPreUpdate()
 			local off = math.max( dims[1]/2 - 80, 40 )
 			
 			clicked = mnee.new_button( pic_x - off - 90,
-				pic_y + 20, pic_z, "mods/mnee/files/pics/button_90_B.png" )
+				pic_y + 20, pic_z, "mods/mnee/files/pics/button_90_B.png", { jpad = true })
 			pen.new_text( pic_x - off - 90/2, pic_y + 20, pic_z - 0.01,
 				GameTextGet( "$mnee_tipA" ), { is_centered_x = true, color = pen.PALETTE.PRSP.RED })
 			if( clicked ) then
@@ -383,7 +386,7 @@ function OnWorldPreUpdate()
 			end
 
 			clicked = mnee.new_button( pic_x + off,
-				pic_y + 20, pic_z, "mods/mnee/files/pics/button_90_A.png" )
+				pic_y + 20, pic_z, "mods/mnee/files/pics/button_90_A.png", { jpad = true })
 			pen.new_text( pic_x + off + 90/2, pic_y + 20, pic_z - 0.01,
 				GameTextGet( "$mnee_tipB" ), { is_centered_x = true, color = pen.PALETTE.PRSP.WHITE })
 			if( clicked ) then
@@ -392,8 +395,8 @@ function OnWorldPreUpdate()
 				mnee.G.help_active = false
 			end
 
-			clicked = mnee.new_button( pic_x - 5, pic_y + 20, pic_z,
-				"mods/mnee/files/pics/help.png", { auid = "help_reminder", highlight = pen.PALETTE.PRSP.PURPLE })
+			clicked = mnee.new_button( pic_x - 5, pic_y + 20, pic_z, "mods/mnee/files/pics/help.png",
+				{ auid = "help_reminder", highlight = pen.PALETTE.PRSP.PURPLE, jpad_vip = true })
 			if( clicked ) then
 				pen.play_sound( pen.TUNES.PRSP[ mnee.G.help_active and "CLOSE" or "OPEN" ])
 				mnee.G.help_active = not( mnee.G.help_active )
@@ -420,7 +423,7 @@ function OnWorldPreUpdate()
 			
 			local clicked, is_hovered = false, false
 			local pic_z = pen.LAYERS.TIPS_BACK + 1.5
-			mnee.G.pos_help[1], mnee.G.pos_help[2], _,_,_, is_hovered = pen.new_dragger( "mnee_help_window", help_x, help_y, w_anim[1], 11, pic_z + 0.5 )
+			mnee.G.pos_help[1], mnee.G.pos_help[2], _,_,_, is_hovered = pen.new_dragger( "mnee_help_window", help_x, help_y, w_anim[1], 11, pic_z + 0.5, { jpad = true })
 			pen.new_pixel( help_x, help_y, pic_z + 0.01, pen.PALETTE.PRSP.WHITE, w_anim[1], w_anim[2])
 			pen.new_pixel( help_x - 1, help_y - 1, pic_z + 0.015, pen.PALETTE.PRSP.BLUE, w_anim[1] + 2, w_anim[2] + 2 )
 			
@@ -440,16 +443,16 @@ function OnWorldPreUpdate()
 					local dims = pen.new_text( 2, scroll_pos[1], pic_z,
 						GameTextGet( "$mnee_help"..mnee.G.help_num, mnee.get_binding_keys( "mnee", "menu" ), mnee.get_binding_keys( "mnee", "profile_change" ), mnee.get_binding_keys( "mnee", "off" )), { dims = { w_anim[1] - 10, -1 }, color = pen.PALETTE.PRSP.BLUE, alpha = alpha, fully_featured = true })
 					return { dims[2] + 10, 1 }
-				end)
+				end, { jpad = true })
 
 				local update = false
-				clicked = mnee.new_button( help_x + w_anim[1] - 26, help_y + w_anim[2] - 11, pic_z - 0.02, "mods/mnee/files/pics/key_left.png", { auid = "help_arrow_left" })
+				clicked = mnee.new_button( help_x + w_anim[1] - 26, help_y + w_anim[2] - 11, pic_z - 0.02, "mods/mnee/files/pics/key_left.png", { auid = "help_arrow_left", jpad = true })
 				if( clicked ) then
 					update = true
 					mnee.G.help_num = mnee.G.help_num == 1 and total_num or ( mnee.G.help_num - 1 )
 				end
 
-				clicked = mnee.new_button( help_x + w_anim[1] - 15, help_y + w_anim[2] - 11, pic_z - 0.02, "mods/mnee/files/pics/key_right.png", { auid = "help_arrow_right" })
+				clicked = mnee.new_button( help_x + w_anim[1] - 15, help_y + w_anim[2] - 11, pic_z - 0.02, "mods/mnee/files/pics/key_right.png", { auid = "help_arrow_right", jpad = true })
 				if( clicked ) then
 					update = true
 					mnee.G.help_num = mnee.G.help_num == total_num and 1 or ( mnee.G.help_num + 1 )

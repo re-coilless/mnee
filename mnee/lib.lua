@@ -661,7 +661,7 @@ function mnee.new_button( pic_x, pic_y, pic_z, pic, data )
 		if( pen.vld( d.tip )) then
 			pen.uncutter( function( cut_x, cut_y, cut_w, cut_h )
 				return mnee.new_tooltip( d.tip, { is_active = true,
-					min_width = d.min_width, fid = ( d.jpad or {})[1]})
+					pic_z = d.tip_z, min_width = d.min_width, fid = ( d.jpad or {})[1]})
 			end)
 		end
 		if( d.highlight ) then pen.new_pixel(
@@ -717,14 +717,18 @@ end
 ---@param data MneePagerData
 ---@return number page
 function mnee.new_pager( pic_x, pic_y, pic_z, data )
+	if( type( data.jpad_vip or data.jpad or {}) ~= "table" ) then
+		data.jpad = { "pager_"..data.auid.."_focus", data.jpad_vip or false, data.jpad or data.jpad_vip }
+	end
+
 	local t_x, t_y = pic_x, pic_y + 99
 	if( data.compact_mode ) then t_y = t_y + 11 end
 	local clicked, r_clicked, sfx_type = {false,false}, {false,false}, 0
 	clicked[1], r_clicked[1] = mnee.new_button( t_x, t_y, pic_z, "mods/mnee/files/pics/key_left.png", {
-		auid = table.concat({ "page_", data.auid, "_l" })})
+		auid = table.concat({ "page_", data.auid, "_l" }), jpad = data.jpad[3]})
 	if( not( data.compact_mode )) then t_x = t_x + 22 end
 	clicked[2], r_clicked[2] = mnee.new_button( t_x + 11, t_y, pic_z, "mods/mnee/files/pics/key_right.png", {
-		auid = table.concat({ "page_", data.auid, "_r" })})
+		auid = table.concat({ "page_", data.auid, "_r" }), jpad = data.jpad[3]})
 	
 	local max_page = 0
 	data.page, max_page, sfx_type = pen.new_pager( pic_x, pic_y, pic_z, {
@@ -1077,7 +1081,7 @@ pen.new_interface = function( pic_x, pic_y, s_x, s_y, pic_z, data )
 				if( pen.vld( dot ) and is_looping ) then
 					local d_x, d_y = pic_x + s_x/2 - dot[1], pic_y + s_y/2 - dot[2]
 					local dist, angle = math.sqrt( d_x^2 + d_y^2 ), math.atan2( d_y, d_x )
-					local quads = {{ -135,-45,2,-90 }, { 45,135,1,90 }, { -45,45,4,0 }, { 135,-135,3,180 }}
+					local quads = {{ -165,-15,2,-90 }, { 15,165,1,90 }, { -45,45,4,0 }, { 135,-135,3,180 }}
 					pen.t.loop( quads, function( n, v )
 						local extra = quads[ v[3]]
 						local is_valid = ( angle >= math.rad( v[1]) and angle <= math.rad( v[2]))
@@ -1089,11 +1093,11 @@ pen.new_interface = function( pic_x, pic_y, s_x, s_y, pic_z, data )
 						
 						local w = 1
 						if( n == 4 ) then
-							local w1 = pen.get_angular_delta( math.rad( v[4]), angle )/math.rad( 90 )
-							local w2 = pen.get_angular_delta( math.rad( -v[4]), angle )/math.rad( 90 )
+							local w1 = pen.get_angular_delta( math.rad( v[4]), angle )/math.rad( 150 )
+							local w2 = pen.get_angular_delta( math.rad( -v[4]), angle )/math.rad( 150 )
 							w = math.min( math.abs( w1 ), math.abs( w2 ))
-						else w = math.abs( pen.get_angular_delta( math.rad( v[4]), angle )/math.rad( 90 )) end
-						local d = dist*math.max( w, 0.25 )^2
+						else w = math.abs( pen.get_angular_delta( math.rad( v[4]), angle )/math.rad( 150 )) end
+						local d = dist*math.sqrt( math.max( w, 0.01 ))
 
 						local side_id, side_dist, extra_id, extra_dist = unpack( t )
 						if( is_valid and ( side_id == "_" or side_dist > d )) then
@@ -1220,10 +1224,12 @@ pen.new_interface = function( pic_x, pic_y, s_x, s_y, pic_z, data )
 			pen.c.jpad_tip_pos = { fid, pic_x + s_x/2 + tip_off[1], pic_y + s_y/2 + tip_off[2]}
 			cross_off[1], cross_off[2] = cross_off[1] or ( pic_x + s_x/2 ), cross_off[2] or ( pic_y + s_y/2 )
 
-			--right stick scrolling should be not frame based but delay based
-			--make sure all advanced widgets have automatic focus id population (pen.new_input, pen.new_pager)
-			--make sure all the core mods support controller fully
-			
+			--vector
+			--don't do auto tip flipping if is jpaded
+			--make sure multiple draggers can be used at once (jpads and mouse)
+			--free cursor selection should always prioritize the stuff that's directly highlighted
+			--safety for all loops in case elements get removed midcheck to not run over 3 frames
+
 			local doing_cross = false
 			local is_special = mnee.mnin( "key", k.."gpd_l1", { vip = true })
 			if( not( mnee.mnin( "key", k.."gpd_a", { vip = true }))) then
@@ -1356,6 +1362,10 @@ pen.new_dragger = function( did, pic_x, pic_y, s_x, s_y, pic_z, data )
 	return pen._new_dragger( did, pic_x, pic_y, s_x, s_y, pic_z, data )
 end
 
+function mnee.force_jpad_focus( fid )
+	--initiates the focusing and writes id to global
+end
+
 -----------------------------------------------------		[KEYBOARD]		-----------------------------------------------------
 
 function mnee.get_special_keys( jpad )
@@ -1429,12 +1439,17 @@ function pen.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 	data.is_live = data.is_live or false
 	data.no_wrap = data.no_wrap or false
 
+	if( type( data.jpad_vip or data.jpad or {}) ~= "table" ) then
+		data.jpad = { "input_"..iid.."_focus", data.jpad_vip or false, data.jpad or data.jpad_vip }
+	end
+
 	local state = GlobalsGetValue( pen.GLOBAL_INPUT_STATE, "" )
 	local is_active = state == iid
 
 	local clicked, r_clicked, is_hovered = false, false, false
 	if( not( pen.vld( state ) or GameHasFlagRun( mnee.SERV_MODE )) or is_active ) then
-		clicked, r_clicked, is_hovered = pen.new_interface( pic_x, pic_y, size_x, size_y, pic_z )
+		clicked, r_clicked, is_hovered = pen.new_interface(
+			pic_x, pic_y + 2, size_x, size_y, pic_z, { jpad = data.jpad })
 	end
 
 	local do_lmb, do_rmb = false, false
@@ -1615,6 +1630,7 @@ function pen.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 			pen.play_sound( pen.TUNES.VNL[ is_active and "RESET" or "CLICK" ])
 		elseif( do_rmb ) then pen.play_sound( pen.TUNES.VNL.BUY ) end
 		
+		data.jpad = nil
 		pen.new_tooltip( "", {
 			tid = data.uid, is_active = true, is_special = is_active,
 			dims = { size_x, size_y }, pic_z = pic_z + 0.1, pos = { pic_x - data.edging, pic_y - data.edging }})
@@ -1656,6 +1672,7 @@ function mnee.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 		--JP: https://en.wikipedia.org/wiki/Japanese_language_and_computers
 		--KO: https://en.wikipedia.org/wiki/Korean_language_and_computers
 
+		data.jpad = data.jpad or {}
 		local board = dofile_once( pen.FILE_KEYBOARD )
 		local lists = dofile_once( "mods/mnee/lists.lua" )
 		local meta, offs, nums = lists[7], lists[8], lists[9]
@@ -1695,8 +1712,9 @@ function mnee.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 		for i,key in pairs( board[ layout ]) do
 			local np = ( i == "-" and input == "+" ) or ( i == "8" and input == "*" )
 			local k = key[ kind ] or key[ kind - 2 ] or key[ kind - 4 ] or key[ kind - 6 ]
-			clicked = mnee.new_button( pic_x + offs[i][1] - 1, pic_y + offs[i][2] - 1, pic_z, ( k or key[1])[1], {
-				auid = table.concat({ "mnee_kb_l", layout, "_k", i, "_s", kind }), _clicked = ( input == i ) or np })
+			clicked = mnee.new_button( pic_x + offs[i][1] - 1, pic_y + offs[i][2] - 1, pic_z,
+				( k or key[1])[1], { auid = table.concat({ "mnee_kb_l", layout, "_k", i, "_s", kind }),
+				_clicked = ( input == i ) or np, jpad = data.jpad[3]})
 			if( clicked ) then pen.play_sound({ "mods/mnee/files/mnee.bank", sfx.."generic" }) end
 			if( clicked and not( np )) then input = ( k or key[1])[2] end
 		end
@@ -1704,28 +1722,31 @@ function mnee.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 		sfx = { "mods/mnee/files/mnee.bank", sfx.."special" }
 		clicked = mnee.new_button( pic_x + 2, pic_y + 13, pic_z,
 			"mods/mnee/files/pics/keyboard/key_ctrl_"..( is_ctrl and "B" or "A" )..".xml",
-			{ auid = "mnee_kb_ctrl", _clicked = is_ctrled })
+			{ auid = "mnee_kb_ctrl", _clicked = is_ctrled, jpad = data.jpad[3]})
 		if( clicked ) then pen.play_sound( sfx ); mnee.G.kb_ctrl = not( mnee.G.kb_ctrl ) end
 		clicked = mnee.new_button( pic_x + 2, pic_y + 24, pic_z,
-			"mods/mnee/files/pics/keyboard/key_alt_"..( is_alt and "B" or "A" )..".xml", { auid = "mnee_kb_alt" })
+			"mods/mnee/files/pics/keyboard/key_alt_"..( is_alt and "B" or "A" )..".xml",
+			{ auid = "mnee_kb_alt", jpad = data.jpad[3]})
 		if( clicked or is_alted ) then pen.play_sound( sfx ) end
 		if( clicked ) then mnee.G.kb_alt = not( mnee.G.kb_alt ) end
 		clicked = mnee.new_button( pic_x + 13, pic_y + 24, pic_z,
-			"mods/mnee/files/pics/keyboard/key_shift_"..( is_shift and "B" or "A" )..".xml", { auid = "mnee_kb_shift" })
+			"mods/mnee/files/pics/keyboard/key_shift_"..( is_shift and "B" or "A" )..".xml",
+			{ auid = "mnee_kb_shift", jpad = data.jpad[3]})
 		if( clicked or is_shifted ) then pen.play_sound( sfx ) end
 		if( clicked ) then mnee.G.kb_shift = not( mnee.G.kb_shift ) end
 		
 		clicked, r_clicked, is_hovered = mnee.new_button(
 			pic_x + 13, pic_y + 35, pic_z, "mods/mnee/files/pics/keyboard/key_space.xml",
-			{ auid = "mnee_kb_space", _clicked = ( input == " " ), _r_clicked = ( input == 3 or input == -3 )})
-		mnee.new_tooltip( GameTextGet( "$mnee_rmb_space" ), { is_active = is_hovered, pic_z = pic_z - 10 })
+			{ auid = "mnee_kb_space", _clicked = ( input == " " ), _r_clicked = ( input == 3 or input == -3 ),
+			tip = GameTextGet( "$mnee_rmb_space" ), tip_z = pic_z - 10, jpad = data.jpad[3]})
 		if( clicked or r_clicked ) then pen.play_sound( sfx ) end
 		if( r_clicked and no_input ) then input = data.is_live and 3 or -3 end
 		if( clicked ) then input = " " end
 
 		clicked, r_clicked = mnee.new_button(
 			pic_x + 145, pic_y + 13, pic_z, "mods/mnee/files/pics/keyboard/key_backspace.xml",
-			{ auid = "mnee_kb_backspace", _clicked = ( input == 2 ), _r_clicked = ( input == 2 and is_shift )})
+			{ auid = "mnee_kb_backspace", _clicked = ( input == 2 ),
+			_r_clicked = ( input == 2 and is_shift ), jpad = data.jpad[3]})
 		if( clicked or r_clicked ) then pen.play_sound( sfx ) end
 		if( r_clicked ) then input = -2 elseif( clicked ) then input = 2 end
 
@@ -1733,28 +1754,28 @@ function mnee.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 		clicked, r_clicked, is_hovered = mnee.new_button( pic_x + 145, pic_y + 24, pic_z,
 			"mods/mnee/files/pics/keyboard/key_layout_A.xml", { auid = "mnee_kb_layout",
 			_clicked = mnee.mnin( "bind", { "mnee", "layout" }, { pressed = true, vip = true }),
-			_r_clicked = mnee.mnin( "bind", { "mnee", "clipboard" }, { pressed = true, vip = true })})
-		mnee.new_tooltip({ GameTextGet( "$mnee_this_layout", meta[ layout ][""].name ),
-			GameTextGet( "$mnee_rmb_layout" )}, { is_active = is_hovered, pic_z = pic_z - 10 })
+			_r_clicked = mnee.mnin( "bind", { "mnee", "clipboard" }, { pressed = true, vip = true }),
+			tip = { GameTextGet( "$mnee_this_layout", meta[ layout ][""].name ),
+			GameTextGet( "$mnee_rmb_layout" )}, tip_z = pic_z - 10, jpad = data.jpad[3]})
 		if( clicked ) then pen.play_sound( pen.TUNES.PRSP.SWITCH );
 			pen.setting_set( "mnee.KB_LAYOUT", layout >= #board and 1 or layout + 1 ) end
 		if( clicked or r_clicked ) then input = "" end
 		mnee.ignore_service_mode = nil
 		
-		new_x, new_y, state, _, r_clicked, is_hovered = pen.new_dragger( "mnee_kb_dragger_l", pic_x + 1, pic_y + 35, 10, 10, pic_z )
-		if( new_x - 1 ~= pic_x or new_y - 35 ~= pic_y ) then pen.setting_set( "mnee.KB_POS", pen.t.pack({ new_x - 1, new_y - 35 })) end
+		new_x, new_y, state, _, r_clicked, is_hovered = pen.new_dragger( "mnee_kb_dragger_l", pic_x + 1, pic_y + 36, 10, 10, pic_z, { jpad = data.jpad[3]})
+		if( not( pen.eps_compare( new_x - 1, pic_x ) and pen.eps_compare( new_y - 36, pic_y ))) then pen.setting_set( "mnee.KB_POS", pen.t.pack({ new_x - 1, new_y - 36 })) end
 
 		mnee.new_tooltip( GameTextGet( "$mnee_rmb_dragger" ), {
-			is_active = ( state == 0 and is_hovered ), pic_z = pic_z - 10 })
+			is_active = ( state == 0 and is_hovered ), pic_z = pic_z - 10, fid = "dragger_mnee_kb_dragger_l_focus" })
 		pen.new_image( pic_x + 1, pic_y + 35, pic_z + 1.5,
 			"mods/mnee/files/pics/keyboard/dragger_left_"..( is_hovered and "B" or "A" )..".xml" )
 		if( r_clicked or is_return ) then input = data.is_live and -3 or 3 end
 		
-		new_x, new_y, state, _, r_clicked, is_hovered = pen.new_dragger( "mnee_kb_dragger_r", pic_x + 145, pic_y + 35, 10, 10, pic_z )
-		if( new_x - 145 ~= pic_x or new_y - 35 ~= pic_y ) then pen.setting_set( "mnee.KB_POS", pen.t.pack({ new_x - 145, new_y - 35 })) end
+		new_x, new_y, state, _, r_clicked, is_hovered = pen.new_dragger( "mnee_kb_dragger_r", pic_x + 146, pic_y + 36, 10, 10, pic_z, { jpad = data.jpad[3]})
+		if( not( pen.eps_compare( new_x - 146, pic_x ) and pen.eps_compare( new_y - 36, pic_y ))) then pen.setting_set( "mnee.KB_POS", pen.t.pack({ new_x - 146, new_y - 36 })) end
 		
 		mnee.new_tooltip( GameTextGet( "$mnee_rmb_dragger" ), {
-			is_active = ( state == 0 and is_hovered ), pic_z = pic_z - 10 })
+			is_active = ( state == 0 and is_hovered ), pic_z = pic_z - 10, fid = "dragger_mnee_kb_dragger_r_focus" })
 		pen.new_image( pic_x + 145, pic_y + 35, pic_z + 1.5,
 			"mods/mnee/files/pics/keyboard/dragger_right_"..( is_hovered and "B" or "A" )..".xml" )
 		if( r_clicked or is_return ) then input = data.is_live and -3 or 3 end
@@ -1777,6 +1798,7 @@ function mnee.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 			pen.play_sound( pen.TUNES.PRSP[ is_active and "DROP" or "PICK" ])
 		elseif( do_rmb ) then pen.play_sound( pen.TUNES.PRSP.CONFIRM ) end
 		
+		data.jpad = nil
 		mnee.new_tooltip( "", {
 			tid = data.uid, is_active = true, is_special = is_active,
 			dims = { size_x, size_y }, pic_z = pic_z + 0.1, pos = { pic_x - data.edging, pic_y }})

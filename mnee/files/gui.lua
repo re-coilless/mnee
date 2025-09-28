@@ -47,11 +47,10 @@ if( not( gonna_rebind )) then
     
     local help_x, help_y = pic_x + 101, pic_y + 99
     if( pen.setting_get( "mnee.FRONTEND" ) == 1 ) then
-        local scroller_data = { jpad = true }
         local folded_nodes = pen.t.unarray( pen.t.pack( pen.setting_get( "mnee.FOLDED_NODES" )))
         mnee.new_scroller( "mnee", pic_x + 1, pic_y + 10, pic_z + 0.03, 131, 100, function( scroll_pos )
 			local cnt, height, accum = 0, 0, 0
-			local got_jpad, is_jpad = {}, false
+			local active_jpads, is_jpad = {}, false
             pen.t.loop( mnee.mod_sorter( _BINDINGS ), function( i, m )
                 cnt = cnt + 1
                 
@@ -64,7 +63,7 @@ if( not( gonna_rebind )) then
                 local name = pen.magic_translate( is_fancy and _MNEEDATA[i].name or i )
                 clicked, _, is_hovered, is_jpad = pen.new_interface(
                     1, pos_y + 1, 129, 7, pic_z, { jpad = "mnee_cat_title_"..i })
-                if( is_jpad ) then got_jpad[ is_jpad ] = true end
+                if( is_jpad ) then active_jpads[ is_jpad ] = true end
                 pen.uncutter( function( cut_x, cut_y, cut_w, cut_h )
 					return mnee.new_tooltip({ name..GameTextGet( "$mnee_fold"..( is_folded and "B" or "A" )), ( is_fancy and pen.vld( _MNEEDATA[i].desc )) and pen.magic_translate( _MNEEDATA[i].desc ) or "" }, { is_active = is_hovered, fid = "mnee_cat_title_"..i })
 				end)
@@ -125,7 +124,7 @@ if( not( gonna_rebind )) then
                                 is_static and GameTextGet( "$mnee_static" ).."\n" or "",
                                 name, ": ", pen.magic_translate( b.desc ),
                             }), mnee.bind2string( KEYS[i][e], key_type, KEYS[i])..( is_axis and "\n"..GameTextGet( "$mnee_lmb_axis" ) or "" )}})
-                        if( is_jpad ) then got_jpad[ is_jpad ] = true end
+                        if( is_jpad ) then active_jpads[ is_jpad ] = true end
                         pen.new_text( 3 + 116/2, pos_y, pic_z - 0.01, name, {
                             aggressive = true, dims = {110,0}, is_centered_x = true, color = pen.PALETTE.PRSP[ is_static and "BLUE" or "WHITE" ]})
                         if(( clicked or r_clicked ) and may_rebind ) then
@@ -152,7 +151,7 @@ if( not( gonna_rebind )) then
                             "mods/mnee/files/pics/key_delete.png", {
                             auid = table.concat({ i, "_bind_delete_", name }),
                             tip = GameTextGet( "$mnee_rmb_default" ), jpad = true })
-                        if( is_jpad ) then got_jpad[ is_jpad ] = true end
+                        if( is_jpad ) then active_jpads[ is_jpad ] = true end
                         if( r_clicked ) then
                             if( b.axes ~= nil ) then
                                 KEYS[i][ b.axes[1]].keys[ profile ] = nil
@@ -175,21 +174,9 @@ if( not( gonna_rebind )) then
 
 				height = height + 11
 			end)
-            
-            if( frame_num%10 == 0 ) then
-                local axes = mnee.get_axes()
-                for jpad in pairs( got_jpad ) do
-                    if( not( scroller_data.go_up )) then
-                        scroller_data.go_up = ( axes[ jpad.."gpd_axis_rv" ] or 0 ) < -0.8
-                    end
-                    if( not( scroller_data.go_down )) then
-                        scroller_data.go_down = ( axes[ jpad.."gpd_axis_rv" ] or 0 ) > 0.8
-                    end
-                end
-            end
 
-			return { height + 5, 1 }
-		end, scroller_data )
+			return { height + 5, 1, active_jpads }
+		end, { jpad = true })
 
         help_x, help_y = pic_x + 141, pic_y + 33
     else
@@ -197,7 +184,7 @@ if( not( gonna_rebind )) then
         pen.new_pixel( pic_x + 134, pic_y + 11, pic_z, pen.PALETTE.PRSP.BLUE, 1, 98 )
 
         mnee.G.mod_page = pen.try( mnee.new_pager, { pic_x + 2, pic_y, pic_z, {
-            auid = "mod",
+            auid = "mod", jpad = true,
             list = _BINDINGS, items_per_page = 8, page = mnee.G.mod_page,
             func = function( x, y, z, i,v,k, is_hidden )
                 local is_fancy = _MNEEDATA[i] ~= nil
@@ -244,7 +231,7 @@ if( not( gonna_rebind )) then
             end
         else
             mnee.G.binding_page = pen.try( mnee.new_pager, { pic_x + 48, pic_y, pic_z, {
-                auid = "bind",
+                auid = "bind", jpad = true,
                 list = _BINDINGS[ mnee.G.current_mod ], items_per_page = 8, page = mnee.G.binding_page,
                 func = function( pic_x, pic_y, pic_z, i,v,k, is_hidden )
                     if( pen.get_hybrid_function( v.is_hidden, {{ mnee.G.current_mod, i }, mnee.G.jpad_maps })) then
@@ -406,7 +393,7 @@ if( not( gonna_rebind )) then
         if( mnee.G.ctl_panel ) then pen.atimer( "ctl_window", nil, true ) end
     end
     
-    local new_profile = mnee.new_pager( pic_x + 136, pic_y - 11, pic_z, {
+    local new_profile = mnee.new_pager( pic_x + 136, pic_y - 11, pic_z, { jpad = true,
         auid = "profile", compact_mode = true, profile_mode = true, page = profile, list = mnee.G.max_profiles })
     if( profile ~= new_profile ) then pen.setting_set( "mnee.PROFILE", new_profile ) end
     
@@ -430,7 +417,7 @@ if( not( gonna_rebind )) then
         end
         
         mnee.G.setup_page = pen.try( mnee.new_pager, { t_x, pic_y - 11, pic_z + 0.08, {
-            auid = "setup", compact_mode = true,
+            auid = "setup", compact_mode = true, jpad = true,
             list = _MNEEDATA[ mnee.G.current_mod ].setup_modes or {}, items_per_page = 5, page = mnee.G.setup_page,
             func = function( pic_x, pic_y, pic_z, i,v,k, is_hidden )
                 if( is_hidden ) then return end
@@ -694,7 +681,7 @@ else
         local is_jpad = false
         clicked, r_clicked, is_hovered, is_jpad = pen.new_image( pic_x, pic_y, pic_z + 0.05,
             "mods/mnee/files/pics/rebinder"..( doing_axis and "_axis" or ( mnee.G.advanced_mode and "" or "_simple" ))..".png", { can_click = true, jpad = { "mnee_rebinder", true }})
-        mnee.new_tooltip( doing_axis and GameTextGet( "$mnee_waiting" ) or { GameTextGet( "$mnee_keys" )..( #tip_text < 3 and GameTextGet( "$mnee_nil" ) or tip_text ), GameTextGet( "$mnee_rmb_cancel" )}, { fully_featured = true, is_active = true, pos = not( is_hovered or is_jpad ) and { pic_x + pic_w + 1, pic_y } or nil })
+        mnee.new_tooltip( doing_axis and GameTextGet( "$mnee_waiting" ) or { GameTextGet( "$mnee_keys" )..( #tip_text < 3 and GameTextGet( "$mnee_nil" ) or tip_text ), GameTextGet( "$mnee_rmb_cancel" )}, { fully_featured = true, is_active = true, pos = ( not( is_hovered ) or is_jpad ) and { pic_x + pic_w + 1, pic_y } or nil })
         if( r_clicked ) then
             mnee.G.current_binding = ""
             mnee.G.doing_axis = false

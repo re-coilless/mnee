@@ -4385,26 +4385,39 @@ function pen.new_scroller( sid, pic_x, pic_y, pic_z, size_x, size_y, func, data 
 	local progress_x = pen.c.scroll_memo[ sid ].px or ( data.right_start and 1 or 0 )
 	local scroll_x = old_length > size_x and ( size_x - math.abs( old_length ))*progress_x or 0
 
-	local new_height, new_length = unpack( pen.new_cutout(
+	local new_height, new_length, jpads = unpack( pen.new_cutout(
 		pic_x, pic_y, size_x, size_y, func[1], { scroll_y, scroll_x }))
 	local do_vert, do_horz = new_height > size_y, new_length > size_x
 	if( data.scroll_always ) then
 		data.can_scroll = true
 	elseif( data.scroll_always ~= false ) then
+		local is_jpad = false
+		local do_zone = pen.vld( data.jpad ) and ( do_vert or do_horz )
 		data.forced_zone = data.forced_zone or {}
-		_,_,data.can_scroll = pen.new_interface(
-			pic_x + ( data.forced_zone[3] or 0 ),
-			pic_y + ( data.forced_zone[4] or 0 ),
-			data.forced_zone[1] or size_x, data.forced_zone[2] or size_y, pic_z )
+		_,_,data.can_scroll,is_jpad = pen.new_interface(
+			pic_x + ( data.forced_zone[3] or 0 ), pic_y + ( data.forced_zone[4] or 0 ),
+			data.forced_zone[1] or size_x, data.forced_zone[2] or size_y, pic_z, { jpad =
+			( jpads == nil and data.is_compact and do_zone ) and data.jpad[1].."_zone" or nil })
+		if(( is_jpad or 0 ) > 0 ) then jpads = {[ is_jpad ] = true } end
 	end
 
 	local buffer = 1
 	local is_static = false
-	local is_waiting = GameGetFrameNum()%7 ~= 0
+	local axes = mnee.get_axes()
+	local frame_num = GameGetFrameNum()
+	local is_waiting = frame_num%7 ~= 0
 	if( data.can_scroll ) then pen.unscroller() end
 	data.got_vertical = do_vert
 
 	if( do_vert ) then
+		if(( pen.c.scroll_memo[ sid ].v_frame or 0 ) < frame_num ) then
+			for j in pairs( jpads or {}) do
+				data.go_up = data.go_up or ( axes[ j.."gpd_axis_rv" ] or 0 ) < -0.8
+				data.go_down = data.go_down or ( axes[ j.."gpd_axis_rv" ] or 0 ) > 0.8
+			end
+			if( data.go_up or data.go_down ) then pen.c.scroll_memo[ sid ].v_frame = frame_num + 10 end
+		end
+
 		local bar_height = pen.rounder( math.max(( size_y - 6 )*math.min( size_y/new_height, 1 ), 1 ), -2 )
 		local bar_y = ( size_y - ( 6 + bar_height ))
 		local pos_y = pic_y + bar_y*progress_y + 3
@@ -4455,6 +4468,14 @@ function pen.new_scroller( sid, pic_x, pic_y, pic_z, size_x, size_y, func, data 
 	else pen.c.scroll_memo[ sid ].py = 0 end
 	
 	if( do_horz ) then
+		if(( pen.c.scroll_memo[ sid ].h_frame or 0 ) < frame_num ) then
+			for j in pairs( jpads or {}) do
+				data.go_left = data.go_left or ( axes[ j.."gpd_axis_rh" ] or 0 ) < -0.8
+				data.go_right = data.go_right or ( axes[ j.."gpd_axis_rh" ] or 0 ) > 0.8
+			end
+			if( data.go_left or data.go_right ) then pen.c.scroll_memo[ sid ].h_frame = frame_num + 10 end
+		end
+
 		local bar_length = pen.rounder( math.max(( size_x - 6 )*math.min( size_x/new_length, 1 ), 1 ), -2 )
 		local bar_x = ( size_x - ( 6 + bar_length ))
 		local pos_x = pic_x + bar_x*progress_x + 3
@@ -4521,12 +4542,11 @@ function pen.new_slider( uid, pic_x, pic_y, pic_z, length, data )
 	--proper visuals
 
 	local new_x,new_y,state,_,_,is_hovered = pen.new_dragger(
-		uid.."_dragger", min_pos + length*pos, pic_y - 3, 7, 7, pic_z )
-	if( state ~= 0 or is_hovered ) then pen.new_tooltip( length*pos, { is_active = true }) end
-
+		"slider_"..uid, min_pos + length*pos, pic_y - 3, 7, 7, pic_z, data )
+	if( state ~= 0 or is_hovered ) then
+		pen.new_tooltip( length*pos, { is_active = true, fid = "dragger_slider_"..uid.."_focus" }) end
 	if( state == 2 ) then
-		pen.c.slider_memo[ uid ] = ( math.min( math.max( new_x, min_pos ), max_pos ) - min_pos )/length
-	end
+		pen.c.slider_memo[ uid ] = ( math.min( math.max( new_x, min_pos ), max_pos ) - min_pos )/length end
 	return length*pos
 end
 
@@ -4761,7 +4781,7 @@ function pen.new_scrolling_text( sid, pic_x, pic_y, pic_z, dims, text, data )
 		return pen.new_scroller( sid, pic_x, pic_y, pic_z - 0.001, dims[1], dims[2], function( scroll_pos )
 			local dims = pen.new_text( 0, scroll_pos[1], pic_z, text, data )
 			return { dims[2], 1 }
-		end)
+		end, data )
 	end
 	
 	local speed = data.scroll_speed or 10
@@ -5694,7 +5714,8 @@ pen.LAYERS = {
 	TIPS = -10105,
 	TIPS_FRONT = -10110,
 
-	DEBUG = -99999,
+	DEBUG = -50000,
+	TUTORIAL = -99999,
 }
 
 pen.INIT_THREADS = {

@@ -160,66 +160,68 @@ function OnModInit()
 		end)
 	end
 
-	pen.magic_write( "data/fonts/_font_pixel.xml", pen.magic_read( "data/fonts/font_pixel.xml" ))
-	pen.lib.font_builder( "data/fonts/_font_pixel.xml", {
-		[176] = { pos = { 2, 10 }, rect_w = 2 }, --[°]
-		[9424] = { pos = { 5, 10 }, rect_w = 6 }, --[ⓐ]
-		[230] = { pos = { 12, 10 }, rect_w = 6 }, --[æ]
-		[198] = { pos = { 19, 10 }, rect_w = 7 }, --[Æ]
-		[253] = { pos = { 27, 10 }, rect_w = 4 }, --[ý]
-		[221] = { pos = { 32, 10 }, rect_w = 6 }, --[Ý]
-		[254] = { pos = { 39, 10 }, rect_w = 4 }, --[þ]
-		[222] = { pos = { 44, 10 }, rect_w = 6 }, --[Þ]
-		[255] = { pos = { 51, 10 }, rect_w = 4 }, --[ÿ]
-		[376] = { pos = { 56, 10 }, rect_w = 6 }, --[Ÿ]
-		[7838] = { pos = { 70, 10 }, rect_w = 6 }, --[ẞ]
-		[273] = { pos = { 77, 10 }, rect_w = 5 }, --[đ]
-		[272] = { pos = { 83, 10 }, rect_w = 7 }, --[Đ]
-		[307] = { pos = { 91, 10 }, rect_w = 6 }, --[ĳ]
-		[306] = { pos = { 98, 10 }, rect_w = 9 }, --[Ĳ]
-		[123] = { pos = { 108, 10 }, rect_w = 4 }, --[{]
-		[125] = { pos = { 113, 10 }, rect_w = 4 }, --[}]
-		[242] = { pos = { 118, 10 }, rect_w = 4 }, --[ò]
-		[210] = { pos = { 123, 10 }, rect_w = 6 }, --[Ò]
-		[94] = { pos = { 130, 10 }, rect_w = 6 }, --[^]
-		--[124] = { pos = { 137, 10 }, rect_w = 2 }, --[|]
-		[126] = { pos = { 140, 10 }, rect_w = 6 }, --[~]
-		[172] = { pos = { 147, 10 }, rect_w = 6 }, --[¬]
-		[223] = { pos = { 63, 10 }, rect_w = 6 }, --[ß]
-	}, "mods/mnee/files/pics/keyboard/_font.png" )
-	pen.magic_write( "data/fonts/_font_pixel_noshadow.xml", pen.magic_read( "data/fonts/font_pixel_noshadow.xml" ))
-	pen.lib.font_builder( "data/fonts/_font_pixel_noshadow.xml", {
-		[176] = { pos = { 2, 32 }, rect_w = 2 }, --[°]
-		[9424] = { pos = { 5, 32 }, rect_w = 6 }, --[ⓐ]
-		[230] = { pos = { 12, 32 }, rect_w = 6 }, --[æ]
-		[198] = { pos = { 19, 32 }, rect_w = 7 }, --[Æ]
-		[253] = { pos = { 27, 32 }, rect_w = 4 }, --[ý]
-		[221] = { pos = { 32, 32 }, rect_w = 6 }, --[Ý]
-		[254] = { pos = { 39, 32 }, rect_w = 4 }, --[þ]
-		[222] = { pos = { 44, 32 }, rect_w = 6 }, --[Þ]
-		[255] = { pos = { 51, 32 }, rect_w = 4 }, --[ÿ]
-		[376] = { pos = { 56, 32 }, rect_w = 6 }, --[Ÿ]
-		[7838] = { pos = { 70, 32 }, rect_w = 6 }, --[ẞ]
-		[273] = { pos = { 77, 32 }, rect_w = 5 }, --[đ]
-		[272] = { pos = { 83, 32 }, rect_w = 7 }, --[Đ]
-		[307] = { pos = { 91, 32 }, rect_w = 6 }, --[ĳ]
-		[306] = { pos = { 98, 32 }, rect_w = 9 }, --[Ĳ]
-		[123] = { pos = { 108, 32 }, rect_w = 4 }, --[{]
-		[125] = { pos = { 113, 32 }, rect_w = 4 }, --[}]
-		[242] = { pos = { 118, 32 }, rect_w = 4 }, --[ò]
-		[210] = { pos = { 123, 32 }, rect_w = 6 }, --[Ò]
-		[94] = { pos = { 130, 32 }, rect_w = 6 }, --[^]
-		--[124] = { pos = { 137, 32 }, rect_w = 2 }, --[|]
-		[126] = { pos = { 140, 32 }, rect_w = 6 }, --[~]
-		[172] = { pos = { 147, 32 }, rect_w = 6 }, --[¬]
-		[223] = { pos = { 63, 32 }, rect_w = 6 }, --[ß]
-	}, "mods/mnee/files/pics/keyboard/_font.png" )
-	pen.magic_write( "data/fonts/_font_small_numbers.xml", pen.magic_read( "data/fonts/font_small_numbers.xml" ))
-	pen.lib.font_builder( "data/fonts/_font_small_numbers.xml", {
-		[45] = { pos = { 2, 54 }, rect_w = 4 }, --[-]
-		[66] = { pos = { 7, 54 }, rect_w = 6 }, --[B]
-		[101] = { pos = { 14, 54 }, rect_w = 4 }, --[e]
-	}, "mods/mnee/files/pics/keyboard/_font.png" )
+	if( pen.vld( pen.lib )) then
+		pen.magic_write( "data/fonts/_font_pixel.xml", pen.magic_read( "data/fonts/font_pixel.xml" ))
+		pen.lib.font_builder( "data/fonts/_font_pixel.xml", {
+			[176] = { pos = { 2, 10 }, rect_w = 2 }, --[°]
+			[9424] = { pos = { 5, 10 }, rect_w = 6 }, --[ⓐ]
+			[230] = { pos = { 12, 10 }, rect_w = 6 }, --[æ]
+			[198] = { pos = { 19, 10 }, rect_w = 7 }, --[Æ]
+			[253] = { pos = { 27, 10 }, rect_w = 4 }, --[ý]
+			[221] = { pos = { 32, 10 }, rect_w = 6 }, --[Ý]
+			[254] = { pos = { 39, 10 }, rect_w = 4 }, --[þ]
+			[222] = { pos = { 44, 10 }, rect_w = 6 }, --[Þ]
+			[255] = { pos = { 51, 10 }, rect_w = 4 }, --[ÿ]
+			[376] = { pos = { 56, 10 }, rect_w = 6 }, --[Ÿ]
+			[7838] = { pos = { 70, 10 }, rect_w = 6 }, --[ẞ]
+			[273] = { pos = { 77, 10 }, rect_w = 5 }, --[đ]
+			[272] = { pos = { 83, 10 }, rect_w = 7 }, --[Đ]
+			[307] = { pos = { 91, 10 }, rect_w = 6 }, --[ĳ]
+			[306] = { pos = { 98, 10 }, rect_w = 9 }, --[Ĳ]
+			[123] = { pos = { 108, 10 }, rect_w = 4 }, --[{]
+			[125] = { pos = { 113, 10 }, rect_w = 4 }, --[}]
+			[242] = { pos = { 118, 10 }, rect_w = 4 }, --[ò]
+			[210] = { pos = { 123, 10 }, rect_w = 6 }, --[Ò]
+			[94] = { pos = { 130, 10 }, rect_w = 6 }, --[^]
+			--[124] = { pos = { 137, 10 }, rect_w = 2 }, --[|]
+			[126] = { pos = { 140, 10 }, rect_w = 6 }, --[~]
+			[172] = { pos = { 147, 10 }, rect_w = 6 }, --[¬]
+			[223] = { pos = { 63, 10 }, rect_w = 6 }, --[ß]
+		}, "mods/mnee/files/pics/keyboard/_font.png" )
+		pen.magic_write( "data/fonts/_font_pixel_noshadow.xml", pen.magic_read( "data/fonts/font_pixel_noshadow.xml" ))
+		pen.lib.font_builder( "data/fonts/_font_pixel_noshadow.xml", {
+			[176] = { pos = { 2, 32 }, rect_w = 2 }, --[°]
+			[9424] = { pos = { 5, 32 }, rect_w = 6 }, --[ⓐ]
+			[230] = { pos = { 12, 32 }, rect_w = 6 }, --[æ]
+			[198] = { pos = { 19, 32 }, rect_w = 7 }, --[Æ]
+			[253] = { pos = { 27, 32 }, rect_w = 4 }, --[ý]
+			[221] = { pos = { 32, 32 }, rect_w = 6 }, --[Ý]
+			[254] = { pos = { 39, 32 }, rect_w = 4 }, --[þ]
+			[222] = { pos = { 44, 32 }, rect_w = 6 }, --[Þ]
+			[255] = { pos = { 51, 32 }, rect_w = 4 }, --[ÿ]
+			[376] = { pos = { 56, 32 }, rect_w = 6 }, --[Ÿ]
+			[7838] = { pos = { 70, 32 }, rect_w = 6 }, --[ẞ]
+			[273] = { pos = { 77, 32 }, rect_w = 5 }, --[đ]
+			[272] = { pos = { 83, 32 }, rect_w = 7 }, --[Đ]
+			[307] = { pos = { 91, 32 }, rect_w = 6 }, --[ĳ]
+			[306] = { pos = { 98, 32 }, rect_w = 9 }, --[Ĳ]
+			[123] = { pos = { 108, 32 }, rect_w = 4 }, --[{]
+			[125] = { pos = { 113, 32 }, rect_w = 4 }, --[}]
+			[242] = { pos = { 118, 32 }, rect_w = 4 }, --[ò]
+			[210] = { pos = { 123, 32 }, rect_w = 6 }, --[Ò]
+			[94] = { pos = { 130, 32 }, rect_w = 6 }, --[^]
+			--[124] = { pos = { 137, 32 }, rect_w = 2 }, --[|]
+			[126] = { pos = { 140, 32 }, rect_w = 6 }, --[~]
+			[172] = { pos = { 147, 32 }, rect_w = 6 }, --[¬]
+			[223] = { pos = { 63, 32 }, rect_w = 6 }, --[ß]
+		}, "mods/mnee/files/pics/keyboard/_font.png" )
+		pen.magic_write( "data/fonts/_font_small_numbers.xml", pen.magic_read( "data/fonts/font_small_numbers.xml" ))
+		pen.lib.font_builder( "data/fonts/_font_small_numbers.xml", {
+			[45] = { pos = { 2, 54 }, rect_w = 4 }, --[-]
+			[66] = { pos = { 7, 54 }, rect_w = 6 }, --[B]
+			[101] = { pos = { 14, 54 }, rect_w = 4 }, --[e]
+		}, "mods/mnee/files/pics/keyboard/_font.png" )
+	end
 
 	--hd keys (scaled down to 0.25 size)
 
@@ -506,11 +508,13 @@ function OnPlayerSpawned( hooman )
 	GlobalsSetValue( mnee.G_DISARMER, pen.DIV_1 )
 	GlobalsSetValue( mnee.G_AXES_MEMO, pen.DIV_1 )
 
-	GlobalsSetValue( pen.GLOBAL_FONT_REMAP, pen.t.pack( pen.t.unarray({
-		["data/fonts/font_pixel.xml"] = "data/fonts/_font_pixel.xml",
-		["data/fonts/font_pixel_noshadow.xml"] = "data/fonts/_font_pixel_noshadow.xml",
-		["data/fonts/font_small_numbers.xml"] = "data/fonts/_font_small_numbers.xml",
-	})))
+	if( pen.vld( pen.lib )) then
+		GlobalsSetValue( pen.GLOBAL_FONT_REMAP, pen.t.pack( pen.t.unarray({
+			["data/fonts/font_pixel.xml"] = "data/fonts/_font_pixel.xml",
+			["data/fonts/font_pixel_noshadow.xml"] = "data/fonts/_font_pixel_noshadow.xml",
+			["data/fonts/font_small_numbers.xml"] = "data/fonts/_font_small_numbers.xml",
+		})))
+	end
 	
 	local world_id = GameGetWorldStateEntity()
 	local entity_id = pen.get_child( world_id, "mnee_ctrl" )

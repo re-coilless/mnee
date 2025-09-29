@@ -1105,12 +1105,13 @@ pen.new_interface = function( pic_x, pic_y, s_x, s_y, pic_z, data )
 						elseif( is_extra and ( extra_id == "_" or extra_dist < d )) then
 							GlobalsSetValue( side..i, pen.t.pack({ side_id, side_dist, fid, d }))
 						end
-
-						t = pen.t.pack( GlobalsGetValue( pen.GLOBAL_JPAD_TARGET..i, "|_|0|" ))
-						if( t[1] == "_" or dist < t[2]) then
-							GlobalsSetValue( pen.GLOBAL_JPAD_TARGET..i, pen.t.pack({ fid, dist }))
-						end
 					end)
+
+					local t = pen.t.pack( GlobalsGetValue( pen.GLOBAL_JPAD_TARGET..i, "|_|0|" ))
+					if( pen.check_bounds( dot, { s_x, s_y }, { pic_x, pic_y })) then dist = dist/1000 end
+					if( t[1] == "_" or dist < t[2]) then
+						GlobalsSetValue( pen.GLOBAL_JPAD_TARGET..i, pen.t.pack({ fid, dist }))
+					end
 				end
 			else
 				local go_up = mnee.mnin( "key", i.."gpd_up", { pressed = true, vip = true })
@@ -1223,11 +1224,8 @@ pen.new_interface = function( pic_x, pic_y, s_x, s_y, pic_z, data )
 			local tip_off = pen.t.pack( GlobalsGetValue( pen.GLOBAL_JPAD_OFFSET..k, "|0|0|" ))
 			pen.c.jpad_tip_pos = { fid, pic_x + s_x/2 + tip_off[1], pic_y + s_y/2 + tip_off[2]}
 			cross_off[1], cross_off[2] = cross_off[1] or ( pic_x + s_x/2 ), cross_off[2] or ( pic_y + s_y/2 )
-
-			--vector
-			--don't do auto tip flipping if is jpaded
+			
 			--make sure multiple draggers can be used at once (jpads and mouse)
-			--free cursor selection should always prioritize the stuff that's directly highlighted
 			--safety for all loops in case elements get removed midcheck to not run over 3 frames
 
 			local doing_cross = false

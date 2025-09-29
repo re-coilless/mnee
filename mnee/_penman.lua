@@ -4865,15 +4865,18 @@ function pen.new_tooltip( text, data, func )
 
 		local z_resolver = 0
 		local mouse_drift = 5
+		local is_jpad = false
 		if( not( pen.vld( data.pos ))) then
 			if( pen.vld( pen.c.jpad_tip_pos ) and pen.c.jpad_tip_pos[1] == data.fid ) then
 				data.pos = { pen.c.jpad_tip_pos[2], pen.c.jpad_tip_pos[3]}
-				pen.c.jpad_tip_pos = nil
+				is_jpad, pen.c.jpad_tip_pos = true, nil
 			else data.pos = { pen.get_mouse_pos()} end
 			
-			if( data.is_left == nil ) then data.is_left = w < data.pos[1] + data.dims[1] + 1 end
+			if( data.is_left == nil and not( is_jpad )) then
+				data.is_left = w < data.pos[1] + data.dims[1] + 1 end
 			data.pos[1] = data.pos[1] + ( data.is_left and -1 or 1 )*mouse_drift
-			if( data.is_over == nil ) then data.is_over = h < data.pos[2] + data.dims[2] + 1 end
+			if( data.is_over == nil and not( is_jpad )) then
+				data.is_over = h < data.pos[2] + data.dims[2] + 1 end
 			data.pos[2] = data.pos[2] + ( data.is_over and -1 or 1 )*mouse_drift
 
 			if( not( data.static_z )) then

@@ -70,7 +70,7 @@ end
 function mnee.aim_assist( hooman, pos, angle, is_active, is_searching, data )
 	data = data or {}
 	data.setting = data.setting or "mnee.AUTOAIM"
-	data.tag_tbl = data.tag_tbl or {"homing_target"}
+	data.tag_tbl = data.tag_tbl or { "homing_target" }
 	data.pic = data.pic or "mods/mnee/files/pics/autoaim.png"
 	data.do_lining = data.do_lining or false
 	
@@ -373,6 +373,23 @@ function mnee.jpad_check( keys )
 		end
 	end
 	return false
+end
+
+function mnee.bind2jpad( mod_id, bind_id )
+	local binding = mnee.get_bindings()
+	if( binding ~= nil ) then binding = binding[ mod_id ] end
+	if( binding ~= nil ) then binding = binding[ bind_id ] end
+	
+	for i = 1,2 do
+		for k1,k2 in pairs( mnee.get_pbd( binding )[ i == 1 and "main" or "alt" ]) do
+			if( string.find( k1, "^%dgpd_" ) ~= nil ) then
+				return tonumber( string.sub( k1, 1, 1 ))
+			end
+			if( string.find( k2, "^%dgpd_" ) ~= nil ) then
+				return tonumber( string.sub( k2, 1, 1 ))
+			end
+		end
+	end
 end
 
 ---Returns the axis_memo table – essentially a disarmer but for axes.
@@ -1224,9 +1241,6 @@ pen.new_interface = function( pic_x, pic_y, s_x, s_y, pic_z, data )
 			local tip_off = pen.t.pack( GlobalsGetValue( pen.GLOBAL_JPAD_OFFSET..k, "|0|0|" ))
 			pen.c.jpad_tip_pos = { fid, pic_x + s_x/2 + tip_off[1], pic_y + s_y/2 + tip_off[2]}
 			cross_off[1], cross_off[2] = cross_off[1] or ( pic_x + s_x/2 ), cross_off[2] or ( pic_y + s_y/2 )
-			
-			--make sure multiple draggers can be used at once (jpads and mouse)
-			--safety for all loops in case elements get removed midcheck to not run over 3 frames
 
 			local doing_cross = false
 			local is_special = mnee.mnin( "key", k.."gpd_l1", { vip = true })
@@ -1339,7 +1353,7 @@ pen.new_dragger = function( did, pic_x, pic_y, s_x, s_y, pic_z, data )
 				state = clicked and 1 or 2
 				
 				local axes = mnee.get_axes()
-				pen.c.controller_dragging[ jpad ].is_going = true
+				pen.c.controller_dragging[ jpad ].is_going = 1
 				GlobalsSetValue( pen.GLOBAL_JPAD_SPEED..jpad, "0" )
 
 				pen.c.controller_dragging[ jpad ][1] =

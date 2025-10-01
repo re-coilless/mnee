@@ -312,14 +312,13 @@ function OnWorldPreUpdate()
 		if( state == "" ) then
 			if( mnee.mnin( "key", i.."gpd_r3", { vip = true })) then
 				if( GlobalsGetValue( pen.GLOBAL_JPAD_DISARMER..i, "0" ) == "0" ) then
+					GlobalsSetValue( pen.GLOBAL_JPAD_SAFETY..i, frame_num + 5 )
 					GlobalsSetValue( pen.GLOBAL_JPAD_DISARMER..i, "1" )
 					GlobalsSetValue( pen.GLOBAL_JPAD_FOCUS..i, "_" )
 				end
 			else GlobalsSetValue( pen.GLOBAL_JPAD_DISARMER..i, "0" ) end
-		elseif( state ~= "_" ) then
-			if( frame_num - tonumber( GlobalsGetValue( pen.GLOBAL_JPAD_SAFETY..i, "0" )) > 3 ) then
-				GlobalsSetValue( pen.GLOBAL_JPAD_FOCUS..i, "" )
-			end
+		elseif( frame_num - tonumber( GlobalsGetValue( pen.GLOBAL_JPAD_SAFETY..i, "0" )) > 3 ) then
+			GlobalsSetValue( pen.GLOBAL_JPAD_FOCUS..i, "" )
 		end
 	end
 	mnee.ignore_service_mode = nil

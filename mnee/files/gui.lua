@@ -57,8 +57,9 @@ if( not( gonna_rebind )) then
                 local is_fancy = _MNEEDATA[i] ~= nil
                 if( is_fancy and pen.get_hybrid_function( _MNEEDATA[i].is_hidden, { i, mnee.G.jpad_maps })) then
                     accum = accum + 1; return end
-                
                 local is_folded = folded_nodes[i] ~= nil
+                if( _MNEEDATA[i].is_folded ) then is_folded = not( is_folded ) end
+                
                 local pos_y = 1 + scroll_pos[1] + 11*( cnt - ( 1 + accum ))
                 local name = pen.magic_translate( is_fancy and _MNEEDATA[i].name or i )
                 clicked, _, is_hovered, is_jpad = pen.new_interface(
@@ -69,7 +70,7 @@ if( not( gonna_rebind )) then
 				end)
                 if( clicked ) then
                     pen.play_sound( pen.TUNES.PRSP.SWITCH )
-                    folded_nodes[i] = not( is_folded ) and 1 or nil
+                    folded_nodes[i] = folded_nodes[i] == nil and 1 or nil
                     pen.setting_set( "mnee.FOLDED_NODES", pen.t.pack( pen.t.unarray( folded_nodes )))
                 end
 

@@ -3780,15 +3780,22 @@ end
 ---@param jpad? number
 ---@return number pointer_x, number pointer_y
 function pen.get_mouse_pos( in_world, jpad )
-	jpad = jpad or 1
-	if( is_world ) then
+	jpad = jpad or 0
+	if( type( jpad ) == "string" ) then
+		jpad = pen.t.loop({ 1, 2, 3, 4 }, function( i )
+			local fid = GlobalsGetValue( pen.GLOBAL_JPAD_FOCUS..i, "" )
+			if( fid == jpad ) then return i end
+		end) or 0
+	end
+	
+	if( in_world ) then
 		local virt = pen.t.pack( GlobalsGetValue( pen.GLOBAL_JPAD_MWD..jpad, "" ))
-		if(( virt[3] or 0 < GameGetFrameNum())) then return DEBUG_GetMouseWorld() end
+		if(( virt[3] or 0 ) < GameGetFrameNum()) then return DEBUG_GetMouseWorld() end
 		return virt[1], virt[2]
 	end
 
 	local virt = pen.t.pack( GlobalsGetValue( pen.GLOBAL_JPAD_MUI..jpad, "" ))
-	if(( virt[3] or 0 < GameGetFrameNum())) then
+	if(( virt[3] or 0 ) < GameGetFrameNum()) then
 		local w, h, _,_, real_w, real_h = pen.get_screen_data()
 		local m_x, m_y = InputGetMousePosOnScreen()
 		return m_x*w/real_w, m_y*h/real_h
@@ -4115,16 +4122,16 @@ function pen.new_dragger( did, pic_x, pic_y, s_x, s_y, pic_z, data )
 	
 	local frame_num = GameGetFrameNum()
 	local is_new = math.abs( tonumber( GlobalsGetValue( pen.GLOBAL_DRAGGER_SAFETY, "0" ))) ~= frame_num
-	if( not( is_new )) then return pic_x, pic_y, 0 end
-
-	local m_x, m_y = pen.get_mouse_pos()
-	-- pen.c.dragger_data[ did ].old_pos = pen.c.dragger_data[ did ].old_pos or { m_x, m_y }
-	-- local d_x, d_y = m_x - pen.c.dragger_data[ did ].old_pos[1], m_y - pen.c.dragger_data[ did ].old_pos[2]
-	-- pen.c.dragger_data[ did ].old_pos = { m_x, m_y }
 	
+	if( not( is_new )) then return pic_x, pic_y, 0 end
 	if( type( data.jpad_vip or data.jpad or {}) ~= "table" ) then
 		data.jpad = { "dragger_"..did.."_focus", data.jpad_vip or false, data.jpad or data.jpad_vip }
 	end
+
+	local m_x, m_y = pen.get_mouse_pos( false, ( data.jpad or {})[1])
+	-- pen.c.dragger_data[ did ].old_pos = pen.c.dragger_data[ did ].old_pos or { m_x, m_y }
+	-- local d_x, d_y = m_x - pen.c.dragger_data[ did ].old_pos[1], m_y - pen.c.dragger_data[ did ].old_pos[2]
+	-- pen.c.dragger_data[ did ].old_pos = { m_x, m_y }
 
 	local clicked = false
 	local is_going = pen.c.dragger_data[ did ].is_going

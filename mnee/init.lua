@@ -318,7 +318,12 @@ function OnWorldPreUpdate()
 				end
 			else GlobalsSetValue( pen.GLOBAL_JPAD_DISARMER..i, "0" ) end
 		elseif( frame_num - tonumber( GlobalsGetValue( pen.GLOBAL_JPAD_SAFETY..i, "0" )) > 3 ) then
-			GlobalsSetValue( pen.GLOBAL_JPAD_FOCUS..i, "" )
+			GlobalsSetValue( pen.GLOBAL_JPAD_FOCUS..i, state == "_" and "" or "_" )
+			
+			if( state ~= "_" ) then
+				GlobalsSetValue( pen.GLOBAL_JPAD_SAFETY..i, frame_num + 5 )
+				GlobalsSetValue( pen.GLOBAL_JPAD_ROOT..i, GlobalsGetValue( pen.GLOBAL_JPAD_DOT..i ))
+			end
 		end
 	end
 	mnee.ignore_service_mode = nil

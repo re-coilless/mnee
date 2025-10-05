@@ -1065,14 +1065,16 @@ pen.new_interface = function( pic_x, pic_y, s_x, s_y, pic_z, data )
 				if( focus_loop == "" ) then GlobalsSetValue( pen.GLOBAL_JPAD_FOCUS_LOOP..i, fid ) end
 
 				if( focus_loop ~= fid ) then
+					local root = pen.t.pack( GlobalsGetValue( pen.GLOBAL_JPAD_ROOT..i, "" ))
 					local dist = math.sqrt(
-						( pic_x + s_x/2 )^2 + ( pic_y + s_y/2 )^2 )
+						( pic_x + s_x/2 - ( root[1] or 0 ))^2 + ( pic_y + s_y/2 - ( root[2] or 0 ))^2 )
 					if( is_vip ) then dist = -99999 end
 					if( target[1] == nil or dist < target[2]) then
 						GlobalsSetValue( pen.GLOBAL_JPAD_FOCUS_TARGET..i, pen.t.pack({ fid, dist }))
 					end
 				else
 					GlobalsSetValue( pen.GLOBAL_JPAD_DOT..i, "" )
+					GlobalsSetValue( pen.GLOBAL_JPAD_ROOT..i, "" )
 					GlobalsSetValue( pen.GLOBAL_JPAD_FOCUS_LOOP..i, "" )
 					GlobalsSetValue( pen.GLOBAL_JPAD_FOCUS..i, target[1])
 					GlobalsSetValue( pen.GLOBAL_JPAD_FOCUS_TARGET..i, "" )

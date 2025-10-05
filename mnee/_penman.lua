@@ -2414,9 +2414,10 @@ end
 function pen.debug_print( text, x, y, color )
 	if( pen.vld( x ) and pen.vld( y )) then
 		local pic_x, pic_y = x, y
-		if( color ~= true ) then
+		local is_guied = color == true
+		if( not( is_guied )) then
 			pic_x, pic_y = pen.world2gui( x, y ) else color = nil end
-		pen.new_shadowed_text( pic_x, pic_y, -pen.LAYERS.DEBUG, text, {
+		pen.new_shadowed_text( pic_x, pic_y, ( is_guied and 1 or -1 )*pen.LAYERS.DEBUG, text, {
 			alpha = 0.5, is_centered_x = true, is_centered_y = true, color = color or pen.PALETTE.VNL.WARNING })
 	else --stolen from fairmod + thanks Nathan
 		color = color or pen.PALETTE.VNL.WARNING
@@ -5055,6 +5056,7 @@ pen.GLOBAL_JPAD_MWD = "PENMAN_JPAD_MWD_"
 pen.GLOBAL_JPAD_DOT = "PENMAN_JPAD_DOT_"
 pen.GLOBAL_JPAD_POS = "PENMAN_JPAD_POS_"
 pen.GLOBAL_JPAD_SIZE = "PENMAN_JPAD_SIZE_"
+pen.GLOBAL_JPAD_ROOT = "PENMAN_JPAD_ROOT_"
 pen.GLOBAL_JPAD_ALPHA = "PENMAN_JPAD_ALPHA_"
 pen.GLOBAL_JPAD_SPEED = "PENMAN_JPAD_SPEED_"
 pen.GLOBAL_JPAD_FOCUS = "PENMAN_JPAD_FOCUS_"
@@ -5697,6 +5699,8 @@ pen.TUNES = {
 		SELECT = {"data/audio/Desktop/ui.bank","ui/item_equipped"},
 		MOVE_NONE = {"data/audio/Desktop/ui.bank","ui/item_move_success"},
 		MOVE_ITEM = {"data/audio/Desktop/ui.bank","ui/item_switch_places"},
+		
+		MAGIC_TRIGGER = {"data/audio/Desktop/event_cues.bank","event_cues/intro_enable_controls/create"},
 	}
 }
 

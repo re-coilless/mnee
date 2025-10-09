@@ -1,11 +1,11 @@
 if( ModIsEnabled( "penman" )) then
-	dofile_once( "mods/penman/_libman.lua" )
+	dofile_once( "mods/penman/_penman.lua" )
 else dofile_once( "mods/mnee/_penman.lua" ) end
 
 mnee = mnee or {}
 mnee.G = mnee.G or {}
 
-------------------------------------------------------		[BACKEND]		------------------------------------------------------
+-------------------------------------------------------     [BACKEND]     -------------------------------------------------------
 
 ---Custom sorter with numerical element.order_id support.
 ---@param tbl table
@@ -55,7 +55,7 @@ function mnee.apply_deadzone( v, kind, zone_offset )
 	local deadzone = total*math.min( zone_offset + pen.setting_get( "mnee.DEADZONE_"..( kind or "EXTRA" ))/20, 0.999 )
 	v = math.floor( total*v )
 	v = math.abs( v ) < deadzone and 0 or v
-	if( math.abs( v ) > 0 ) then v = ( v - deadzone*pen.get_sign( v ))/( total - deadzone ) end
+	if( math.abs( v ) > 0 ) then v = ( v - deadzone*pen.sgn( v ))/( total - deadzone ) end
 	return v
 end
 
@@ -84,7 +84,7 @@ function mnee.aim_assist( hooman, pos, angle, is_active, is_searching, data )
 	local ray_x, ray_y = search_distance*math.cos( angle ), search_distance*math.sin( angle )
 	local is_hit, hit_x, hit_y = RaytracePlatforms( pos[1], pos[2], pos[1] + ray_x, pos[2] + ray_y )
 	if( not( is_hit )) then hit_x, hit_y = pos[1] + ray_x, pos[2] + ray_y end
-	local dir_x, dir_y = pen.get_sign( hit_x - pos[1]), pen.get_sign( hit_y - pos[2])
+	local dir_x, dir_y = pen.sgn( hit_x - pos[1]), pen.sgn( hit_y - pos[2])
 	local meats, the_one = {}, 0
 	for i = 1,#data.tag_tbl do
 		meats = pen.t.add( meats, EntityGetInRadiusWithTag( hit_x, hit_y, search_distance, data.tag_tbl[i]) or {})
@@ -101,7 +101,7 @@ function mnee.aim_assist( hooman, pos, angle, is_active, is_searching, data )
 		local t_delta_x, t_delta_y = t_x - pos[1], t_y - pos[2]
 		local dist_p = math.sqrt(( t_delta_x )^2 + ( t_delta_y )^2 )
 		local dist_h = math.sqrt(( t_x - hit_x )^2 + ( t_y - hit_y )^2 )
-		local t_dir_x, t_dir_y = pen.get_sign( t_delta_x ), pen.get_sign( t_delta_y )
+		local t_dir_x, t_dir_y = pen.sgn( t_delta_x ), pen.sgn( t_delta_y )
 		if( math.abs( t_delta_x ) >= safe_zone and t_dir_x ~= dir_x ) then return end
 		if( math.abs( t_delta_y ) >= safe_zone and t_dir_y ~= dir_y ) then return end
 
@@ -169,7 +169,7 @@ function mnee.aim_assist( hooman, pos, angle, is_active, is_searching, data )
 			if( mnee.aim_assist_korrection[1] <= 0 ) then return end
 
 			local x, y, h = delta_x, 0, delta_y
-			local x_sign, y_sign = pen.get_sign( delta_x ), pen.get_sign( delta_y )
+			local x_sign, y_sign = pen.sgn( delta_x ), pen.sgn( delta_y )
 			local v, g = mnee.aim_assist_korrection[2], mnee.aim_assist_korrection[3] + 0.000001
 			
 			if( y_sign < 0 ) then y, h = -h, 0 end
@@ -192,8 +192,8 @@ function mnee.aim_assist( hooman, pos, angle, is_active, is_searching, data )
 		end)
 		
 		if( not( so_back )) then return end
-		local delta_a = pen.get_angular_delta( t_angle, angle )
-		angle = angle + pen.limiter( pen.limiter( strength*delta_a, min_offset, true ), delta_a )
+		local delta_a = pen.adt( t_angle, angle )
+		angle = angle + pen.lmt( pen.lmt( strength*delta_a, min_offset, true ), delta_a )
 
 		if( not( pen.vld( data.pic ))) then return end
 		GameCreateSpriteForXFrames( data.pic, pos[1] + delta_x, pos[2] + delta_y, true, 0, 0, 1, true )
@@ -202,7 +202,7 @@ function mnee.aim_assist( hooman, pos, angle, is_active, is_searching, data )
 	return angle, is_done
 end
 
-------------------------------------------------------		[INTERNAL]		------------------------------------------------------
+-------------------------------------------------------     [INTERNAL]     -------------------------------------------------------
 
 ---Active key list getter.
 ---@param inmode? string The name of the desired mode from mnee.INMODES list.
@@ -543,7 +543,7 @@ function mnee.update_bindings( binding_data )
 	mnee.set_bindings( tbl )
 end
 
-------------------------------------------------------		[FRONTEND]		------------------------------------------------------
+-------------------------------------------------------     [FRONTEND]     -------------------------------------------------------
 
 ---Returns the shifted value of a key (= the value a key should return after shift is pressed).
 ---@param key string
@@ -561,7 +561,7 @@ end
 ---@return string fancy_key
 function mnee.get_fancy_key( key, extra_fancy )
 	local k, is_jpad = string.gsub( key, "%dgpd_", "" )
-	local name = pen.get_hybrid_table( dofile_once( "mods/mnee/lists.lua" )[5][k])
+	local name = pen.ght( dofile_once( "mods/mnee/lists.lua" )[5][k])
 	local out = name[( extra_fancy or false ) and 2 or 1 ] or name[1] or k
 	if( is_jpad > 0 ) then
 		return table.concat({ "GP", string.sub( key, 1, 1 ), "(", out, ")" })
@@ -667,11 +667,11 @@ function mnee.new_button( pic_x, pic_y, pic_z, pic, data )
 	data.highlight = data.highlight or pen.PALETTE.PRSP.RED
 	
 	data.lmb_event = data.lmb_event or function( pic_x, pic_y, pic_z, pic, d )
-		if( not( d.no_anim )) then pen.atimer( d.auid.."l", nil, true ) end
+		if( not( d.no_anim )) then pen.atm( d.auid.."l", nil, true ) end
 		return pic_x, pic_y, pic_z, pic, d
 	end
 	data.rmb_event = data.rmb_event or function( pic_x, pic_y, pic_z, pic, d )
-		if( not( d.no_anim )) then pen.atimer( d.auid.."r", nil, true ) end
+		if( not( d.no_anim )) then pen.atm( d.auid.."r", nil, true ) end
 		return pic_x, pic_y, pic_z, pic, d
 	end
 	data.hov_event = data.hov_event or function( pic_x, pic_y, pic_z, pic, d )
@@ -681,13 +681,13 @@ function mnee.new_button( pic_x, pic_y, pic_z, pic, data )
 					pic_z = d.tip_z, min_width = d.min_width, fid = ( d.jpad or {})[1]})
 			end)
 		end
-		if( d.highlight ) then pen.new_pixel(
+		if( d.highlight ) then pen.new.pixel(
 			pic_x - 1, pic_y - 1, pic_z + 0.01, d.highlight,
 			( d.s_x or 1 )*d.dims[1] + 2, ( d.s_y or 1 )*d.dims[2] + 2 ) end
 		return pic_x, pic_y, pic_z, pic, d
 	end
 
-	return pen.new_button( pic_x, pic_y, pic_z, pic, data )
+	return pen.new.button( pic_x, pic_y, pic_z, pic, data )
 end
 
 ---Draws a tooltip themed after Prospero Inc.
@@ -698,7 +698,7 @@ function mnee.new_tooltip( text, data )
 	data = data or {}; data.frames = data.frames or 10
 	if( data.dims == true ) then data.dims = { -1, -1 } end
 	data.text_prefunc = function( text, data )
-		text = pen.get_hybrid_table( text )
+		text = pen.ght( text )
 		
 		local extra = 0
 		if( pen.vld( text[2])) then
@@ -707,12 +707,12 @@ function mnee.new_tooltip( text, data )
 		return text[1], extra, 0
 	end
 
-	return pen.new_tooltip( text, data, function( text, d )
+	return pen.new.tip( text, data, function( text, d )
 		local size_x, size_y = unpack( d.dims )
 		local pic_x, pic_y, pic_z = unpack( d.pos )
 		
 		if( pen.vld( text )) then
-			pen.new_text( pic_x + d.edging, pic_y + d.edging - 2, pic_z, text, {
+			pen.new.text( pic_x + d.edging, pic_y + d.edging - 2, pic_z, text, {
 				fully_featured = d.fully_featured, --funcs = d.font_mods,
 				dims = { size_x - d.edging, size_y }, line_offset = d.line_offset or -2,
 				color = pen.PALETTE.PRSP.BLUE, alpha = pen.animate( 1, d.t, { ease_in = "exp5", frames = d.frames }),
@@ -721,9 +721,9 @@ function mnee.new_tooltip( text, data )
 		
 		local scale_x = pen.animate({2,size_x}, d.t, { ease_in = "exp1.1", ease_out = "wav1.5", frames = d.frames })
 		local scale_y = pen.animate({2,size_y}, d.t, { ease_out = "sin", frames = d.frames })
-		pen.new_pixel( pic_x, pic_y, pic_z + 0.02,
+		pen.new.pixel( pic_x, pic_y, pic_z + 0.02,
 			pen.PALETTE.PRSP[( d.is_special or false ) and "RED" or "BLUE" ], scale_x, scale_y )
-		pen.new_pixel( pic_x + 1, pic_y + 1, pic_z + 0.01, pen.PALETTE.PRSP.WHITE, scale_x - 2, scale_y - 2 )
+		pen.new.pixel( pic_x + 1, pic_y + 1, pic_z + 0.01, pen.PALETTE.PRSP.WHITE, scale_x - 2, scale_y - 2 )
 	end)
 end
 
@@ -748,7 +748,7 @@ function mnee.new_pager( pic_x, pic_y, pic_z, data )
 		auid = table.concat({ "page_", data.auid, "_r" }), jpad = data.jpad[3]})
 	
 	local max_page = 0
-	data.page, max_page, sfx_type = pen.new_pager( pic_x, pic_y, pic_z, {
+	data.page, max_page, sfx_type = pen.new.pager( pic_x, pic_y, pic_z, {
 		func = data.func, order_func = data.order_func,
 		list = data.list, page = data.page, items_per_page = data.items_per_page,
 		click = { clicked[1] and 1 or ( r_clicked[1] and -1 or 0 ), clicked[2] and 1 or ( r_clicked[2] and -1 or 0 )}
@@ -758,14 +758,14 @@ function mnee.new_pager( pic_x, pic_y, pic_z, data )
 	elseif( sfx_type == -1 ) then pen.play_sound( pen.TUNES.PRSP.SWITCH ) end
 	
 	if( data.compact_mode ) then t_y = t_y - 11 else t_x = pic_x + 11 end
-	pen.new_image( t_x, t_y, pic_z,
+	pen.new.image( t_x, t_y, pic_z,
 		"mods/mnee/files/pics/button_21_"..( max_page > 1 and "B" or "A" )..".png", { can_click = true })
 	if( max_page > 1 ) then
 		if( data.profile_mode ) then mnee.new_tooltip( GameTextGet( "$mnee_this_profile" )) end
 
 		local text = data.page..( max_page < 10 and "/"..max_page or "" )
 		if( data.profile_mode ) then text = data.page - 1; text = string.char(( text < 1 and -29 or text ) + 64 ) end
-		pen.new_text( t_x + 2, t_y, pic_z - 0.01, text, { color = pen.PALETTE.PRSP.BLUE })
+		pen.new.text( t_x + 2, t_y, pic_z - 0.01, text, { color = pen.PALETTE.PRSP.BLUE })
 	end
 	
 	return data.page
@@ -791,22 +791,22 @@ function mnee.new_scroller( sid, pic_x, pic_y, pic_z, size_x, size_y, func, data
 	}
 	
 	if( not( data.is_compact )) then
-		pen.new_pixel( pic_x + size_x, pic_y, pic_z - 0.03, pen.PALETTE.PRSP.BLUE, 3, 1 )
-		pen.new_pixel( pic_x + size_x, pic_y + size_y - 1, pic_z - 0.03, pen.PALETTE.PRSP.BLUE, 3, 1 )
-		pen.new_pixel( pic_x + size_x + 1, pic_y, pic_z - 0.08, pen.PALETTE.PRSP.PURPLE, 1, size_y )
+		pen.new.pixel( pic_x + size_x, pic_y, pic_z - 0.03, pen.PALETTE.PRSP.BLUE, 3, 1 )
+		pen.new.pixel( pic_x + size_x, pic_y + size_y - 1, pic_z - 0.03, pen.PALETTE.PRSP.BLUE, 3, 1 )
+		pen.new.pixel( pic_x + size_x + 1, pic_y, pic_z - 0.08, pen.PALETTE.PRSP.PURPLE, 1, size_y )
 	end
 
-	return pen.try( pen.new_scroller, {
+	return pen.try( pen.new.scroller, {
 		sid, pic_x, pic_y, pic_z, size_x, size_y, func, data
 	}, function( log, _, pic_x, pic_y )
-		pen.new_shadowed_text( pic_x, pic_y - 11, pen.LAYERS.DEBUG,
+		pen.new.text_shad( pic_x, pic_y - 11, pen.LAYERS.DEBUG,
 			mnee.G.m_list, { color = pen.PALETTE.PRSP.RED, color_shadow = pen.PALETTE.PRSP.BLUE })
-		pen.new_shadowed_text( pic_x, pic_y, pen.LAYERS.DEBUG, log, {
+		pen.new.text_shad( pic_x, pic_y, pen.LAYERS.DEBUG, log, {
 			color = pen.PALETTE.PRSP.RED, color_shadow = pen.PALETTE.PRSP.BLUE, dims = { size_x - 1, -1 }})
 	end)
 end
 
--------------------------------------------------------		[INPUT]		-------------------------------------------------------
+-------------------------------------------------------     [INPUT]     -------------------------------------------------------
 
 ---Adds yet another bind event to be executed.
 ---@param mod_id string
@@ -966,7 +966,7 @@ function mnee.mnin_axis( mod_id, bind_id, is_alive, pressed_mode, is_vip, inmode
 			if( memo[ bind[2]] == nil ) then
 				if( math.abs( value ) > 0.5 ) then
 					mnee.toggle_axis_memo( bind[2])
-					out = pen.get_sign( value )
+					out = pen.sgn( value )
 				end
 			elseif( math.abs( value ) < 0.2 ) then
 				mnee.toggle_axis_memo( bind[2])
@@ -1002,7 +1002,7 @@ function mnee.mnin_stick( mod_id, bind_id, pressed_mode, is_vip, inmode )
 	local val_y, gone_y, buttoned_y = mnee.mnin_axis( mod_id, binding.axes[2], true, pressed_mode, is_vip, inmode )
 	local magnitude = mnee.apply_deadzone( math.min( math.sqrt( val_x^2 + val_y^2 ), norm ), binding.jpad_type, binding.deadzone )
 	local direction = math.rad( math.floor( math.deg( math.atan2( val_y, val_x )) + 0.5 ))
-	val_x, val_y = pen.rounder( magnitude*math.cos( direction ), acc ), pen.rounder( magnitude*math.sin( direction ), acc )
+	val_x, val_y = pen.rnd( magnitude*math.cos( direction ), acc ), pen.rnd( magnitude*math.sin( direction ), acc )
 	return { math.min( val_x, norm ), math.min( val_y, norm )}, gone_x or gone_y, { buttoned_x, buttoned_y }, direction
 end
 
@@ -1020,7 +1020,7 @@ function mnee.mnin( mode, id, data )
 	}
 
 	data, func = data or {}, map[ mode ]
-	id = pen.get_hybrid_table( id )
+	id = pen.ght( id )
 	
 	local inval = {}
 	for i,v in ipairs( func[2]) do
@@ -1032,10 +1032,10 @@ function mnee.mnin( mode, id, data )
 	return func[1]( unpack( inval ))
 end
 
-pen._new_interface = pen.new_interface
-pen.new_interface = function( pic_x, pic_y, s_x, s_y, pic_z, data )
+pen._new_interface = pen.new.interface
+pen.new.interface = function( pic_x, pic_y, s_x, s_y, pic_z, data )
 	data = data or {}
-	data.jpad = pen.get_hybrid_table( data.jpad )
+	data.jpad = pen.ght( data.jpad )
 	data.emulator = data.emulator or function( pic_x, pic_y, pic_z, s_x, s_y, clicked, r_clicked, is_hovered, data )
 		if( not( pen.vld( data.jpad[1]))) then return clicked, r_clicked, is_hovered end
 
@@ -1112,10 +1112,10 @@ pen.new_interface = function( pic_x, pic_y, s_x, s_y, pic_z, data )
 						
 						local w = 1
 						if( n == 4 ) then
-							local w1 = pen.get_angular_delta( math.rad( v[4]), angle )/math.rad( 150 )
-							local w2 = pen.get_angular_delta( math.rad( -v[4]), angle )/math.rad( 150 )
+							local w1 = pen.adt( math.rad( v[4]), angle )/math.rad( 150 )
+							local w2 = pen.adt( math.rad( -v[4]), angle )/math.rad( 150 )
 							w = math.min( math.abs( w1 ), math.abs( w2 ))
-						else w = math.abs( pen.get_angular_delta( math.rad( v[4]), angle )/math.rad( 150 )) end
+						else w = math.abs( pen.adt( math.rad( v[4]), angle )/math.rad( 150 )) end
 						local d = dist*math.sqrt( math.max( w, 0.01 ))
 
 						local side_id, side_dist, extra_id, extra_dist = unpack( t )
@@ -1288,34 +1288,34 @@ pen.new_interface = function( pic_x, pic_y, s_x, s_y, pic_z, data )
 			GlobalsSetValue( pen.GLOBAL_JPAD_MUI..k, pen.t.pack({
 				pos[1] + size[1]/2, pos[2] + size[2]/2, frame_num + 3 }))
 			pen.uncutter( function( cut_x, cut_y, cut_w, cut_h )
-				pen.new_image( pos[1] - 1, pos[2] - 1, z, pic,
+				pen.new.image( pos[1] - 1, pos[2] - 1, z, pic,
 					{ color = pen.PALETTE[ "P"..k.."_A" ], s_x = 0.5, s_y = 0.5, alpha = anim })
-				pen.new_image( pos[1] - 1, pos[2] - 1, z + 0.1, pic,
+				pen.new.image( pos[1] - 1, pos[2] - 1, z + 0.1, pic,
 					{ color = pen.PALETTE[ "P"..k.."_B" ], s_x = 0.5, s_y = 0.5, alpha = 0.75 })
-				pen.new_image( pos[1] + size[1] + 1, pos[2] - 1, z, pic,
+				pen.new.image( pos[1] + size[1] + 1, pos[2] - 1, z, pic,
 					{ color = pen.PALETTE[ "P"..k.."_A" ], s_x = -0.5, s_y = 0.5, alpha = 1 - anim })
-				pen.new_image( pos[1] + size[1] + 1, pos[2] - 1, z + 0.1, pic,
+				pen.new.image( pos[1] + size[1] + 1, pos[2] - 1, z + 0.1, pic,
 					{ color = pen.PALETTE[ "P"..k.."_B" ], s_x = -0.5, s_y = 0.5, alpha = 0.75 })
-				pen.new_image( pos[1] - 1, pos[2] + size[2] + 1, z, pic,
+				pen.new.image( pos[1] - 1, pos[2] + size[2] + 1, z, pic,
 					{ color = pen.PALETTE[ "P"..k.."_A" ], s_x = 0.5, s_y = -0.5, alpha = 1 - anim })
-				pen.new_image( pos[1] - 1, pos[2] + size[2] + 1, z + 0.1, pic,
+				pen.new.image( pos[1] - 1, pos[2] + size[2] + 1, z + 0.1, pic,
 					{ color = pen.PALETTE[ "P"..k.."_B" ], s_x = 0.5, s_y = -0.5, alpha = 0.75 })
-				pen.new_image( pos[1] + size[1] + 1, pos[2] + size[2] + 1, z, pic,
+				pen.new.image( pos[1] + size[1] + 1, pos[2] + size[2] + 1, z, pic,
 					{ color = pen.PALETTE[ "P"..k.."_A" ], s_x = -0.5, s_y = -0.5, alpha = anim })
-				pen.new_image( pos[1] + size[1] + 1, pos[2] + size[2] + 1, z + 0.1, pic,
+				pen.new.image( pos[1] + size[1] + 1, pos[2] + size[2] + 1, z + 0.1, pic,
 					{ color = pen.PALETTE[ "P"..k.."_B" ], s_x = -0.5, s_y = -0.5, alpha = 0.75 })
 				
-				pen.new_pixel( pos[1], pos[2], z, pen.PALETTE[ "P"..k.."_A" ], size[1], size[2], 0.1*alpha )
-				pen.new_pixel( pos[1], pos[2], z + 0.1, pen.PALETTE[ "P"..k.."_B" ], size[1], size[2], shadow*alpha )
+				pen.new.pixel( pos[1], pos[2], z, pen.PALETTE[ "P"..k.."_A" ], size[1], size[2], 0.1*alpha )
+				pen.new.pixel( pos[1], pos[2], z + 0.1, pen.PALETTE[ "P"..k.."_B" ], size[1], size[2], shadow*alpha )
 
 				if( cross == 0 ) then return end
 				local c_x, c_y = cross_off[1], cross_off[2]
-				pen.new_pixel( c_x - 3 - 0.5, c_y - 0.5, z - 5.1, pen.PALETTE[ "P"..k.."_A" ], 3, 1, cross )
-				pen.new_pixel( c_x + 1 - 0.5, c_y - 0.5, z - 5.1, pen.PALETTE[ "P"..k.."_A" ], 3, 1, cross )
-				pen.new_pixel( c_x - 0.5, c_y - 3 - 0.5, z - 5.1, pen.PALETTE[ "P"..k.."_A" ], 1, 3, cross )
-				pen.new_pixel( c_x - 0.5, c_y + 1 - 0.5, z - 5.1, pen.PALETTE[ "P"..k.."_A" ], 1, 3, cross )
-				pen.new_pixel( c_x - 500 - 0.5, c_y - 0.5, z - 5, pen.PALETTE[ "P"..k.."_B" ], 1000, 1, 0.1*cross )
-				pen.new_pixel( c_x - 0.5, c_y - 500 - 0.5, z - 5, pen.PALETTE[ "P"..k.."_B" ], 1, 1000, 0.1*cross )
+				pen.new.pixel( c_x - 3 - 0.5, c_y - 0.5, z - 5.1, pen.PALETTE[ "P"..k.."_A" ], 3, 1, cross )
+				pen.new.pixel( c_x + 1 - 0.5, c_y - 0.5, z - 5.1, pen.PALETTE[ "P"..k.."_A" ], 3, 1, cross )
+				pen.new.pixel( c_x - 0.5, c_y - 3 - 0.5, z - 5.1, pen.PALETTE[ "P"..k.."_A" ], 1, 3, cross )
+				pen.new.pixel( c_x - 0.5, c_y + 1 - 0.5, z - 5.1, pen.PALETTE[ "P"..k.."_A" ], 1, 3, cross )
+				pen.new.pixel( c_x - 500 - 0.5, c_y - 0.5, z - 5, pen.PALETTE[ "P"..k.."_B" ], 1000, 1, 0.1*cross )
+				pen.new.pixel( c_x - 0.5, c_y - 500 - 0.5, z - 5, pen.PALETTE[ "P"..k.."_B" ], 1, 1000, 0.1*cross )
 			end)
 		else
 			pen.uncutter( function( cut_x, cut_y, cut_w, cut_h )
@@ -1325,8 +1325,8 @@ pen.new_interface = function( pic_x, pic_y, s_x, s_y, pic_z, data )
 					local dot = pen.t.pack( GlobalsGetValue( pen.GLOBAL_JPAD_CURSOR..i, "|0|0|" ))
 					if( pen.check_bounds( dot, { s_x, s_y }, { pic_x, pic_y })) then
 						local z = pen.LAYERS.DEBUG - ( i + 5 )
-						pen.new_pixel( pic_x, pic_y, z, pen.PALETTE[ "P"..i.."_A" ], s_x, s_y, 0.2 )
-						pen.new_pixel( pic_x, pic_y, z, pen.PALETTE[ "P"..i.."_B" ], s_x, s_y, 0.1 )
+						pen.new.pixel( pic_x, pic_y, z, pen.PALETTE[ "P"..i.."_A" ], s_x, s_y, 0.2 )
+						pen.new.pixel( pic_x, pic_y, z, pen.PALETTE[ "P"..i.."_B" ], s_x, s_y, 0.1 )
 					end
 				end)
 			end)
@@ -1340,8 +1340,8 @@ pen.new_interface = function( pic_x, pic_y, s_x, s_y, pic_z, data )
 	return pen._new_interface( pic_x, pic_y, s_x, s_y, pic_z, data )
 end
 
-pen._new_dragger = pen.new_dragger
-pen.new_dragger = function( did, pic_x, pic_y, s_x, s_y, pic_z, data )
+pen._new_dragger = pen.new.dragger
+pen.new.dragger = function( did, pic_x, pic_y, s_x, s_y, pic_z, data )
 	data = data or {}
 	data.virtualizer = data.virtualizer or function( pic_x, pic_y, state, clicked, jpad )
 		if( state <= 0 and ( jpad or 0 ) > 0 ) then
@@ -1380,7 +1380,7 @@ function mnee.force_jpad_focus( fid )
 	--initiates the focusing and writes id to global
 end
 
------------------------------------------------------		[KEYBOARD]		-----------------------------------------------------
+-------------------------------------------------------     [KEYBOARD]     -------------------------------------------------------
 
 function mnee.get_special_keys( jpad )
 	jpad = jpad or 1
@@ -1462,7 +1462,7 @@ function pen.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 
 	local clicked, r_clicked, is_hovered = false, false, false
 	if( not( pen.vld( state ) or GameHasFlagRun( mnee.SERV_MODE )) or is_active ) then
-		clicked, r_clicked, is_hovered = pen.new_interface(
+		clicked, r_clicked, is_hovered = pen.new.interface(
 			pic_x, pic_y + 2, size_x, size_y, pic_z, { jpad = data.jpad })
 	end
 
@@ -1645,20 +1645,20 @@ function pen.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 		elseif( do_rmb ) then pen.play_sound( pen.TUNES.VNL.BUY ) end
 		
 		data.jpad = nil
-		pen.new_tooltip( "", {
+		pen.new.tip( "", {
 			tid = data.uid, is_active = true, is_special = is_active,
 			dims = { size_x, size_y }, pic_z = pic_z + 0.1, pos = { pic_x - data.edging, pic_y - data.edging }})
-		pen.new_scroller( data.uid.."_scroller", pic_x, pic_y, pic_z, size_x, size_y, function( scroll_pos )
+		pen.new.scroller( data.uid.."_scroller", pic_x, pic_y, pic_z, size_x, size_y, function( scroll_pos )
 			if( not( data.no_wrap )) then data.dims = { size_x, -1 } end
 			
 			if( is_active ) then
 				t = pen.c.input_data.buffer
 				data.no_culling, data.fully_featured = true, true
-				pen.new_text( scroll_pos[2], scroll_pos[1], pic_z - 1, "{>cursor>{"..( t or "" ).."}<cursor<}", data )
+				pen.new.text( scroll_pos[2], scroll_pos[1], pic_z - 1, "{>cursor>{"..( t or "" ).."}<cursor<}", data )
 			elseif( do_hov ) then data.color = pen.PALETTE.VNL.YELLOW end
 			
 			data.no_culling, data.fully_featured = false, false
-			local dims, new_line = pen.new_text( scroll_pos[2], scroll_pos[1], pic_z, t, data )
+			local dims, new_line = pen.new.text( scroll_pos[2], scroll_pos[1], pic_z, t, data )
 			return { dims[2] + ( string.sub( t, -1, -1 ) == "\n" and new_line or 0 ) + 1, dims[1]}
 		end, data )
 	end
@@ -1776,25 +1776,25 @@ function mnee.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 		if( clicked or r_clicked ) then input = "" end
 		mnee.ignore_service_mode = nil
 		
-		new_x, new_y, state, _, r_clicked, is_hovered = pen.new_dragger( "mnee_kb_dragger_l", pic_x + 1, pic_y + 36, 10, 10, pic_z, { jpad = data.jpad[3]})
-		if( not( pen.eps_compare( new_x - 1, pic_x ) and pen.eps_compare( new_y - 36, pic_y ))) then pen.setting_set( "mnee.KB_POS", pen.t.pack({ new_x - 1, new_y - 36 })) end
+		new_x, new_y, state, _, r_clicked, is_hovered = pen.new.dragger( "mnee_kb_dragger_l", pic_x + 1, pic_y + 36, 10, 10, pic_z, { jpad = data.jpad[3]})
+		if( not( pen.epc( new_x - 1, pic_x ) and pen.epc( new_y - 36, pic_y ))) then pen.setting_set( "mnee.KB_POS", pen.t.pack({ new_x - 1, new_y - 36 })) end
 
 		mnee.new_tooltip( GameTextGet( "$mnee_rmb_dragger" ), {
 			is_active = ( state == 0 and is_hovered ), pic_z = pic_z - 10, fid = "dragger_mnee_kb_dragger_l_focus" })
-		pen.new_image( pic_x + 1, pic_y + 35, pic_z + 1.5,
+		pen.new.image( pic_x + 1, pic_y + 35, pic_z + 1.5,
 			"mods/mnee/files/pics/keyboard/dragger_left_"..( is_hovered and "B" or "A" )..".xml" )
 		if( r_clicked or is_return ) then input = data.is_live and -3 or 3 end
 		
-		new_x, new_y, state, _, r_clicked, is_hovered = pen.new_dragger( "mnee_kb_dragger_r", pic_x + 146, pic_y + 36, 10, 10, pic_z, { jpad = data.jpad[3]})
-		if( not( pen.eps_compare( new_x - 146, pic_x ) and pen.eps_compare( new_y - 36, pic_y ))) then pen.setting_set( "mnee.KB_POS", pen.t.pack({ new_x - 146, new_y - 36 })) end
+		new_x, new_y, state, _, r_clicked, is_hovered = pen.new.dragger( "mnee_kb_dragger_r", pic_x + 146, pic_y + 36, 10, 10, pic_z, { jpad = data.jpad[3]})
+		if( not( pen.epc( new_x - 146, pic_x ) and pen.epc( new_y - 36, pic_y ))) then pen.setting_set( "mnee.KB_POS", pen.t.pack({ new_x - 146, new_y - 36 })) end
 		
 		mnee.new_tooltip( GameTextGet( "$mnee_rmb_dragger" ), {
 			is_active = ( state == 0 and is_hovered ), pic_z = pic_z - 10, fid = "dragger_mnee_kb_dragger_r_focus" })
-		pen.new_image( pic_x + 145, pic_y + 35, pic_z + 1.5,
+		pen.new.image( pic_x + 145, pic_y + 35, pic_z + 1.5,
 			"mods/mnee/files/pics/keyboard/dragger_right_"..( is_hovered and "B" or "A" )..".xml" )
 		if( r_clicked or is_return ) then input = data.is_live and -3 or 3 end
 		
-		pen.new_image( pic_x, pic_y, pic_z + 1, "mods/mnee/files/pics/keyboard/board.xml", { can_click = true })
+		pen.new.image( pic_x, pic_y, pic_z + 1, "mods/mnee/files/pics/keyboard/board.xml", { can_click = true })
 		
 		if( input ~= "" and type( input ) == "string" ) then
 			if( data.force_numerical ) then --add in-line calculation (use pen.w2c to assemble the formula)
@@ -1816,7 +1816,7 @@ function mnee.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 		mnee.new_tooltip( "", {
 			tid = data.uid, is_active = true, is_special = is_active,
 			dims = { size_x, size_y }, pic_z = pic_z + 0.1, pos = { pic_x - data.edging, pic_y }})
-		if( do_hov ) then pen.new_pixel( pic_x - data.edging - 1, pic_y - 1,
+		if( do_hov ) then pen.new.pixel( pic_x - data.edging - 1, pic_y - 1,
 			pic_z + 0.15, pen.PALETTE.PRSP[ is_active and "BLUE" or "RED" ], size_x + 6, size_y + 6 ) end
 		mnee.new_scroller( data.uid.."_scroller", pic_x, pic_y + 1, pic_z, size_x, size_y + 2, function( scroll_pos )
 			if( not( data.no_wrap )) then
@@ -1824,12 +1824,12 @@ function mnee.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 			if( is_active ) then
 				t = pen.c.input_data.buffer
 				data.no_culling, data.fully_featured = true, true
-				pen.new_text( scroll_pos[2], scroll_pos[1] - 1, pic_z - 1, "{>cursor>{"..( t or "" ).."}<cursor<}", data )
+				pen.new.text( scroll_pos[2], scroll_pos[1] - 1, pic_z - 1, "{>cursor>{"..( t or "" ).."}<cursor<}", data )
 			end
 
 			data.no_culling, data.fully_featured = false, false
 			data.color = pen.PALETTE.PRSP[ is_active and "BLUE" or ( do_hov and "RED" or "BLUE" )]
-			local dims, new_line = pen.new_text( scroll_pos[2], scroll_pos[1] - 1, pic_z, t, data )
+			local dims, new_line = pen.new.text( scroll_pos[2], scroll_pos[1] - 1, pic_z, t, data )
 			return { dims[2] + ( string.sub( t, -1, -1 ) == "\n" and new_line or 0 ) + 1, dims[1]}
 		end, data )
 	end
@@ -1837,12 +1837,12 @@ function mnee.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 	return pen.try( pen.new_input, {
 		iid, pic_x, pic_y, pic_z, size_x, size_y, text, data
 	}, function( log, _, pic_x, pic_y )
-		pen.new_shadowed_text( pic_x, pic_y, pen.LAYERS.DEBUG, log, {
+		pen.new.text_shad( pic_x, pic_y, pen.LAYERS.DEBUG, log, {
 			color = pen.PALETTE.PRSP.RED, color_shadow = pen.PALETTE.PRSP.BLUE, dims = { size_x - 1, -1 }})
 	end)
 end
 
------------------------------------------------------		[GLOBALS]		-----------------------------------------------------
+-------------------------------------------------------     [META]     -------------------------------------------------------
 
 mnee.AMAP_MEMO = "mnee_mapping_memo"
 mnee.INITER = "MNEE_IS_GOING"
@@ -2009,7 +2009,7 @@ mnee.AXIS_INMODES = {
 	end,
 }
 
------------------------------------------------------		[LEGACY]		-----------------------------------------------------
+-------------------------------------------------------     [LEGACY]     -------------------------------------------------------
 
 ---Use mnee.mnin_key instead.
 ---@deprecated
@@ -2059,7 +2059,7 @@ function get_axis_vip( mod_id, name )
 	return get_axis_pressed( mod_id, name, true, true )
 end
 
--------------------------------------------------------		[LUALS]		-------------------------------------------------------
+-------------------------------------------------------     [LUALS]     -------------------------------------------------------
 
 ---@alias deadzone_type
 ---| "BUTTON"

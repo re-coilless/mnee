@@ -1,73 +1,18 @@
 -- if you are using this as a standalone library, it is highly recommended to covert the "pen" table to a local variable
 pen = pen or {} -- replace this line with "local pen = {}"
+
 pen.t = pen.t or {} -- table funcs
 pen.c = pen.c or {} -- cache table
-pen.c.ttips = pen.c.ttips or {} --tip data
+pen.new = pen.new or {} -- gui library
 if( GameGetWorldStateEntity() > 0 ) then
 	GlobalsSetValue( "HERMES_IS_REAL", "1" )
 end
 
-pen._VERSION_ = "[VERSION_GOES_HERE]" --[COMMIT_GOES_HERE]
+pen.VERSION = "[VERSION_GOES_HERE]" -- [COMMIT_GOES_HERE]
+pen.PATH = string.match( jit.util.funcinfo( function() end ).source, "(.+/)[^/]+" ) --thanks to ImmortalDamned and Alex
 
---[CLASSES]
-pen.V = { --https://github.com/Wiseluster/lua-vector/blob/master/vector.lua
-	__mt = {
-		__add = function( a, b )
-			if( type( b ) == "number" ) then
-				b = { x = b, y = b } end
-			return pen.V.new( a.x + b.x, a.y + b.y )
-		end,
-		__sub = function( a, b )
-			if( type( b ) == "number" ) then
-				b = { x = b, y = b } end
-			return pen.V.new( a.x - b.x, a.y - b.y )
-		end,
-		__mul = function( a, b )
-			if( type( b ) == "number" ) then
-				return pen.V.new( a.x*b, a.y*b ) end
-			return a.x*b.x + a.y*b.y
-		end,
-		__div = function( a, b )
-			if( type( b ) ~= "number" ) then
-				return a end
-			return pen.V.new( a.x/b, a.y/b )
-		end,
-		__eq = function( a, b )
-			if( type( b ) == "number" ) then
-				return false end
-			return a.x == b.x and a.y == b.y
-		end,
-		__unm = function( a )
-			return pen.V.new( -a.x, -a.y )
-		end,
-		__tostring = function( a )
-			return table.concat({ "[", a.x, ";", a.y, "]" })
-		end,
-	},
-	new = function( x, y )
-		return setmetatable({ x = x or 0, y = y or 0 }, pen.V.__mt )
-	end,
-	len = function( v )
-		return math.sqrt(( v.x )^2 + ( v.y )^2 )
-	end,
-	abs = function( v )
-		return pen.V.new( math.abs( v.x ), math.abs( v.y ))
-	end,
-	max = function( v, a )
-		return pen.V.new( math.max( v.x, a ), math.max( v.y, a ))
-	end,
-	min = function( v, a )
-		return pen.V.new( math.min( v.x, a ), math.min( v.y, a ))
-	end,
-	rot = function( v, a )
-		if( a == 0 ) then return v end
-		local x = v.x*math.cos( a ) + v.y*math.sin( a )
-		local y = v.x*math.sin( a ) - v.y*math.cos( a )
-		return pen.V.new( x, y )
-	end,
-}
+-------------------------------------------------------     [IO]     -------------------------------------------------------
 
---[IO]
 pen.magic_draw = pen.magic_draw or ModImageMakeEditable or penman_d
 pen.magic_read = pen.magic_read or ModTextFileGetContent or penman_r
 pen.magic_write = pen.magic_write or ModTextFileSetContent or penman_w
@@ -84,14 +29,19 @@ if( pen.magic_write ~= nil ) then
 	end
 end
 
---[MATH]
+-------------------------------------------------------     [MATH]     -------------------------------------------------------
+
+---boolean to number
 function pen.b2n( a )
 	return ( a or false ) and 1 or 0
 end
+
+---number to boolean
 function pen.n2b( a )
 	return ( a or 0 ) > 0
 end
 
+---is valid
 function pen.vld( v, is_ecs )
 	if( v == nil ) then return false end
 	local t, out = type( v ), true
@@ -106,33 +56,39 @@ function pen.vld( v, is_ecs )
 	return out
 end
 
-function pen.get_sign( a )
+---get sign
+function pen.sgn( a )
 	return ( a or 0 ) < 0 and -1 or 1
 end
 
-function pen.eps_compare( a, b, eps )
+---epsilon compare
+function pen.epc( a, b, eps )
 	return math.abs( a - ( b or 0 )) < ( eps or 0.001 )
 end
 
-function pen.get_ratio( v, total )
+---get ratio
+function pen.rat( v, total )
 	return ( 1 - math.min( math.abs( v/total ), 0.99999 ))
 end
 
-function pen.rounder( num, k )
+---round
+function pen.rnd( num, k )
 	k = k or 1000
 	if( k > 0 ) then
 		return math.floor( k*num + 0.5 )/k
 	else return math.ceil( k*num - 0.5 )/k end
 end
 
-function pen.limiter( value, limit, max_mode )
+---limit
+function pen.lmt( value, limit, max_mode )
 	limit = math.abs( limit )
-	if( max_mode and math.abs( value ) < limit ) then return pen.get_sign( value )*limit end
-	if( not( max_mode ) and math.abs( value ) > limit ) then return pen.get_sign( value )*limit end
+	if( max_mode and math.abs( value ) < limit ) then return pen.sgn( value )*limit end
+	if( not( max_mode ) and math.abs( value ) > limit ) then return pen.sgn( value )*limit end
 	return value
 end
 
-function pen.get_angular_delta( a, b, get_max )
+---get angular delta
+function pen.adt( a, b, get_max )
 	local pi, pi4 = math.rad( 90 ), math.rad( 360 )
 	local d360, d180 = a - b, ( a + pi )%pi4 - ( b + pi )%pi4
 	if( get_max ) then
@@ -140,31 +96,19 @@ function pen.get_angular_delta( a, b, get_max )
 	else return math.abs( d360 ) < math.abs( d180 ) and d360 or d180 end
 end
 
-function pen.angle_reset( angle )
+---reset angle
+function pen.art( angle )
 	if( math.abs( angle ) < 6.283 ) then return angle end
 	return math.atan2( math.sin( angle ), math.cos( angle ))
 end
 
-function pen.rotate_offset( x, y, angle )
+---rotate offset
+function pen.rot( x, y, angle )
 	if(( x == 0 and y == 0 ) or ( angle or 0 ) == 0 ) then return x, y end
 	return x*math.cos( angle ) - y*math.sin( angle ), x*math.sin( angle ) + y*math.cos( angle )
 end
 
-function pen.magic_uint( color )
-	return type( color ) == "table" and bit.bor(
-		color[1],
-		bit.lshift( color[2], 8 ),
-		bit.lshift( color[3], 16 ),
-		bit.lshift( color[4] or 1, 24 )
-	) or {
-		bit.band( color, 0xff ),
-		bit.band( bit.rshift( color, 8 ), 0xff ),
-		bit.band( bit.rshift( color, 16 ), 0xff ),
-		bit.band( bit.rshift( color, 24 ), 0xff )
-	}
-end
-
-function pen.hash_me( str, is_huge )
+function pen.hsh( str, is_huge )
 	if( type( str ) == "table" ) then str = pen.t.parse( str ) end
 	return pen.cache({ "cached_hash", str }, function()
 		local a, b, c = 0, 0
@@ -177,10 +121,19 @@ function pen.hash_me( str, is_huge )
 	end, { reset_frame = pen.CACHE_RESET_DELAY })
 end
 
-function pen.key_me( str )
+function pen.key( str )
 	if( #str > 999 ) then return str end
 	str = string.gsub( string.gsub( str, pen.KEY, pen.HOLE ), "%c", pen.HOLE )
 	return string.gsub( string.gsub( str, pen.DIV_1, pen.HOLE ), pen.DIV_2, pen.HOLE )
+end
+
+---anim timer
+function pen.atm( tid, duration, reset_now, stillborn )
+	local frame_num = GameGetFrameNum()
+	pen.c.animation_timer = pen.c.animation_timer or {}
+	if( pen.c.animation_timer[ tid ] == nil or reset_now ) then
+		pen.c.animation_timer[ tid ] = frame_num - (( stillborn or false ) and duration or 0 )
+	end; return math.min( frame_num - pen.c.animation_timer[ tid ], duration or 0 )
 end
 
 --add autotuning with visualizer via new_plot
@@ -202,45 +155,41 @@ function pen.pid( pid, delta, k ) --https://www.robotsforroboticists.com/pid-con
 	return k.p*delta + k.i*int + k.d*der + k.bias
 end
 
-function pen.atimer( tid, duration, reset_now, stillborn )
-	local frame_num = GameGetFrameNum()
-	pen.c.animation_timer = pen.c.animation_timer or {}
-	if( pen.c.animation_timer[ tid ] == nil or reset_now ) then
-		pen.c.animation_timer[ tid ] = frame_num - (( stillborn or false ) and duration or 0 )
-	end; return math.min( frame_num - pen.c.animation_timer[ tid ], duration or 0 )
-end
+-------------------------------------------------------     [MOTION]     -------------------------------------------------------
 
+---asymptotic animation
 function pen.estimate( eid, target, alg, min_delta, max_delta ) --thanks Nathan
 	alg = alg or "exp"
-	target = pen.get_hybrid_table( target )
+	target = pen.ght( target )
 	min_delta = math.max( min_delta or 0.01, 0.0001 )
 	pen.c.estimator_memo = pen.c.estimator_memo or {}
 	if( target[3]) then pen.c.estimator_memo[ eid ] = nil end
 	pen.c.estimator_memo[ eid ] = pen.c.estimator_memo[ eid ] or target[2] or target[1]
 	
 	local value = pen.c.estimator_memo[ eid ]
-	if( not( pen.eps_compare( value, target[1], 1.05*min_delta ))) then
+	if( not( pen.epc( value, target[1], 1.05*min_delta ))) then
 		local delta = pen.ESTIM_ALGS[ string.sub( alg, 1, 3 )]( target[1], value, tonumber( string.sub( alg, 4, -1 )))
 		max_delta = math.min( math.abs( max_delta or delta ), math.abs( target[1] - value ))
-		pen.c.estimator_memo[ eid ] = value + pen.limiter( pen.limiter( delta, max_delta ), min_delta, true )
+		pen.c.estimator_memo[ eid ] = value + pen.lmt( pen.lmt( delta, max_delta ), min_delta, true )
 	else pen.c.estimator_memo[ eid ] = target[1] end
 	return pen.c.estimator_memo[ eid ]
 end
 
+---procedural animation
 function pen.animate( delta, frame, data ) --https://www.febucci.com/2018/08/easing-functions/
 	data = data or {}
 	data.frames = data.frames or 20
 	data.ease_int = data.ease_int or "lerp"
-	data.ease_in = pen.get_hybrid_table( data.ease_in )
-	data.ease_out = pen.get_hybrid_table( data.ease_out )
+	data.ease_in = pen.ght( data.ease_in )
+	data.ease_out = pen.ght( data.ease_out )
 	
-	delta = pen.get_hybrid_table( delta )
+	delta = pen.ght( delta )
 	if( delta[2] == nil ) then delta[2] = delta[1]; delta[1] = 0 end
 	
 	local is_looped = frame == true
 	local frame_num = data.frame_num or GameGetFrameNum()
 	if( type( frame ) == "string" ) then
-		frame = pen.atimer( frame, data.frames, data.reset_now, data.stillborn )
+		frame = pen.atm( frame, data.frames, data.reset_now, data.stillborn )
 	elseif( is_looped ) then frame = frame_num%data.frames end
 	
 	local time = frame/data.frames
@@ -284,20 +233,29 @@ function pen.animate( delta, frame, data ) --https://www.febucci.com/2018/08/eas
 	else return pen.ANIM_INTERS[ data.type ]( time, delta, data.params ) end
 end
 
+---physics-based animation
 function pen.simulate()
 	--gets uid and init pos with data, returns new pos
 	--does a full-blown rigibody sim, executes with a frame-long delay to collect all the objects
 	--build colliders either by evaluating sprite pixels manually, or just pass a table with vertexes
 end
 
---[TECHNICAL]
-function pen.get_hybrid_table( table, allow_unarray )
+---particle sim, should work through pen.simulate
+function pen.particulate()
+	--in-gui particle system
+end
+
+-------------------------------------------------------     [LOGISTICS]     -------------------------------------------------------
+
+---get hybrid table
+function pen.ght( table, allow_unarray )
 	if( table == nil ) then return {} end
 	local is_table = type( table ) == "table" and ( allow_unarray or not( pen.t.is_unarray( table )))
 	if( is_table ) then return table else return { table } end
 end
 
-function pen.get_hybrid_function( func, input )
+---get hybrid function
+function pen.ghf( func, input )
 	if( not( pen.vld( func ))) then return end
 	if( type( func ) == "function" ) then return pen.try( func, input ) else return func end
 end
@@ -326,6 +284,124 @@ function pen.s2v( str )
 	return str
 end
 
+function pen.hallway( func )
+	return func()
+end
+
+function pen.try( func, input, catch )
+	input = pen.ght( input or {})
+	local out = { pcall( func, unpack( input ))}
+	if( out[1]) then table.remove( out, 1 ); return unpack( out ) end
+	if( not( pen.vld( catch ))) then return print( out[2]) end
+	return catch( out[2], unpack( input ))
+end
+
+function pen.cache( structure, update_func, data )
+	data = data or {}
+	data.reset_count = data.reset_count or 9999
+	data.reset_delay = data.reset_delay or 60
+	data.reset_frame = data.reset_frame or 0
+	data.force_update = data.force_update or false
+	data.always_update = data.always_update or false
+
+	local name = structure[1]
+	pen.c[ name ] = pen.c[ name ] or {}
+	pen.c[ name ].cache_reset_count = pen.c[ name ].cache_reset_count or 0
+	pen.c[ name ].cache_reset_frame = pen.c[ name ].cache_reset_frame or 0
+
+	local frame_num = GameGetFrameNum()
+	pen.c.cache_access = pen.c.cache_access or {}
+	pen.c.cache_access[ name ] = pen.c.cache_access[ name ] or {}
+	pen.c.cache_access[ name ][ structure[2]] = frame_num
+
+	local is_too_many = data.reset_count > 0 and pen.c[ name ].cache_reset_count > data.reset_count
+	local is_too_long = data.reset_frame > 0 and pen.c[ name ].cache_reset_frame < frame_num
+	if( data.reset_now or ( update_func ~= nil and ( is_too_many or is_too_long ))) then
+		local amount = 0
+		for n,v in pairs( pen.c[ name ]) do
+			local delta = frame_num - ( pen.c.cache_access[ name ][ n ] or frame_num )
+			if( delta > data.reset_delay ) then pen.c[ name ][ n ] = nil; amount = amount + 1 end
+		end
+		
+		if( is_too_long ) then pen.c.cache_access[ name ] = nil end
+		pen.c[ name ].cache_reset_count = pen.c[ name ].cache_reset_count - amount
+		if( is_too_long ) then pen.c[ name ].cache_reset_frame = frame_num + data.reset_frame end
+	end
+
+	local the_one = pen.c[ name ]
+	for i = 2,( #structure - 1 ) do
+		the_one[ structure[i]] = the_one[ structure[i]] or {}
+		the_one = the_one[ structure[i]]
+	end
+
+	local val = structure[ #structure ]
+	if( data.always_update ) then
+		local new_val = { update_func( the_one[ val ])}
+		if( pen.vld( new_val )) then the_one[ val ] = new_val end
+	elseif(( data.force_update or the_one[ val ] == nil ) and update_func ~= nil ) then
+		local new_val = { update_func()}
+		if( not( pen.vld( new_val ))) then return end
+		the_one[ val ], pen.c[ name ].cache_reset_count = new_val, pen.c[ name ].cache_reset_count + 1
+	end
+	return unpack( the_one[ val ] or {})
+end
+
+function pen.chrono( func, input, storage_comp, name ) --this sucks
+	local check = GameGetRealWorldTimeSinceStarted()*1000
+	if( func == nil ) then
+		if( pen.c.chrono_memo ) then
+			print(( check - pen.c.chrono_memo ).."ms" )
+			pen.c.chrono_memo = nil
+		else pen.c.chrono_memo = check end
+		return
+	end
+
+	check = GameGetRealWorldTimeSinceStarted()*1000 - check
+	
+	local out = { func( unpack( pen.ght( input )))}
+	if( pen.vld( storage_comp, true )) then
+		pen.magic_comp( storage_comp, { value_string = function( old_val )
+			return table.concat({ old_val, name, pen.DIV_1, check, pen.DIV_1 })
+		end})
+	else print( check.."ms" ) end
+	return unpack( out )
+end
+
+function pen.init_pipeline( data, value )
+	local ctrl_body = pen.get_ctrl()
+
+	if( pen.vld( data )) then
+		value = pen.ght( value )
+
+		local id = tonumber( GlobalsGetValue( data.index, "0" ))
+		GlobalsSetValue( data.index, id + 1 )
+
+		local storage_request = pen.magic_storage( ctrl_body, "request_"..data.name )
+		local request = ComponentGetValue2( storage_request, "value_string" )
+		ComponentSetValue2( storage_request, "value_string",
+			table.concat({ request, pen.DIV_2, data.name, id, pen.DIV_2, value[1], pen.DIV_2, pen.DIV_1 }))
+		return pen.magic_storage( ctrl_body, "free", {
+			name = data.name..id, value_string = value[2] or "",
+		}, true )
+	end
+
+	for name,data in pairs( pen.INIT_THREADS ) do
+		local storage_request = pen.magic_storage( ctrl_body, "request_"..data.name )
+		local request = pen.t.pack( ComponentGetValue2( storage_request, "value_string" ))
+		if( pen.vld( request )) then
+			for i,v in ipairs( request ) do
+				local storage_file = pen.magic_storage( ctrl_body, v[1])
+				data.func( v[2], ComponentGetValue2( storage_file, "value_string" ))
+				ComponentSetValue2( storage_file, "name", "free" )
+				ComponentSetValue2( storage_file, "value_string", "" )
+			end
+			ComponentSetValue2( storage_request, "value_string", pen.DIV_1 )
+		end
+	end
+end
+
+-------------------------------------------------------     [TABLES]     -------------------------------------------------------
+
 function pen.t.init( amount, value )
 	local is_tbl = type( value ) == "table"
 	local tbl, temp = {}, value
@@ -333,6 +409,67 @@ function pen.t.init( amount, value )
 		tbl[i] = is_tbl and {} or temp
 	end
 	return tbl
+end
+
+function pen.t.count( tbl, just_checking )
+	if( type( tbl ) ~= "table" ) then return 0 end
+
+	local count = 0
+	for k,v in pairs( tbl ) do
+		count = count + 1
+		if( just_checking ) then break end
+	end
+	return count
+end
+
+function pen.t.depth( tbl, d )
+	d = d or 0
+	if( type( tbl ) == "table" ) then
+		for k,v in pairs( tbl ) do
+			d = pen.t.depth( v, d + 1 )
+			break
+		end
+	end
+	return d
+end
+
+function pen.t.is_unarray( tbl )
+	return type( tbl ) == "table" and pen.t.count( tbl ) ~= #tbl
+end
+
+function pen.t.unarray( tbl, dft )
+	if( not( pen.vld( tbl ))) then return {} end
+
+	local new_tbl, n = {}, 1
+	if( pen.t.is_unarray( tbl )) then
+		for k,v in pairs( tbl ) do
+			new_tbl[n] = { k, v }; n = n + 1
+		end
+	else
+		for i,v in ipairs( tbl ) do
+			if( type( v ) == "table" ) then
+				if( v[1] ~= nil ) then new_tbl[v[1]] = v[2] or dft or i end
+			else new_tbl[v] = dft or i end
+		end
+	end
+	return new_tbl
+end
+
+function pen.t.bins( tbl, value )
+	if( type( tbl ) ~= "table" ) then return 0 end
+
+	local low, high = 1, #tbl
+	while( high >= low ) do
+		local middle = math.floor(( low + high )/2 + 0.5 )
+		if( tbl[ middle ] < value ) then
+			low = middle + 1
+		elseif( tbl[ middle ] > value ) then
+			high = middle - 1
+		elseif( tbl[ middle ] == value ) then
+			return middle
+		end
+	end
+	return 0
 end
 
 function pen.t.loop( tbl, func, return_tbl )
@@ -372,67 +509,6 @@ function pen.t.loop_concat( tbl, func )
 	return table.concat( out )
 end
 
-function pen.t.count( tbl, just_checking )
-	if( type( tbl ) ~= "table" ) then return 0 end
-
-	local count = 0
-	for k,v in pairs( tbl ) do
-		count = count + 1
-		if( just_checking ) then break end
-	end
-	return count
-end
-
-function pen.t.depth( tbl, d )
-	d = d or 0
-	if( type( tbl ) == "table" ) then
-		for k,v in pairs( tbl ) do
-			d = pen.t.depth( v, d + 1 )
-			break
-		end
-	end
-	return d
-end
-
-function pen.t.bins( tbl, value )
-	if( type( tbl ) ~= "table" ) then return 0 end
-
-	local low, high = 1, #tbl
-	while( high >= low ) do
-		local middle = math.floor(( low + high )/2 + 0.5 )
-		if( tbl[ middle ] < value ) then
-			low = middle + 1
-		elseif( tbl[ middle ] > value ) then
-			high = middle - 1
-		elseif( tbl[ middle ] == value ) then
-			return middle
-		end
-	end
-	return 0
-end
-
-function pen.t.is_unarray( tbl )
-	return type( tbl ) == "table" and pen.t.count( tbl ) ~= #tbl
-end
-
-function pen.t.unarray( tbl, dft )
-	if( not( pen.vld( tbl ))) then return {} end
-
-	local new_tbl, n = {}, 1
-	if( pen.t.is_unarray( tbl )) then
-		for k,v in pairs( tbl ) do
-			new_tbl[n] = { k, v }; n = n + 1
-		end
-	else
-		for i,v in ipairs( tbl ) do
-			if( type( v ) == "table" ) then
-				if( v[1] ~= nil ) then new_tbl[v[1]] = v[2] or dft or i end
-			else new_tbl[v] = dft or i end
-		end
-	end
-	return new_tbl
-end
-
 function pen.t.get( tbl, id, custom_key, will_nuke, default )
 	local default = default or ( type(( tbl or {})[1]) == "table" and {} or 0 )
 	if( not( pen.vld( tbl ) and pen.vld( id ))) then return default end
@@ -440,9 +516,9 @@ function pen.t.get( tbl, id, custom_key, will_nuke, default )
 	local out, tbl_id = {}, nil
 	local key = custom_key or "id"
 	local is_multi = type( id ) == "table"
-	id = pen.t.unarray( pen.get_hybrid_table( id ))
+	id = pen.t.unarray( pen.ght( id ))
 	for i,v in ipairs( tbl ) do
-		local check = pen.get_hybrid_table( v, true )
+		local check = pen.ght( v, true )
 		if( id[ check[key] or 0 ] or id[ check[1] or 0 ]) then
 			tbl_id = i
 			table.insert( out, ( will_nuke or false ) and tbl_id or v )
@@ -486,6 +562,13 @@ function pen.t.add( a, b )
 	return a or {}
 end
 
+function pen.t.add_new( tbl, new )
+	for i,v in ipairs( tbl ) do
+		if( v == new ) then return end
+	end
+	table.insert( tbl, new )
+end
+
 function pen.t.add_dynamic( tbl, fields ) --thanks to ImmortalDamned
     return setmetatable( tbl, {
         __index = function( _, k )
@@ -493,13 +576,6 @@ function pen.t.add_dynamic( tbl, fields ) --thanks to ImmortalDamned
             return f and f()
         end
     })
-end
-
-function pen.t.insert_new( tbl, new )
-	for i,v in ipairs( tbl ) do
-		if( v == new ) then return end
-	end
-	table.insert( tbl, new )
 end
 
 function pen.t.clone( orig, copies )
@@ -573,7 +649,7 @@ function pen.t.parse( data, is_pretty, full_precision )
 		else return pen.v2s( tbl, is_pretty, full_precision ) end
 	end
 	local function dser( str )
-		return pen.cache({ "table_parse", pen.key_me( str, true )}, function()
+		return pen.cache({ "table_parse", pen.key( str, true )}, function()
 			if( string.find( str, "^{.+}$" ) == nil ) then return {} end
 			str = ","..string.sub( string.sub( str, 2, -1 ), 1, -2 )..",["
 			
@@ -584,7 +660,7 @@ function pen.t.parse( data, is_pretty, full_precision )
 			end
 			
 			local out = {}
-			for v in string.gmatch( str, "%[[^%]]+]=%b{}" ) do --huge thanks to dextercd and nphhpn
+			for v in string.gmatch( str, "%[[^%]]+]=%b{}" ) do --huge thanks to Dexter and nphhpn
 				local a,b = string.find( str, v, 1, true )
 				str = string.sub( str, 1, a - 1 )..string.sub( str, b + 1, -1 )
 				out[ s2n( v )] = dser( string.gsub( v, name_pattern, "" ))
@@ -627,127 +703,19 @@ function pen.t.order( tbl, func )
     end
 end
 
-function pen.t.print( tbl ) --just override normal print func to automatically check for all the types and stuff
-	print( pen.t.parse( tbl, true ))
+_print = print
+print = function( ... )
+	local out = {}
+	pen.t.loop({ ... }, function( i, v )
+		if( type( v ) == "table" ) then
+			table.insert( out, pen.t.parse( v, true )) --add formatting
+		else table.insert( out, tostring( v )) end --add color highlighting based on datatype
+	end)
+	_print( table.concat( out, "\n\t" ))
 end
 
-function pen.hallway( func )
-	return func()
-end
+-------------------------------------------------------     [TEXT]     -------------------------------------------------------
 
-function pen.try( func, input, catch )
-	input = pen.get_hybrid_table( input or {})
-	local out = { pcall( func, unpack( input ))}
-	if( out[1]) then table.remove( out, 1 ); return unpack( out ) end
-	if( not( pen.vld( catch ))) then return print( out[2]) end
-	return catch( out[2], unpack( input ))
-end
-
-function pen.cache( structure, update_func, data )
-	data = data or {}
-	data.reset_count = data.reset_count or 9999
-	data.reset_delay = data.reset_delay or 60
-	data.reset_frame = data.reset_frame or 0
-	data.force_update = data.force_update or false
-	data.always_update = data.always_update or false
-
-	local name = structure[1]
-	pen.c[ name ] = pen.c[ name ] or {}
-	pen.c[ name ].cache_reset_count = pen.c[ name ].cache_reset_count or 0
-	pen.c[ name ].cache_reset_frame = pen.c[ name ].cache_reset_frame or 0
-
-	local frame_num = GameGetFrameNum()
-	pen.c.cache_access = pen.c.cache_access or {}
-	pen.c.cache_access[ name ] = pen.c.cache_access[ name ] or {}
-	pen.c.cache_access[ name ][ structure[2]] = frame_num
-
-	local is_too_many = data.reset_count > 0 and pen.c[ name ].cache_reset_count > data.reset_count
-	local is_too_long = data.reset_frame > 0 and pen.c[ name ].cache_reset_frame < frame_num
-	if( data.reset_now or ( update_func ~= nil and ( is_too_many or is_too_long ))) then
-		local amount = 0
-		for n,v in pairs( pen.c[ name ]) do
-			local delta = frame_num - ( pen.c.cache_access[ name ][ n ] or frame_num )
-			if( delta > data.reset_delay ) then pen.c[ name ][ n ] = nil; amount = amount + 1 end
-		end
-		
-		if( is_too_long ) then pen.c.cache_access[ name ] = nil end
-		pen.c[ name ].cache_reset_count = pen.c[ name ].cache_reset_count - amount
-		if( is_too_long ) then pen.c[ name ].cache_reset_frame = frame_num + data.reset_frame end
-	end
-
-	local the_one = pen.c[ name ]
-	for i = 2,( #structure - 1 ) do
-		the_one[ structure[i]] = the_one[ structure[i]] or {}
-		the_one = the_one[ structure[i]]
-	end
-
-	local val = structure[ #structure ]
-	if( data.always_update ) then
-		local new_val = { update_func( the_one[ val ])}
-		if( pen.vld( new_val )) then the_one[ val ] = new_val end
-	elseif(( data.force_update or the_one[ val ] == nil ) and update_func ~= nil ) then
-		local new_val = { update_func()}
-		if( not( pen.vld( new_val ))) then return end
-		the_one[ val ], pen.c[ name ].cache_reset_count = new_val, pen.c[ name ].cache_reset_count + 1
-	end
-	return unpack( the_one[ val ] or {})
-end
-
-function pen.chrono( func, input, storage_comp, name )
-	local check = GameGetRealWorldTimeSinceStarted()*1000
-	if( func == nil ) then
-		if( pen.c.chrono_memo ) then
-			print(( check - pen.c.chrono_memo ).."ms" )
-			pen.c.chrono_memo = nil
-		else pen.c.chrono_memo = check end
-		return
-	end
-
-	check = GameGetRealWorldTimeSinceStarted()*1000 - check
-	
-	local out = { func( unpack( pen.get_hybrid_table( input )))}
-	if( pen.vld( storage_comp, true )) then
-		pen.magic_comp( storage_comp, { value_string = function( old_val )
-			return table.concat({ old_val, name, pen.DIV_1, check, pen.DIV_1 })
-		end})
-	else print( check.."ms" ) end
-	return unpack( out )
-end
-
-function pen.init_pipeline( data, value )
-	local ctrl_body = pen.get_ctrl()
-
-	if( pen.vld( data )) then
-		value = pen.get_hybrid_table( value )
-
-		local id = tonumber( GlobalsGetValue( data.index, "0" ))
-		GlobalsSetValue( data.index, id + 1 )
-
-		local storage_request = pen.magic_storage( ctrl_body, "request_"..data.name )
-		local request = ComponentGetValue2( storage_request, "value_string" )
-		ComponentSetValue2( storage_request, "value_string",
-			table.concat({ request, pen.DIV_2, data.name, id, pen.DIV_2, value[1], pen.DIV_2, pen.DIV_1 }))
-		return pen.magic_storage( ctrl_body, "free", {
-			name = data.name..id, value_string = value[2] or "",
-		}, true )
-	end
-
-	for name,data in pairs( pen.INIT_THREADS ) do
-		local storage_request = pen.magic_storage( ctrl_body, "request_"..data.name )
-		local request = pen.t.pack( ComponentGetValue2( storage_request, "value_string" ))
-		if( pen.vld( request )) then
-			for i,v in ipairs( request ) do
-				local storage_file = pen.magic_storage( ctrl_body, v[1])
-				data.func( v[2], ComponentGetValue2( storage_file, "value_string" ))
-				ComponentSetValue2( storage_file, "name", "free" )
-				ComponentSetValue2( storage_file, "value_string", "" )
-			end
-			ComponentSetValue2( storage_request, "value_string", pen.DIV_1 )
-		end
-	end
-end
-
---[TEXT]
 function pen.ptrn( id )
 	return table.concat({ "([^", type( id ) == "number" and pen[ "DIV_"..( id or 1 )] or tostring( id ), "]+)" }) --special thanks to Copi
 end
@@ -1095,14 +1063,15 @@ function pen.liner( text, length, height, font, data )
 end
 
 function pen.magic_translate( text ) 
-	return pen.t.loop_concat( pen.t2w( pen.get_hybrid_function( text )), function( i, mark )
+	return pen.t.loop_concat( pen.t2w( pen.ghf( text )), function( i, mark )
 		return { i == 1 and "" or " ", GameTextGetTranslatedOrNot( mark )}
 	end)
 end
 
-function pen.magic_append( to_file, from_file ) --gsub will eat "%", use "%%" instead
+function pen.magic_append( to_file, from_file, is_dofile ) --gsub will eat "%", use "%%" instead
+	is_dofile = is_dofile or false
 	local marker = pen.MARKER_MAGIC_APPEND
-	local a, b = pen.magic_read( to_file ), pen.magic_read( from_file )
+	local a, b = pen.magic_read( to_file ), is_dofile and "dofile_once( \""..from_file.."\" )" or pen.magic_read( from_file )
 	if( pen.magic_write ) then pen.magic_write( to_file, string.gsub( a, marker, table.concat({ b, "\n\n\n", marker }))) end
 end
 
@@ -1200,7 +1169,8 @@ function pen.add_translations( path )
 	if( pen.magic_write ) then pen.magic_write( main, pen.magic_read( main )..string.gsub( file, "^[^\n]*\n", "" )) end
 end
 
---[ECS]
+-------------------------------------------------------     [ECS]     -------------------------------------------------------
+
 function pen.get_ctrl()
 	local world_id = GameGetWorldStateEntity()
 	local ctrl_body = pen.get_child( world_id, "pen_ctrl" )
@@ -1314,13 +1284,13 @@ function pen.magic_comp( id, data, func )
 		return EntityGetComponentIncludingDisabled( id, name )
 	end
 
-	data = pen.get_hybrid_table( data, true )
+	data = pen.ght( data, true )
 	if( pen.t.is_unarray( data )) then
 		for field,value in pairs( data ) do
 			local v = value
 			if( type( v ) == "function" ) then
 				v = { v( pen.magic_comp( id, field ))}
-			else v = pen.get_hybrid_table( v ) end
+			else v = pen.ght( v ) end
 			table.insert( v, 1, field )
 			table.insert( v, 1, id )
 			pen.magic_comp( unpack( v ))
@@ -1332,7 +1302,7 @@ function pen.magic_comp( id, data, func )
 			"Component", is_object and "Object" or "", will_get and "Get" or "Set", "Value2" })
 
 		local field = ""
-		func = pen.get_hybrid_table( func )
+		func = pen.ght( func )
 		for i = 2,1,-1 do
 			if( data[i] ~= nil ) then
 				field = data[i]..field
@@ -1415,13 +1385,13 @@ function pen.get_comp_data( entity_id, comp_id, mutators )
 						if( not( pen.vld( mutators[ obj ])) or not( pen.vld( mutators[ obj ][ field ]))) then
 							if( pen.vld( value )) then object_values[ obj ][ field ] = value end
 						elseif( mutators[ obj ][ field ] ~= "[NOPE]" ) then
-							object_values[ obj ][ field ] = pen.get_hybrid_table( mutators[ obj ][ field ])
+							object_values[ obj ][ field ] = pen.ght( mutators[ obj ][ field ])
 						end
 					elseif( pen.vld( value )) then
 						set_stuff( field, value, forced_extra )
 					end
 				elseif( mutators[ field ] ~= "[NOPE]" ) then
-					set_stuff( field, pen.get_hybrid_table( mutators[ field ]), forced_extra )
+					set_stuff( field, pen.ght( mutators[ field ]), forced_extra )
 				end
 			end
 		end
@@ -1575,7 +1545,8 @@ function pen.get_item_owner( item_id, is_in_hand )
 	end
 end
 
---[UTILS]
+-------------------------------------------------------     [UTILS]     -------------------------------------------------------
+
 function pen.random_bool( var )
 	SetRandomSeed( GameGetFrameNum(), var )
 	return Random( 1, 2 ) == 1
@@ -1627,7 +1598,7 @@ function pen.get_seconds()
 end
 
 function pen.seed_gen( values )
-	math.randomseed( pen.hash_me( table.concat({
+	math.randomseed( pen.hsh( table.concat({
 		"msd", GameGetRealWorldTimeSinceStarted(), ".",
 		pen.t.loop_concat( values, function( i, v )
 			if( type( v ) ~= "boolean" ) then return tostring( v ) end
@@ -1640,7 +1611,7 @@ end
 
 function pen.seeded_random( event_id, mutator, a, b, bidirectional, seed_container )
 	if( seed_container ~= nil ) then
-		math.randomseed( tonumber( pen.hash_me( ModSettingGetNextValue( seed_container )..pen.hash_me( event_id..tostring( mutator )))))
+		math.randomseed( tonumber( pen.hsh( ModSettingGetNextValue( seed_container )..pen.hsh( event_id..tostring( mutator )))))
 	else return 0 end
 
 	math.random();math.random();math.random()
@@ -1719,7 +1690,7 @@ function pen.get_closest( x, y, stuff, check_sight, limits, extra_check )
 	limits = limits or { 0, 0, }
 	local min_dist, actual_thing = -1, nil
 	pen.t.loop( stuff, function( i, entity_id )
-		local t_x, t_y = EntityGetTransform( pen.get_hybrid_table( entity_id )[1])
+		local t_x, t_y = EntityGetTransform( pen.ght( entity_id )[1])
 		if( check_sight and RaytracePlatforms( x, y, t_x, t_y )) then return end
 		local d_x, d_y = math.abs( t_x - x ), math.abs( t_y - y )
 		if( limits[1] ~= 0 and d_x > limits[1]) then return end
@@ -1735,7 +1706,7 @@ end
 function pen.get_killable( c_x, c_y, r )
 	local mortal = EntityGetInRadiusWithTag( c_x, c_y, r, "mortal" ) or {}
 	local hittable = EntityGetInRadiusWithTag( c_x, c_y, r, "hittable" ) or {}
-	return pen.t.loop( mortal, function( i, v ) pen.t.insert_new( hittable, v ) end, true )
+	return pen.t.loop( mortal, function( i, v ) pen.t.add_new( hittable, v ) end, true )
 end
 
 function pen.get_creature_centre( entity_id )
@@ -1818,7 +1789,7 @@ function pen.raytrace_entities( x, y, r, l, hit_action, data )
 	local mm = 1.75
 	local md_l = diameter - last_l
 	local md_x, md_y = x - last_x, y - last_y
-	local md_r = pen.get_angular_delta( r, last_r )
+	local md_r = pen.adt( r, last_r )
 	local ma_l = math.ceil( math.abs( md_l )/( mm*res ))
 	local ma_x = math.ceil( math.abs( md_x )/( mm*res ))
 	local ma_y = math.ceil( math.abs( md_y )/( mm*res ))
@@ -1854,7 +1825,7 @@ function pen.raytrace_entities( x, y, r, l, hit_action, data )
 
 			if( data.is_debugging ) then
 				local pic_x, pic_y = pen.world2gui( dot_x, dot_y )
-				pen.new_pixel( pic_x - 0.5, pic_y - 0.5, pen.LAYERS.WORLD_BACK, pen.PALETTE.VNL[ will_do and "RUNIC" or "RED" ])
+				pen.new.pixel( pic_x - 0.5, pic_y - 0.5, pen.LAYERS.WORLD_BACK, pen.PALETTE.VNL[ will_do and "RUNIC" or "RED" ])
 			end
 		end
 	end
@@ -2045,7 +2016,7 @@ function pen.get_spell_data( spell_id )
 		c.proj_count = #c.projs
 		pen.hallway( function()
 			if( c.proj_count == 0 ) then return end
-			if( not( pen.vld( pen.lib ) and pen.vld( pen.lib.nxml ))) then return end
+			if( not( pen.vld( pen.lib.nxml ))) then return end
 
 			local xml = pen.lib.nxml.parse( pen.magic_read( c.projs[1][2]))
 			local xml_kid = xml:first_of( "ProjectileComponent" )
@@ -2249,7 +2220,7 @@ function pen.get_speed( entity_id ) --should work for everything
 	local plat_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "CharacterPlatformingComponent" )
 	if( pen.vld( char_comp, true ) and pen.vld( plat_comp, true )) then
 		v_x, v_y = ComponentGetValue2( char_comp, "mVelocity" )
-		if( pen.get_sign( s_x ) == pen.get_sign( v_x )) then v_x = -v_x end
+		if( pen.sgn( s_x ) == pen.sgn( v_x )) then v_x = -v_x end
 		v_y = v_y - ComponentGetValue2( plat_comp, "pixel_gravity" )/60
 		if( ComponentGetValue2( char_comp, "is_on_ground" )) then v_y = v_y - 60 end
 	end
@@ -2267,7 +2238,7 @@ function pen.get_mass( entity_id )
 		local drift_y = ComponentGetValue2( shape_comp, "offset_y" )
 		x, y = x - drift_x, y - drift_y; drift_x, drift_y = 1.5*drift_x, 1.5*drift_y
 		PhysicsApplyForceOnArea( function( entity, body_mass, body_x, body_y, body_vel_x, body_vel_y, body_vel_angular )
-			if( pen.eps_compare( x, body_x ) and pen.eps_compare( y - body_y )) then mass = body_mass end
+			if( pen.epc( x, body_x ) and pen.epc( y - body_y )) then mass = body_mass end
 			return body_x, body_y, 0, 0, 0
 		end, nil, x - drift_x, y - drift_y, x + drift_x, y + drift_y )
 	elseif( pen.vld( char_comp, true )) then
@@ -2330,7 +2301,7 @@ function pen.get_xy_matter( x, y, duration ) --do this via pen.life_support
 	
     local data = pen.c.get_xy_matter_memo
 	if( duration < 0 or data.frames > GameGetFrameNum()) then
-        EntityApplyTransform( data.probe, x + 0.5*pen.get_sign( math.random( -1, 0 )), y + 0.5*pen.get_sign( math.random( -1, 0 )))
+        EntityApplyTransform( data.probe, x + 0.5*pen.sgn( math.random( -1, 0 )), y + 0.5*pen.sgn( math.random( -1, 0 )))
 		
         local dmg_comp = EntityGetFirstComponentIncludingDisabled( data.probe, "DamageModelComponent" )
         local matter = ComponentGetValue2( dmg_comp, "mCollisionMessageMaterials" )
@@ -2376,7 +2347,7 @@ end
 function pen.debug_dot( x, y, data )
 	if( type( data or {}) == "number" ) then
 		GameCreateSpriteForXFrames( pen.FILE_PIC_NUL, x, y, true, 0, 0, frames or 1, true )
-	else x, y = pen.world2gui( x, y ); pen.new_pixel( x - 0.5, y - 0.5, pen.LAYERS.DEBUG, data ) end
+	else x, y = pen.world2gui( x, y ); pen.new.pixel( x - 0.5, y - 0.5, pen.LAYERS.DEBUG, data ) end
 end
 
 function pen.debug_vector( x, y, l, r, is_line )
@@ -2404,10 +2375,10 @@ function pen.debug_vector( x, y, l, r, is_line )
 	d_x, d_y = d_x/amount, d_y/amount
 
 	for i = 0,( amount - 1 ) do
-		local off_x, off_y = pen.rotate_offset( -0.5, -0.5, r )
+		local off_x, off_y = pen.rot( -0.5, -0.5, r )
 		local pic_x, pic_y = x + i*d_x + off_x, y + i*d_y + off_y
 		local pic_c = pen.magic_rgb({ d_c*i + c1, c2, c3 }, true, "hsv" )
-		pen.new_pixel( pic_x, pic_y, pen.LAYERS.DEBUG, pic_c, nil, nil, 1, r )
+		pen.new.pixel( pic_x, pic_y, pen.LAYERS.DEBUG, pic_c, nil, nil, 1, r )
 	end
 end
 
@@ -2417,7 +2388,7 @@ function pen.debug_print( text, x, y, color )
 		local is_guied = color == true
 		if( not( is_guied )) then
 			pic_x, pic_y = pen.world2gui( x, y ) else color = nil end
-		pen.new_shadowed_text( pic_x, pic_y, ( is_guied and 1 or -1 )*pen.LAYERS.DEBUG, text, {
+		pen.new.text_shad( pic_x, pic_y, ( is_guied and 1 or -1 )*pen.LAYERS.DEBUG, text, {
 			alpha = 0.5, is_centered_x = true, is_centered_y = true, color = color or pen.PALETTE.VNL.WARNING })
 	else --stolen from fairmod + thanks Nathan
 		color = color or pen.PALETTE.VNL.WARNING
@@ -2453,7 +2424,7 @@ end
 function pen.get_hotspot_pos( entity_id, tag )
 	local x, y, r, s_x, s_y = EntityGetTransform( entity_id )
 	local off_x, off_y = EntityGetHotspot( entity_id, tag, nil, true )
-	off_x, off_y = pen.rotate_offset( off_x*s_x, off_y*s_y, r )
+	off_x, off_y = pen.rot( off_x*s_x, off_y*s_y, r )
 	return x + off_x, y + off_y, r
 end
 
@@ -2527,13 +2498,13 @@ function pen.gunshot( shot_func, eject_func )
 	local x, y, r, s_x, s_y = EntityGetTransform( gun_id )
 	if( pen.vld( action.shells )) then
 		local eject_force = 300
-		local eject_angle = r - pen.get_sign( s_y )*math.rad( 135 )
+		local eject_angle = r - pen.sgn( s_y )*math.rad( 135 )
 		local eject_force_x = math.cos( eject_angle )*eject_force
 		local eject_force_y = math.sin( eject_angle )*eject_force
 		local eject_x, eject_y = pen.get_hotspot_pos( gun_id, "eject_pos" )
 		for i,v in ipairs( action.shells ) do
-			local v_x = eject_force_x - pen.get_sign( eject_force_x )*math.random( 50, 100 )
-			local v_y = eject_force_y + pen.get_sign( eject_force_y )*math.random( 10, 75 )
+			local v_x = eject_force_x - pen.sgn( eject_force_x )*math.random( 50, 100 )
+			local v_y = eject_force_y + pen.sgn( eject_force_y )*math.random( 10, 75 )
 			pen.magic_shooter( gun_id, v, eject_x, eject_y, v_x, v_y )
 			--play ejection sound
 		end
@@ -2599,20 +2570,20 @@ function pen.bladesim( sword_id, data )
 
 	local sword_mass = pen.get_mass( sword_id )
 	local strength = pen.get_strength( data.shooter )
-	local handling_aim = math.min( 1/( 0.75 + pen.get_ratio( sword_mass, strength )), 1 )
+	local handling_aim = math.min( 1/( 0.75 + pen.rat( sword_mass, strength )), 1 )
 	local hand_speed = math.max( math.floor( 15*( handling_aim^3 )), 3 )
 	local arm_speed = math.max( math.floor( 8*handling_aim ), 3 )
 
 	local aim = 0
 	local got_anim = pen.vld( data.drift )
 	pen.c.estimator_memo = pen.c.estimator_memo or {}
-	if( got_anim ) then aim = r - ( s_x < 0 and pen.get_sign( r )*math.rad( 180 ) or 0 ) end
+	if( got_anim ) then aim = r - ( s_x < 0 and pen.sgn( r )*math.rad( 180 ) or 0 ) end
 	
 	local t_r = aim + math.rad( rest_pos[1])
 	pen.c.estimator_memo[ eid_r ] = pen.c.estimator_memo[ eid_r ] or t_r
-	local t_x = pen.get_sign( s_x )*rest_pos[2]
+	local t_x = pen.sgn( s_x )*rest_pos[2]
 	pen.c.estimator_memo[ eid_x ] = pen.c.estimator_memo[ eid_x ] or t_x
-	local t_y = pen.get_sign( s_y )*rest_pos[3]
+	local t_y = pen.sgn( s_y )*rest_pos[3]
 	pen.c.estimator_memo[ eid_y ] = pen.c.estimator_memo[ eid_y ] or t_y
 	
 	local anim_done = false
@@ -2623,12 +2594,12 @@ function pen.bladesim( sword_id, data )
 		local anim = data.drift[1] == nil and { data.drift } or data.drift
 		alg, mult = anim[k].a or "ixp", anim[k].m or 1
 		
-		d_r = pen.get_sign( s_x )*math.rad( anim[k].r or 0 )
-		local got_r = pen.eps_compare( pen.c.estimator_memo[ eid_r ], t_r + d_r, math.rad( 3 ))
-		d_x = pen.get_sign( s_x )*( anim[k].x or 0 )
-		local got_x = pen.eps_compare( pen.c.estimator_memo[ eid_x ], t_x + d_x, 0.1 )
-		d_y = pen.get_sign( s_y )*( anim[k].y or 0 )
-		local got_y = pen.eps_compare( pen.c.estimator_memo[ eid_y ], t_y + d_y, 0.1 )
+		d_r = pen.sgn( s_x )*math.rad( anim[k].r or 0 )
+		local got_r = pen.epc( pen.c.estimator_memo[ eid_r ], t_r + d_r, math.rad( 3 ))
+		d_x = pen.sgn( s_x )*( anim[k].x or 0 )
+		local got_x = pen.epc( pen.c.estimator_memo[ eid_x ], t_x + d_x, 0.1 )
+		d_y = pen.sgn( s_y )*( anim[k].y or 0 )
+		local got_y = pen.epc( pen.c.estimator_memo[ eid_y ], t_y + d_y, 0.1 )
 		
 		if( got_r and got_x and got_y ) then
 			pen.c.sword_state[ sword_id ].k, anim_done = math.min( k + 1, #anim ), true end
@@ -2669,7 +2640,7 @@ function pen.get_delta_time( id )
 end
 
 function pen.ricochet( v, p_angle, n_angle, r_angles )
-	local angle = math.abs( math.deg( pen.get_angular_delta( n_angle, p_angle )))%90
+	local angle = math.abs( math.deg( pen.adt( n_angle, p_angle )))%90
 	local min_rico, max_rico = unpack( r_angles or { 65, 85 })
 
 	local will_rico = angle > max_rico
@@ -2810,7 +2781,7 @@ function pen.armorsim( entity_id, data )
 end
 
 function pen.magic_shooter( who_shot, path, x, y, v_x, v_y, do_it, proj_mods, custom_values )
-	who_shot = pen.get_hybrid_table( who_shot )
+	who_shot = pen.ght( who_shot )
 	pen.magic_comp( who_shot[1], "ProjectileComponent", function( comp_id, v, is_enabled )
 		who_shot[2] = ComponentGetValue2( comp_id, "mWhoShot" )
 		who_shot[3] = ComponentGetValue2( comp_id, "mShooterHerdId" )
@@ -2862,7 +2833,7 @@ function pen.check_bounds( dot, box, off, distance_func )
 		off = { off[1] + off_x + bx1, off[2] + off_y + by1 }
 		box = { bx2 - bx1, by2 - by1 }
 	elseif( distance_func == nil ) then
-		box = pen.get_hybrid_table( box )
+		box = pen.ght( box )
 		if( #box == 4 ) then
 			off = { off[1] + box[1], off[2] + box[3]}
 			box = { box[2] - box[1], box[4] - box[3]}
@@ -2872,7 +2843,7 @@ function pen.check_bounds( dot, box, off, distance_func )
 	local is_fancy = #box ~= 2
 	local d = pen.V.new( off[1] - dot[1], off[2] - dot[2])
 	local p = is_fancy and box or pen.V.new( box[1], box[2])/2
-	if( not( is_fancy )) then d = d + pen.V.new( pen.rotate_offset( p.x, p.y, off[3] or 0 )) end
+	if( not( is_fancy )) then d = d + pen.V.new( pen.rot( p.x, p.y, off[3] or 0 )) end
 	return ( distance_func or pen.SDF.BOX )( pen.V.rot( d, off[3] or 0 ), p ) <= 0
 end
 
@@ -2902,10 +2873,10 @@ end
 
 function pen.matter_fabricator( x, y, data )
 	data = data or {}
-	local size = pen.get_hybrid_table( data.size or 0 )
-	local count = pen.get_hybrid_table( data.count or 1 )
-	local delay = pen.get_hybrid_table( data.delay or 1 )
-	local lifetime = pen.get_hybrid_table( data.time or 60 )
+	local size = pen.ght( data.size or 0 )
+	local count = pen.ght( data.count or 1 )
+	local delay = pen.ght( data.delay or 1 )
+	local lifetime = pen.ght( data.time or 60 )
 	size[2] = size[2] or 0.5
 	
 	local mtrr = EntityCreateNew( "matter_fabricator" )
@@ -3216,7 +3187,7 @@ function pen.magic_particles( x, y, r, data ) --thanks Copi
 
 	data.velocity = data.velocity or { 0, 0 }
 	data.global_velocity = data.global_velocity or { 0, 0 }
-	data.velocity[1], data.velocity[2] = pen.rotate_offset( data.velocity[1], data.velocity[2], r )
+	data.velocity[1], data.velocity[2] = pen.rot( data.velocity[1], data.velocity[2], r )
 	data.velocity[1] = data.velocity[1] - data.global_velocity[1]
 	data.velocity[2] = data.velocity[2] - data.global_velocity[2]
 	ComponentSetValue2( emit_comp, "velocity", data.velocity[1], data.velocity[2])
@@ -3225,19 +3196,19 @@ function pen.magic_particles( x, y, r, data ) --thanks Copi
 	data.gravity, data.slowdown = data.gravity or {}, data.slowdown or {}
 	ComponentSetValue2( emit_comp, "velocity_slowdown", data.slowdown[3] or 0 )
 	data.slowdown[1], data.slowdown[2] = 60*( data.slowdown[1] or 0 ), 60*( data.slowdown[2] or 0 )
-	data.slowdown[1], data.slowdown[2] = pen.rotate_offset( data.slowdown[1], data.slowdown[2], r )
+	data.slowdown[1], data.slowdown[2] = pen.rot( data.slowdown[1], data.slowdown[2], r )
 	data.gravity[1] = ( data.gravity[1] or 0 ) + data.slowdown[1]
 	data.gravity[2] = ( data.gravity[2] or 0 ) + data.slowdown[2]
 	ComponentSetValue2( emit_comp, "gravity", unpack( data.gravity ))
 	
 	data.v_range = data.v_range or {}
-	data.v_range[1], data.v_range[2] = pen.rotate_offset( data.v_range[1] or 0, data.v_range[2] or 0, r )
-	data.v_range[3], data.v_range[4] = pen.rotate_offset( data.v_range[3] or 0, data.v_range[4] or 0, r )
+	data.v_range[1], data.v_range[2] = pen.rot( data.v_range[1] or 0, data.v_range[2] or 0, r )
+	data.v_range[3], data.v_range[4] = pen.rot( data.v_range[3] or 0, data.v_range[4] or 0, r )
 	ComponentSetValue2( emit_comp, "randomize_velocity", unpack( data.v_range ))
 	
 	data.p_range = data.p_range or {}
-	data.p_range[1], data.p_range[2] = pen.rotate_offset( data.p_range[1] or -0.5, data.p_range[2] or -0.5, r )
-	data.p_range[3], data.p_range[4] = pen.rotate_offset( data.p_range[3] or 0.5, data.p_range[4] or 0.5, r )
+	data.p_range[1], data.p_range[2] = pen.rot( data.p_range[1] or -0.5, data.p_range[2] or -0.5, r )
+	data.p_range[3], data.p_range[4] = pen.rot( data.p_range[3] or 0.5, data.p_range[4] or 0.5, r )
 	ComponentSetValue2( emit_comp, "randomize_position", unpack( data.p_range ))
 
 	if( is_new ) then
@@ -3321,11 +3292,11 @@ function pen.magic_explosion( x, y, data )
 	ComponentObjectSetValue2( exp_comp, "config_explosion", "sparks_count_min", data.sparks[1] or 0 )
 	ComponentObjectSetValue2( exp_comp, "config_explosion", "sparks_count_max", data.sparks[2] or 0 )
 
-	data.cells = pen.get_hybrid_table( data.cells or {})
+	data.cells = pen.ght( data.cells or {})
 	ComponentObjectSetValue2( exp_comp, "config_explosion", "create_cell_probability", data.cells[1] or 0 )
 	ComponentObjectSetValue2( exp_comp, "config_explosion", "create_cell_material", data.cells[2] or "fire" )
 	
-	data.light = pen.get_hybrid_table( data.light or {})
+	data.light = pen.ght( data.light or {})
 	ComponentObjectSetValue2( exp_comp, "config_explosion", "light_enabled", data.light[1] ~= nil )
 	ComponentObjectSetValue2( exp_comp, "config_explosion", "light_fade_time", data.light[1] or 0.1 )
 	ComponentObjectSetValue2( exp_comp, "config_explosion", "light_r", data.light[2] or 255 )
@@ -3333,8 +3304,9 @@ function pen.magic_explosion( x, y, data )
 	ComponentObjectSetValue2( exp_comp, "config_explosion", "light_b", data.light[4] or 178 )
 end
 
---[INTERFACE]
-function pen.gui_builder( gui )
+-------------------------------------------------------     [GUI]     -------------------------------------------------------
+
+function pen.new.builder( gui )
 	local iuid = 69
 	local frame_num = GameGetFrameNum()
 	pen.c.gui_dump = pen.c.gui_dump or {}
@@ -3361,6 +3333,20 @@ function pen.gui_builder( gui )
 	else pen.c.gui_data.i = pen.c.gui_data.i + 1 end
 	GuiIdPush( pen.c.gui_data.g, pen.c.gui_data.i )
 	return pen.c.gui_data.g, pen.c.gui_data.i, pen.c.gui_data.f, pen.c.gui_data._g
+end
+
+function pen.magic_uint( color )
+	return type( color ) == "table" and bit.bor(
+		color[1],
+		bit.lshift( color[2], 8 ),
+		bit.lshift( color[3], 16 ),
+		bit.lshift( color[4] or 1, 24 )
+	) or {
+		bit.band( color, 0xff ),
+		bit.band( bit.rshift( color, 8 ), 0xff ),
+		bit.band( bit.rshift( color, 16 ), 0xff ),
+		bit.band( bit.rshift( color, 24 ), 0xff )
+	}
 end
 
 function pen.magic_rgb( c, to_rbg, mode )
@@ -3434,7 +3420,7 @@ function pen.magic_rgb( c, to_rbg, mode )
 	end
 	local function okl2rgb_fixed( L, a, b )
 		local r, g, b = okl2rgb( L, a, b )
-		return pen.rounder( 255*lin2gam( r ), 1 ), pen.rounder( 255*lin2gam( g ), 1 ), pen.rounder( 255*lin2gam( b ), 1 )
+		return pen.rnd( 255*lin2gam( r ), 1 ), pen.rnd( 255*lin2gam( g ), 1 ), pen.rnd( 255*lin2gam( b ), 1 )
 	end
 	--OKHSV: https://github.com/behreajj/AsepriteOkHsl/blob/main/ok_color.lua
 	local function compute_max_saturation( a, b )
@@ -3604,7 +3590,7 @@ function pen.magic_rgb( c, to_rbg, mode )
 		return okl2rgb_fixed( okh2okl( l, c, h ))
 	end
 	
-	c = pen.get_hybrid_table( c, true )
+	c = pen.ght( c, true )
 	c[1] = c[1] or 255; c[2] = c[2] or c[1]; c[3] = c[3] or c[1]
 	return { unpack( pen.cache({
 		"color_conversion", table.concat( c, "|" ), mode, pen.b2n( to_rgb ),
@@ -3623,7 +3609,7 @@ end
 
 function pen.colourer( gui, c, alpha )
 	if( not( pen.vld( c ) or pen.vld( alpha ))) then return end
-	c = pen.get_hybrid_table( c, true )
+	c = pen.ght( c, true )
 
 	local color = {
 		r = c[1] or 255,
@@ -3632,7 +3618,7 @@ function pen.colourer( gui, c, alpha )
 		a = c[4] or alpha or 1,
 	}
 	if( not( gui )) then
-		gui = pen.gui_builder(); pen.c.gui_data.i = pen.c.gui_data.i - 1 end
+		gui = pen.new.builder(); pen.c.gui_data.i = pen.c.gui_data.i - 1 end
 	GuiColorSetForNextWidget( gui, color.r/255, color.g/255, color.b/255, color.a )
 end
 
@@ -3693,10 +3679,10 @@ function pen.get_text_dims( text, font, is_pixel_font )
 end
 
 function pen.get_pic_dims( path, update_xml )
-	path = pen.get_hybrid_table( path )
+	path = pen.ght( path )
 	local is_xml = string.find( path[1], "%.xml$" ) ~= nil
-	local got_nxml = pen.vld( pen.lib ) and pen.vld( pen.lib.nxml )
 	local id_tbl = { "pic_metadata", path[1], path[2] or "dft" }
+	local got_nxml = pen.vld( pen.lib.nxml )
 
 	local real_dims = pen.cache( id_tbl, function()
 		if( not( is_xml and got_nxml )) then return end
@@ -3730,7 +3716,7 @@ function pen.get_pic_dims( path, update_xml )
 end
 
 function pen.get_tip_dims( text, width, height, line_offset )
-	width = pen.get_hybrid_table( width or {})
+	width = pen.ght( width or {})
 	width[1], width[2] = width[1] or 121, width[2] or 525
 
 	local _,dims = pen.liner( text ); local s_x, s_y = unpack( dims )
@@ -3766,7 +3752,7 @@ end
 ---@return number delta_x, number delta_y
 function pen.get_camera_shake( w, h, real_w, real_h )
 	if( w == nil ) then w, h, _,_, real_w, real_h = pen.get_screen_data() end
-	local function purify( a, max ) return math.min( math.max( pen.rounder( a, -2 ), 0 ), max ) end
+	local function purify( a, max ) return math.min( math.max( pen.rnd( a, -2 ), 0 ), max ) end
 
 	local m_x, m_y = DEBUG_GetMouseWorld()
 	local screen_x, screen_y = InputGetMousePosOnScreen()
@@ -3863,7 +3849,7 @@ function pen.pic_cloner( old_pic, new_pic, dims )
 	local new_id, new_w, new_h = pen.magic_draw( new_pic, dims[1] or old_w, dims[2] or old_h )
 	return pen.pic_paster( new_id, old_id, { math.min( old_w, new_w ), math.min( old_h, new_h )}), new_pic
 end
-function pen.pic_builder( pic, w, h ) --apocalyptic thanks to Lamia and dextercd
+function pen.pic_builder( pic, w, h ) --apocalyptic thanks to Lamia and Dexter
 	if( pen.is_game_restarted()) then pen.setting_set( pen.SETTING_PPB, "" ) end
 
 	local pic_builder_memo = pen.t.parse( pen.setting_get( pen.SETTING_PPB )) or {}
@@ -3902,7 +3888,7 @@ function pen.pic_builder( pic, w, h ) --apocalyptic thanks to Lamia and dextercd
 	return pic_id, pic
 end
 
-function pen.new_interface( pic_x, pic_y, s_x, s_y, pic_z, data )
+function pen.new.interface( pic_x, pic_y, s_x, s_y, pic_z, data )
 	data = data or {}
 	local frame_num = GameGetFrameNum()
 	local clicked, r_clicked = false, false
@@ -3946,11 +3932,11 @@ function pen.new_interface( pic_x, pic_y, s_x, s_y, pic_z, data )
 
 	if( is_hovered ) then
 		if( data.is_debugging ) then
-			pen.new_pixel( local_x, local_y, pen.LAYERS.DEBUG, {255,100,100,0.75}, s_x, s_y, nil, data.angle )
+			pen.new.pixel( local_x, local_y, pen.LAYERS.DEBUG, {255,100,100,0.75}, s_x, s_y, nil, data.angle )
 		end
 		
 		local size = 500
-		local gui = pen.gui_builder()
+		local gui = pen.new.builder()
 		pen.c.gui_data.i = pen.c.gui_data.i + 1
 		GuiZSetForNextWidget( gui, pen.LAYERS.DEBUG )
 		GuiImage( gui, pen.c.gui_data.i, m_x - size, m_y - size, pen.FILE_PIC_NIL, 1, size, size, data.angle or 0 )
@@ -3966,7 +3952,7 @@ function pen.new_interface( pic_x, pic_y, s_x, s_y, pic_z, data )
 
 			local down_toggle = GameHasFlagRun( pen.FLAG_INTERFACE_TOGGLE )
 			if( not( down_toggle ) or is_figuring or not( is_new )) then clicked, r_clicked = false, false end
-			if( is_figuring and frame_num - update_frame > 1 and pen.eps_compare( pic_z, top_z )) then
+			if( is_figuring and frame_num - update_frame > 1 and pen.epc( pic_z, top_z )) then
 				clicked, r_clicked = interface_memo.lc, interface_memo.rc
 				GlobalsSetValue( pen.GLOBAL_INTERFACE_Z, "nope" )
 				GameRemoveFlagRun( pen.FLAG_INTERFACE_TOGGLE )
@@ -3995,35 +3981,35 @@ function pen.new_interface( pic_x, pic_y, s_x, s_y, pic_z, data )
 	return clicked, r_clicked, is_hovered
 end
 
-function pen.new_pixel( pic_x, pic_y, pic_z, c, s_x, s_y, alpha, angle )
-	local gui = pen.gui_builder()
+function pen.new.pixel( pic_x, pic_y, pic_z, c, s_x, s_y, alpha, angle )
+	local gui = pen.new.builder()
 	GuiZSetForNextWidget( gui, pic_z )
 	GuiOptionsAddForNextWidget( gui, 2 ) --NonInteractive
 	pen.c.gui_data.i = pen.c.gui_data.i - 1
 
-	c = pen.get_hybrid_table( c or pen.PALETTE.W )
+	c = pen.ght( c or pen.PALETTE.W )
 	GuiColorSetForNextWidget( gui, c[1]/255, ( c[2] or c[1])/255, ( c[3] or c[1])/255, 1 )
 	GuiImage( gui, 1020, pic_x, pic_y, pen.FILE_PIC_NUL, alpha or c[4] or 1, ( s_x or 1 )/2, ( s_y or 1 )/2, angle or 0 )
 end
 
-function pen.new_image( pic_x, pic_y, pic_z, pic, data )
+function pen.new.image( pic_x, pic_y, pic_z, pic, data )
 	if( not( pen.vld( pic ))) then return end
 	
 	data = data or {}
 	pen.c.anim_guis = pen.c.anim_guis or {}
 	local off_x, off_y, angle = 0, 0, data.angle or 0
 	local w, h, xml_offs, is_anim = pen.get_pic_dims({ pic, data.anim }, data.update_xml )
-	if( xml_offs ) then off_x, off_y = pen.rotate_offset( xml_offs[1], xml_offs[2], angle ) end
+	if( xml_offs ) then off_x, off_y = pen.rot( xml_offs[1], xml_offs[2], angle ) end
 	
 	local s_x, s_y = data.s_x or 1, data.s_y or 1; w, h = s_x*w, s_y*h
 	if( data.is_centered ) then
-		local drift_x, drift_y = pen.rotate_offset( -w/2, -h/2, angle )
+		local drift_x, drift_y = pen.rot( -w/2, -h/2, angle )
 		pic_x, pic_y = pic_x + drift_x, pic_y + drift_y
 	end
 
 	local is_inside = pen.vld( pen.c.cutter_dims )
 	if( is_inside ) then
-		local r_w, r_h = pen.rotate_offset( w, h, angle )
+		local r_w, r_h = pen.rot( w, h, angle )
 		local real_x = pen.c.cutter_dims.xy[1] + pic_x
 		if( r_w*pic_x < 0 ) then real_x = real_x + r_w end
 		local real_y = pen.c.cutter_dims.xy[2] + pic_y
@@ -4042,7 +4028,7 @@ function pen.new_image( pic_x, pic_y, pic_z, pic, data )
 		gui = gui or GuiCreate()
 		pen.c.anim_guis[ auid ] = gui
 		GuiStartFrame( gui ); auid = 1
-	else gui, auid = pen.gui_builder() end
+	else gui, auid = pen.new.builder() end
 	
 	pen.colourer( gui, data.color )
 	GuiZSetForNextWidget( gui, pic_z )
@@ -4060,7 +4046,7 @@ function pen.new_image( pic_x, pic_y, pic_z, pic, data )
 
 	if( not( data.can_click )) then return end
 	if( data.skip_z_check ) then pic_z = nil end
-	return pen.new_interface( pic_x, pic_y, w, h, pic_z, data )
+	return pen.new.interface( pic_x, pic_y, w, h, pic_z, data )
 end
 
 ---Button framework.
@@ -4070,7 +4056,7 @@ end
 ---@param pic path
 ---@param data? PenmanButtonData
 ---@return boolean clicked, boolean r_clicked, boolean is_hovered
-function pen.new_button( pic_x, pic_y, pic_z, pic, data )
+function pen.new.button( pic_x, pic_y, pic_z, pic, data )
 	data = data or {}
 	data.no_anim = data.no_anim or false
 	data.auid = data.auid or table.concat({ pic, pic_z })
@@ -4084,13 +4070,13 @@ function pen.new_button( pic_x, pic_y, pic_z, pic, data )
 		if( not( d.is_centered )) then
 			pic_x = pic_x + ( d.s_x or 1 )*d.dims[1]/2
 			pic_y = pic_y + ( d.s_y or 1 )*d.dims[2]/2 end
-		return pen.new_image( pic_x, pic_y, pic_z, pic, { is_centered = true,
+		return pen.new.image( pic_x, pic_y, pic_z, pic, { is_centered = true,
 			s_x = ( d.s_x or 1 )*( 1 - s_anim[1]), s_y = ( d.s_y or 1 )*( 1 - s_anim[2]), angle = d.angle })
 	end
 
 	local pic_iz = pic_z
 	if( data.skip_z_check ) then pic_iz = nil end
-	data.dims = { pen.get_pic_dims( pen.get_hybrid_table( pic )[1], data.update_xml )}
+	data.dims = { pen.get_pic_dims( pen.ght( pic )[1], data.update_xml )}
 
 	if( type( data.jpad_vip or data.jpad or {}) ~= "table" ) then
 		data.jpad = { "button_"..data.auid.."_focus", data.jpad_vip or false, data.jpad or data.jpad_vip }
@@ -4098,8 +4084,8 @@ function pen.new_button( pic_x, pic_y, pic_z, pic, data )
 
 	local off_x, off_y, is_jpad = 0, 0, false
 	local w, h = data.dims[1]*( data.s_x or 1 ), data.dims[2]*( data.s_y or 1 )
-	if( data.is_centered ) then off_x, off_y = pen.rotate_offset( -w/2, -h/2, data.angle ) end
-	data.clicked, data.r_clicked, data.is_hovered, is_jpad = pen.new_interface( pic_x + off_x, pic_y + off_y, w, h, pic_iz, data )
+	if( data.is_centered ) then off_x, off_y = pen.rot( -w/2, -h/2, data.angle ) end
+	data.clicked, data.r_clicked, data.is_hovered, is_jpad = pen.new.interface( pic_x + off_x, pic_y + off_y, w, h, pic_iz, data )
 
 	data.clicked = data.clicked or data._clicked
 	if( data.lmb_event ~= nil and data.clicked ) then
@@ -4116,7 +4102,7 @@ function pen.new_button( pic_x, pic_y, pic_z, pic, data )
 	return data.clicked, data.r_clicked, data.is_hovered, is_jpad
 end
 
-function pen.new_dragger( did, pic_x, pic_y, s_x, s_y, pic_z, data )
+function pen.new.dragger( did, pic_x, pic_y, s_x, s_y, pic_z, data )
 	data = data or {}
 	pen.c.dragger_data = pen.c.dragger_data or {}
 	pen.c.dragger_data[ did ] = pen.c.dragger_data[ did ] or { is_going = false, old_state = true, off = {0,0}}
@@ -4136,7 +4122,7 @@ function pen.new_dragger( did, pic_x, pic_y, s_x, s_y, pic_z, data )
 
 	local clicked = false
 	local is_going = pen.c.dragger_data[ did ].is_going
-	local real_clicked, r_clicked, is_hovered, is_jpad = pen.new_interface( pic_x, pic_y, s_x, s_y, pic_z, data )
+	local real_clicked, r_clicked, is_hovered, is_jpad = pen.new.interface( pic_x, pic_y, s_x, s_y, pic_z, data )
 	if( not( is_going ) and data.no_dragging ) then
 		return pic_x, pic_y, 0, real_clicked, r_clicked, is_hovered, is_jpad end
 	local state, mouse_state = 0, InputIsMouseButtonDown( 1 )
@@ -4168,7 +4154,7 @@ function pen.new_dragger( did, pic_x, pic_y, s_x, s_y, pic_z, data )
 end
 
 function pen.uncutter( func )
-	local _,_,_,orig_gui = pen.gui_builder( GuiCreate())
+	local _,_,_,orig_gui = pen.new.builder( GuiCreate())
 
 	local out = {}
 	if( pen.vld( pen.c.cutter_dims )) then
@@ -4179,13 +4165,13 @@ function pen.uncutter( func )
 		pen.c.cutter_dims = { xy = { x, y }, wh = { w, h }}
 	else out = { func( 0, 0, pen.get_screen_data())} end
 	
-	pen.gui_builder( false )
-	if( orig_gui ) then pen.gui_builder( orig_gui ) end
+	pen.new.builder( false )
+	if( orig_gui ) then pen.new.builder( orig_gui ) end
 	return unpack( out )
 end
-function pen.new_cutout( pic_x, pic_y, size_x, size_y, func, data ) --credit goes to aarvlo
+function pen.new.cutout( pic_x, pic_y, size_x, size_y, func, data ) --credit goes to aarvlo
 	local margin = 0
-	local gui, uid = pen.gui_builder()
+	local gui, uid = pen.new.builder()
 
 	GuiAnimateBegin( gui )
 	GuiAnimateAlphaFadeIn( gui, uid, 0, 0, true )
@@ -4217,7 +4203,7 @@ function pen.unscroller() --huge thanks to Lamia for inspiration
 	else return end
 
 	local m_x, m_y = pen.get_mouse_pos()
-	local gui, uid = pen.gui_builder()
+	local gui, uid = pen.new.builder()
 	uid = uid + 2*( 1 + frame_num%3 )
 	pen.c.gui_data.i = uid
 
@@ -4239,8 +4225,8 @@ end
 ---@param size_y number
 ---@param func PenmanScrollerFunction|fun( scroll_pos:number ):{ height:number }
 ---@param data? PenmanScrollerData
-function pen.new_scroller( sid, pic_x, pic_y, pic_z, size_x, size_y, func, data )
-	func = pen.get_hybrid_table( func )
+function pen.new.scroller( sid, pic_x, pic_y, pic_z, size_x, size_y, func, data )
+	func = pen.ght( func )
 	func[2] = func[2] or function( sid, pic_x, pic_y, pic_z, size_x, size_y, bar_height, bar_y, data )
 		local out = {}
 		local color = data.bar_colors or {
@@ -4263,16 +4249,16 @@ function pen.new_scroller( sid, pic_x, pic_y, pic_z, size_x, size_y, func, data 
 			if(( data.can_scroll and is_shifted
 				and InputIsMouseButtonDown( 5 )) or data.go_down ) then out[3][1] = 1 end
 			if( data.can_scroll or not( data.hide_bar )) then
-				pen.new_pixel( pic_x + ( data.is_left and 5 or -1 ), pic_y, pic_z, color[7], 1, 2, 0.75 )
-				pen.new_pixel( pic_x + ( data.is_left and 5 or -1 ),
+				pen.new.pixel( pic_x + ( data.is_left and 5 or -1 ), pic_y, pic_z, color[7], 1, 2, 0.75 )
+				pen.new.pixel( pic_x + ( data.is_left and 5 or -1 ),
 					bar_y, pic_z, color[ data.can_scroll and 1 or 3 ], 1, bar_height, 0.75 )
-				pen.new_pixel( pic_x + ( data.is_left and 5 or -1 ), pic_y + size_y - 2, pic_z, color[7], 1, 2, 0.75 )
+				pen.new.pixel( pic_x + ( data.is_left and 5 or -1 ), pic_y + size_y - 2, pic_z, color[7], 1, 2, 0.75 )
 			end
 
 			return out
 		end
 
-		local _,new_y,state,_,_,is_hovered,is_jpad = pen.new_dragger(
+		local _,new_y,state,_,_,is_hovered,is_jpad = pen.new.dragger(
 			sid.."_dragger_y", pic_x, bar_y, 3, bar_height, pic_z, { jpad = data.jpad })
 		if( is_jpad ) then
 			data.go_up = mnee.mnin( "key", is_jpad.."gpd_btn_rv_-", { pressed = true })
@@ -4281,28 +4267,28 @@ function pen.new_scroller( sid, pic_x, pic_y, pic_z, size_x, size_y, func, data 
 
 		local may_show = data.can_scroll or is_hovered
 		if( may_show or not( data.hide_bar )) then
-			pen.new_pixel( pic_x + 1, bar_y, pic_z, color[ is_hovered and 10 or 9 ], 1, bar_height )
-			pen.new_pixel( pic_x, bar_y, pic_z, color[ is_hovered and 2 or 1 ], 1, bar_height )
-			pen.new_pixel( pic_x + 2, bar_y, pic_z, color[ is_hovered and 4 or 3 ], 1, bar_height )
+			pen.new.pixel( pic_x + 1, bar_y, pic_z, color[ is_hovered and 10 or 9 ], 1, bar_height )
+			pen.new.pixel( pic_x, bar_y, pic_z, color[ is_hovered and 2 or 1 ], 1, bar_height )
+			pen.new.pixel( pic_x + 2, bar_y, pic_z, color[ is_hovered and 4 or 3 ], 1, bar_height )
 		end
 		out[1] = { new_y, state }
 		
-		clicked, r_clicked, is_hovered = pen.new_interface( pic_x, pic_y, 3, 3, pic_z )
+		clicked, r_clicked, is_hovered = pen.new.interface( pic_x, pic_y, 3, 3, pic_z )
 		if( may_show or not( data.hide_bar )) then
-			pen.new_pixel( pic_x + 1, pic_y + 1, pic_z, color[ is_hovered and 10 or 9 ])
-			pen.new_pixel( pic_x + 1, pic_y, pic_z, color[ is_hovered and 6 or 5 ])
-			pen.new_pixel( pic_x, pic_y + 1, pic_z, color[ is_hovered and 6 or 5 ])
-			pen.new_pixel( pic_x + 2, pic_y + 1, pic_z, color[ is_hovered and 8 or 7 ])
+			pen.new.pixel( pic_x + 1, pic_y + 1, pic_z, color[ is_hovered and 10 or 9 ])
+			pen.new.pixel( pic_x + 1, pic_y, pic_z, color[ is_hovered and 6 or 5 ])
+			pen.new.pixel( pic_x, pic_y + 1, pic_z, color[ is_hovered and 6 or 5 ])
+			pen.new.pixel( pic_x + 2, pic_y + 1, pic_z, color[ is_hovered and 8 or 7 ])
 		end
 		if(( data.can_scroll and is_shifted and InputIsMouseButtonDown( 4 )) or data.go_up ) then clicked = 1 end
 		out[2] = { clicked, r_clicked }
 
-		clicked, r_clicked, is_hovered = pen.new_interface( pic_x, pic_y + size_y - 3, 3, 3, pic_z )
+		clicked, r_clicked, is_hovered = pen.new.interface( pic_x, pic_y + size_y - 3, 3, 3, pic_z )
 		if( may_show or not( data.hide_bar )) then
-			pen.new_pixel( pic_x + 1, pic_y + size_y - 2, pic_z, color[ is_hovered and 10 or 9 ])
-			pen.new_pixel( pic_x + 1, pic_y + size_y - 1, pic_z, color[ is_hovered and 6 or 5 ])
-			pen.new_pixel( pic_x, pic_y + size_y - 2, pic_z, color[ is_hovered and 6 or 5 ])
-			pen.new_pixel( pic_x + 2, pic_y + size_y - 2, pic_z, color[ is_hovered and 8 or 7 ])
+			pen.new.pixel( pic_x + 1, pic_y + size_y - 2, pic_z, color[ is_hovered and 10 or 9 ])
+			pen.new.pixel( pic_x + 1, pic_y + size_y - 1, pic_z, color[ is_hovered and 6 or 5 ])
+			pen.new.pixel( pic_x, pic_y + size_y - 2, pic_z, color[ is_hovered and 6 or 5 ])
+			pen.new.pixel( pic_x + 2, pic_y + size_y - 2, pic_z, color[ is_hovered and 8 or 7 ])
 		end
 		if(( data.can_scroll and is_shifted and InputIsMouseButtonDown( 5 )) or data.go_down ) then clicked = 1 end
 		out[3] = { clicked, r_clicked }
@@ -4331,16 +4317,16 @@ function pen.new_scroller( sid, pic_x, pic_y, pic_z, size_x, size_y, func, data 
 			if(( data.can_scroll and is_shifted
 				and InputIsMouseButtonDown( 5 )) or data.go_right ) then out[3][1] = 1 end
 			if( data.can_scroll or not( data.hide_bar )) then
-				pen.new_pixel( pic_x, pic_y + ( data.is_top and 5 or -1 ), pic_z, color[7], 2, 1, 0.75 )
-				pen.new_pixel( bar_x, pic_y + ( data.is_top and 5 or -1 ),
+				pen.new.pixel( pic_x, pic_y + ( data.is_top and 5 or -1 ), pic_z, color[7], 2, 1, 0.75 )
+				pen.new.pixel( bar_x, pic_y + ( data.is_top and 5 or -1 ),
 					pic_z, color[ data.can_scroll and 1 or 3 ], bar_length, 1, 0.75 )
-				pen.new_pixel( pic_x + size_x - 2, pic_y + ( data.is_top and 5 or -1 ), pic_z, color[7], 2, 1, 0.75 )
+				pen.new.pixel( pic_x + size_x - 2, pic_y + ( data.is_top and 5 or -1 ), pic_z, color[7], 2, 1, 0.75 )
 			end
 
 			return out
 		end
 		
-		local new_x,_,state,_,_,is_hovered,is_jpad = pen.new_dragger(
+		local new_x,_,state,_,_,is_hovered,is_jpad = pen.new.dragger(
 			sid.."_dragger_x", bar_x, pic_y, bar_length, 3, pic_z, { jpad = data.jpad })
 		if( is_jpad ) then
 			data.go_left = mnee.mnin( "key", is_jpad.."gpd_btn_rh_-", { pressed = true })
@@ -4349,28 +4335,28 @@ function pen.new_scroller( sid, pic_x, pic_y, pic_z, size_x, size_y, func, data 
 
 		local may_show = data.can_scroll or is_hovered
 		if( may_show or not( data.hide_bar )) then
-			pen.new_pixel( bar_x, pic_y + 1, pic_z, color[ is_hovered and 10 or 9 ], bar_length, 1 )
-			pen.new_pixel( bar_x, pic_y, pic_z, color[ is_hovered and 2 or 1 ], bar_length, 1 )
-			pen.new_pixel( bar_x, pic_y + 2, pic_z, color[ is_hovered and 4 or 3 ], bar_length, 1 )
+			pen.new.pixel( bar_x, pic_y + 1, pic_z, color[ is_hovered and 10 or 9 ], bar_length, 1 )
+			pen.new.pixel( bar_x, pic_y, pic_z, color[ is_hovered and 2 or 1 ], bar_length, 1 )
+			pen.new.pixel( bar_x, pic_y + 2, pic_z, color[ is_hovered and 4 or 3 ], bar_length, 1 )
 		end
 		out[1] = { new_x, state }
 		
-		clicked, r_clicked, is_hovered = pen.new_interface( pic_x, pic_y, 3, 3, pic_z )
+		clicked, r_clicked, is_hovered = pen.new.interface( pic_x, pic_y, 3, 3, pic_z )
 		if( may_show or not( data.hide_bar )) then
-			pen.new_pixel( pic_x + 1, pic_y + 1, pic_z, color[ is_hovered and 10 or 9 ])
-			pen.new_pixel( pic_x, pic_y + 1, pic_z, color[ is_hovered and 6 or 5 ])
-			pen.new_pixel( pic_x + 1, pic_y, pic_z, color[ is_hovered and 6 or 5 ])
-			pen.new_pixel( pic_x + 1, pic_y + 2, pic_z, color[ is_hovered and 8 or 7 ])
+			pen.new.pixel( pic_x + 1, pic_y + 1, pic_z, color[ is_hovered and 10 or 9 ])
+			pen.new.pixel( pic_x, pic_y + 1, pic_z, color[ is_hovered and 6 or 5 ])
+			pen.new.pixel( pic_x + 1, pic_y, pic_z, color[ is_hovered and 6 or 5 ])
+			pen.new.pixel( pic_x + 1, pic_y + 2, pic_z, color[ is_hovered and 8 or 7 ])
 		end
 		if(( data.can_scroll and is_shifted and InputIsMouseButtonDown( 4 )) or data.go_left ) then clicked = 1 end
 		out[2] = { clicked, r_clicked }
 
-		clicked, r_clicked, is_hovered = pen.new_interface( pic_x + size_x - 3, pic_y, 3, 3, pic_z )
+		clicked, r_clicked, is_hovered = pen.new.interface( pic_x + size_x - 3, pic_y, 3, 3, pic_z )
 		if( may_show or not( data.hide_bar )) then
-			pen.new_pixel( pic_x + size_x - 2, pic_y + 1, pic_z, color[ is_hovered and 10 or 9 ])
-			pen.new_pixel( pic_x + size_x - 1, pic_y + 1, pic_z, color[ is_hovered and 6 or 5 ])
-			pen.new_pixel( pic_x + size_x - 2, pic_y, pic_z, color[ is_hovered and 6 or 5 ])
-			pen.new_pixel( pic_x + size_x - 2, pic_y + 2, pic_z, color[ is_hovered and 8 or 7 ])
+			pen.new.pixel( pic_x + size_x - 2, pic_y + 1, pic_z, color[ is_hovered and 10 or 9 ])
+			pen.new.pixel( pic_x + size_x - 1, pic_y + 1, pic_z, color[ is_hovered and 6 or 5 ])
+			pen.new.pixel( pic_x + size_x - 2, pic_y, pic_z, color[ is_hovered and 6 or 5 ])
+			pen.new.pixel( pic_x + size_x - 2, pic_y + 2, pic_z, color[ is_hovered and 8 or 7 ])
 		end
 		if(( data.can_scroll and is_shifted and InputIsMouseButtonDown( 5 )) or data.go_right ) then clicked = 1 end
 		out[3] = { clicked, r_clicked }
@@ -4393,7 +4379,7 @@ function pen.new_scroller( sid, pic_x, pic_y, pic_z, size_x, size_y, func, data 
 	local progress_x = pen.c.scroll_memo[ sid ].px or ( data.right_start and 1 or 0 )
 	local scroll_x = old_length > size_x and ( size_x - math.abs( old_length ))*progress_x or 0
 
-	local new_height, new_length, jpads = unpack( pen.new_cutout(
+	local new_height, new_length, jpads = unpack( pen.new.cutout(
 		pic_x, pic_y, size_x, size_y, func[1], { scroll_y, scroll_x }))
 	local do_vert, do_horz = new_height > size_y, new_length > size_x
 	if( data.scroll_always ) then
@@ -4402,7 +4388,7 @@ function pen.new_scroller( sid, pic_x, pic_y, pic_z, size_x, size_y, func, data 
 		local is_jpad = false
 		local do_zone = pen.vld( data.jpad ) and ( do_vert or do_horz )
 		data.forced_zone = data.forced_zone or {}
-		_,_,data.can_scroll,is_jpad = pen.new_interface(
+		_,_,data.can_scroll,is_jpad = pen.new.interface(
 			pic_x + ( data.forced_zone[3] or 0 ), pic_y + ( data.forced_zone[4] or 0 ),
 			data.forced_zone[1] or size_x, data.forced_zone[2] or size_y, pic_z, { jpad =
 			( jpads == nil and data.is_compact and do_zone ) and data.jpad[1].."_zone" or nil })
@@ -4426,7 +4412,7 @@ function pen.new_scroller( sid, pic_x, pic_y, pic_z, size_x, size_y, func, data 
 			if( data.go_up or data.go_down ) then pen.c.scroll_memo[ sid ].v_frame = frame_num + 10 end
 		end
 
-		local bar_height = pen.rounder( math.max(( size_y - 6 )*math.min( size_y/new_height, 1 ), 1 ), -2 )
+		local bar_height = pen.rnd( math.max(( size_y - 6 )*math.min( size_y/new_height, 1 ), 1 ), -2 )
 		local bar_y = ( size_y - ( 6 + bar_height ))
 		local pos_y = pic_y + bar_y*progress_y + 3
 
@@ -4460,7 +4446,7 @@ function pen.new_scroller( sid, pic_x, pic_y, pic_z, size_x, size_y, func, data 
 		progress_y = math.min( math.max(( new_y - ( pic_y + 3 ))/bar_y, -buffer ), 1 + buffer )
 		progress_y = pen.estimate( eid_y, progress_y, "wgt0.75", 0.001, 0.02*step_y )
 		pen.c.scroll_memo[ sid ].py = math.min( math.max( progress_y, 0 ), 1 )
-		is_static = out_y[1][2] ~= 2 or pen.eps_compare( new_y, pos_y )
+		is_static = out_y[1][2] ~= 2 or pen.epc( new_y, pos_y )
 		if( not( progress_y >= 0 and progress_y <= 1 )) then
 			pen.c.estimator_memo[ eid_y ] = math.min( math.max( pen.c.estimator_memo[ eid_y ], 0 ), 1 )
 		elseif( not( is_static or is_waiting )) then pen.play_sound( pen.TUNES.VNL.HOVER ) end
@@ -4484,7 +4470,7 @@ function pen.new_scroller( sid, pic_x, pic_y, pic_z, size_x, size_y, func, data 
 			if( data.go_left or data.go_right ) then pen.c.scroll_memo[ sid ].h_frame = frame_num + 10 end
 		end
 
-		local bar_length = pen.rounder( math.max(( size_x - 6 )*math.min( size_x/new_length, 1 ), 1 ), -2 )
+		local bar_length = pen.rnd( math.max(( size_x - 6 )*math.min( size_x/new_length, 1 ), 1 ), -2 )
 		local bar_x = ( size_x - ( 6 + bar_length ))
 		local pos_x = pic_x + bar_x*progress_x + 3
 
@@ -4518,7 +4504,7 @@ function pen.new_scroller( sid, pic_x, pic_y, pic_z, size_x, size_y, func, data 
 		progress_x = math.min( math.max(( new_x - ( pic_x + 3 ))/bar_x, -buffer ), 1 + buffer )
 		progress_x = pen.estimate( eid_x, progress_x, "wgt0.75", 0.001, 0.02*step_x )
 		pen.c.scroll_memo[ sid ].px = math.min( math.max( progress_x, 0 ), 1 )
-		is_static = out_x[1][2] ~= 2 or pen.eps_compare( new_x, pos_x )
+		is_static = out_x[1][2] ~= 2 or pen.epc( new_x, pos_x )
 		if( not( progress_x >= 0 and progress_x <= 1 )) then
 			pen.c.estimator_memo[ eid_x ] = math.min( math.max( pen.c.estimator_memo[ eid_x ], 0 ), 1 )
 		elseif( not( is_static or is_waiting )) then pen.play_sound( pen.TUNES.VNL.HOVER ) end
@@ -4534,7 +4520,7 @@ function pen.new_scroller( sid, pic_x, pic_y, pic_z, size_x, size_y, func, data 
 	else pen.c.scroll_memo[ sid ].px = 0 end
 end
 
-function pen.new_slider( uid, pic_x, pic_y, pic_z, length, data )
+function pen.new.slider( uid, pic_x, pic_y, pic_z, length, data )
 	data = data or {}
 
 	pen.c.slider_memo = pen.c.slider_memo or {}
@@ -4542,23 +4528,23 @@ function pen.new_slider( uid, pic_x, pic_y, pic_z, length, data )
 
 	local min_pos = pic_x + 1
 	local max_pos = min_pos + length
-	pen.new_pixel( pic_x, pic_y - 3, pic_z, pen.PALETTE.W, 1, 7 )
-	pen.new_pixel( max_pos + 7, pic_y - 3, pic_z, pen.PALETTE.W, 1, 7 )
-	pen.new_pixel( min_pos + 1 + length*pos, pic_y - 2, pic_z, pen.PALETTE.VNL.YELLOW, 5, 5 )
+	pen.new.pixel( pic_x, pic_y - 3, pic_z, pen.PALETTE.W, 1, 7 )
+	pen.new.pixel( max_pos + 7, pic_y - 3, pic_z, pen.PALETTE.W, 1, 7 )
+	pen.new.pixel( min_pos + 1 + length*pos, pic_y - 2, pic_z, pen.PALETTE.VNL.YELLOW, 5, 5 )
 
 	--scrolling + clicking at the sides
 	--proper visuals
 
-	local new_x,new_y,state,_,_,is_hovered = pen.new_dragger(
+	local new_x,new_y,state,_,_,is_hovered = pen.new.dragger(
 		"slider_"..uid, min_pos + length*pos, pic_y - 3, 7, 7, pic_z, data )
 	if( state ~= 0 or is_hovered ) then
-		pen.new_tooltip( length*pos, { is_active = true, fid = "dragger_slider_"..uid.."_focus" }) end
+		pen.new.tip( length*pos, { is_active = true, fid = "dragger_slider_"..uid.."_focus" }) end
 	if( state == 2 ) then
 		pen.c.slider_memo[ uid ] = ( math.min( math.max( new_x, min_pos ), max_pos ) - min_pos )/length end
 	return length*pos
 end
 
-function pen.new_text( pic_x, pic_y, pic_z, text, data )
+function pen.new.text( pic_x, pic_y, pic_z, text, data )
 	data = data or {}
 	data.alpha = data.alpha or 1
 	data.scale = data.scale or 1
@@ -4569,7 +4555,7 @@ function pen.new_text( pic_x, pic_y, pic_z, text, data )
 	data.is_centered_y = data.is_centered_y or data.is_centered or false
 	
 	if( pen.vld( data.dims )) then
-		dims = pen.get_hybrid_table( data.dims ); dims[2] = dims[2] or -1
+		dims = pen.ght( data.dims ); dims[2] = dims[2] or -1
 		text, dims, new_line = pen.liner( text, dims[1]/data.scale, dims[2]/data.scale, data.font, {
 			nil_val = data.nil_val, aggressive = data.aggressive, line_offset = data.line_offset,
 		})
@@ -4579,7 +4565,7 @@ function pen.new_text( pic_x, pic_y, pic_z, text, data )
 		})
 	end
 	
-	local gui = pen.gui_builder()
+	local gui = pen.new.builder()
 	local function shadowed_text( pic_x, pic_y, pic_z, txt, scale, font, is_pixel, color, alpha, has_shadow )
 		local gui = pen.c.gui_data.g
 		GuiZSetForNextWidget( gui, pic_z )
@@ -4754,7 +4740,7 @@ function pen.new_text( pic_x, pic_y, pic_z, text, data )
 	return dims, new_line
 end
 
-function pen.new_shadowed_text( pic_x, pic_y, pic_z, text, data )
+function pen.new.text_shad( pic_x, pic_y, pic_z, text, data )
 	data = data or {}
 	local _,is_pixel = pen.font_cancer()
 	data.has_shadow = not( is_pixel or pen.vld( data.color_shadow ))
@@ -4762,7 +4748,7 @@ function pen.new_shadowed_text( pic_x, pic_y, pic_z, text, data )
 		if( pen.vld( data.color_shadow )) then
 			local color = data.color
 			data.color = data.color_shadow
-			pen.new_text( pic_x, pic_y + 1, pic_z + 0.01, text, data )
+			pen.new.text( pic_x, pic_y + 1, pic_z + 0.01, text, data )
 			data.color = color
 		else
 			data.font = "data/fonts/font_pixel.xml"
@@ -4770,11 +4756,11 @@ function pen.new_shadowed_text( pic_x, pic_y, pic_z, text, data )
 				GlobalsGetValue( pen.GLOBAL_FONT_REMAP, "" ))) or {})[ data.font ] or data.font
 		end
 	end
-	return pen.new_text( pic_x, pic_y, pic_z, text, data )
+	return pen.new.text( pic_x, pic_y, pic_z, text, data )
 end
 
-function pen.new_scrolling_text( sid, pic_x, pic_y, pic_z, dims, text, data )
-	data, dims = data or {}, pen.get_hybrid_table( dims )
+function pen.new.text_srcl( sid, pic_x, pic_y, pic_z, dims, text, data )
+	data, dims = data or {}, pen.ght( dims )
 	
 	local _,wh = pen.liner( text, dims[1], -1, data.font, data )
 	pen.c.scrolling_text_memo = pen.c.scrolling_text_memo or {}
@@ -4783,11 +4769,11 @@ function pen.new_scrolling_text( sid, pic_x, pic_y, pic_z, dims, text, data )
 	local w, h = unpack( wh )
 	if( w < dims[1] and h < ( dims[2] or h )) then
 		data.dims = { dims[1], -1 }
-		return pen.new_text( pic_x, pic_y, pic_z, text, data )
+		return pen.new.text( pic_x, pic_y, pic_z, text, data )
 	elseif( dims[2] ~= nil ) then
 		data.dims = { dims[1], -1 }
-		return pen.new_scroller( sid, pic_x, pic_y, pic_z - 0.001, dims[1], dims[2], function( scroll_pos )
-			local dims = pen.new_text( 0, scroll_pos[1], pic_z, text, data )
+		return pen.new.scroller( sid, pic_x, pic_y, pic_z - 0.001, dims[1], dims[2], function( scroll_pos )
+			local dims = pen.new.text( 0, scroll_pos[1], pic_z, text, data )
 			return { dims[2], 1 }
 		end, data )
 	end
@@ -4800,18 +4786,18 @@ function pen.new_scrolling_text( sid, pic_x, pic_y, pic_z, dims, text, data )
 		local shift = pen.estimate( sid.."_anim",
 			is_right and ( target + buffer ) or -buffer, "exp"..tostring( 1000*speed ), 0.1, 0.75 )
 		if( shift > ( target + spacing ) or shift < -spacing ) then pen.c.scrolling_text_memo[ sid ] = is_right and 1 or 0 end
-		pen.new_text( -shift, h/2, pic_z, text, data )
+		pen.new.text( -shift, h/2, pic_z, text, data )
 	end
 	local type_b = function()
 		local gap = 10
 		local pos = pen.c.scrolling_text_memo[ sid ] + speed/15
 		local is_extra = ( w - pos ) < dims[1]
 		if( is_extra ) then is_extra = pen.t.clone( data or {}) end
-		pen.new_text( -pos, h/2, pic_z, text, data )
-		if( is_extra ) then pen.new_text( -pos + gap + w, h/2, pic_z, text, is_extra ) end
+		pen.new.text( -pos, h/2, pic_z, text, data )
+		if( is_extra ) then pen.new.text( -pos + gap + w, h/2, pic_z, text, is_extra ) end
 		if(( pos - gap ) > w ) then pos = pos - ( w + gap ) end; pen.c.scrolling_text_memo[ sid ] = pos
 	end
-	pen.new_cutout( pic_x, pic_y - h/2, dims[1], 2*h, data.scroll_bouncy and type_a or type_b )
+	pen.new.cutout( pic_x, pic_y - h/2, dims[1], 2*h, data.scroll_bouncy and type_a or type_b )
 end
 
 ---Tooltip framework.
@@ -4819,7 +4805,7 @@ end
 ---@param data? PenmanTooltipData
 ---@param func? fun( text?:string, d?:PenmanTooltipData ): { clicked:boolean, r_clicked:boolean, is_hovered:boolean } The definition of the custom visuals. Draws the default tip if left empty.
 ---@return boolean is_active, table dims, boolean is_pinned
-function pen.new_tooltip( text, data, func )
+function pen.new.tip( text, data, func )
 	data = data or {}
 	data.tid = data.tid or "dft"
 	data.edging = data.edging or 2
@@ -4829,7 +4815,7 @@ function pen.new_tooltip( text, data, func )
 	data.do_corrections = data.do_corrections or not( pen.vld( data.pos ))
 	
 	local function default_prefunc( text, data )
-		text = pen.get_hybrid_table( text )
+		text = pen.ght( text )
 		
 		local extra = 0
 		if( pen.vld( text[2])) then
@@ -4839,7 +4825,7 @@ function pen.new_tooltip( text, data, func )
 	end
 
 	local is_pinned = false
-	local gui = pen.gui_builder()
+	local gui = pen.new.builder()
 	local frame_num = GameGetFrameNum()
 	pen.c.ttips = pen.c.ttips or {}
 	pen.c.ttips[ data.tid ] = pen.c.ttips[ data.tid ] or {
@@ -4915,7 +4901,7 @@ function pen.new_tooltip( text, data, func )
 
 			local inter_alpha = pen.animate( 1, d.t, { ease_out = "exp", frames = d.frames })
 			if( pen.vld( text )) then
-				pen.new_text( pic_x + d.edging, pic_y + d.edging - 2, pic_z, text, {
+				pen.new.text( pic_x + d.edging, pic_y + d.edging - 2, pic_z, text, {
 					dims = { size_x - d.edging, size_y }, line_offset = d.line_offset or -2,
 					fully_featured = true, font_mods = d.font_mods, alpha = inter_alpha,
 				})
@@ -4924,9 +4910,9 @@ function pen.new_tooltip( text, data, func )
 			local inter_size = 15*( 1 - pen.animate( 1, d.t, { ease_out = "wav1.5", frames = d.frames }))
 			pic_x, pic_y = pic_x + 0.5*inter_size, pic_y + 0.5*inter_size
 			size_x, size_y = size_x - inter_size, size_y - inter_size
-			local clicked, r_clicked, is_hovered = pen.new_interface( pic_x, pic_y, size_x, size_y, pic_z )
+			local clicked, r_clicked, is_hovered = pen.new.interface( pic_x, pic_y, size_x, size_y, pic_z )
 			
-			local gui, uid = pen.gui_builder()
+			local gui, uid = pen.new.builder()
 			GuiOptionsAddForNextWidget( gui, 2 ) --NonInteractive
 			GuiZSetForNextWidget( gui, pic_z + 0.01 )
 			GuiImageNinePiece( gui, uid,
@@ -4949,7 +4935,7 @@ end
 ---@param pic_z number
 ---@param data PenmanPagerData
 ---@return number page, number sfx_type
-function pen.new_pager( pic_x, pic_y, pic_z, data )
+function pen.new.pager( pic_x, pic_y, pic_z, data )
 	data.items_per_page = data.items_per_page or 1
 
 	local counter = 0
@@ -4983,7 +4969,7 @@ function pen.new_pager( pic_x, pic_y, pic_z, data )
 	return data.page, max_page, sfx_type
 end
 
-function pen.new_plot( pic_x, pic_y, pic_z, data )
+function pen.new.plot( pic_x, pic_y, pic_z, data )
 	data = data or {}
 	data.scale = { 100, 100 }
 	data.step = data.step or 0.01
@@ -4999,28 +4985,88 @@ function pen.new_plot( pic_x, pic_y, pic_z, data )
 
 	local memo = {}
 	local last_dot = {}
-	local _,_,_,orig_gui = pen.gui_builder( GuiCreate())
+	local _,_,_,orig_gui = pen.new.builder( GuiCreate())
 	for x = data.range[1],( data.range[2] + data.step/2 ),data.step do
 		local y = data.func( data.input( x ))
 		if( pen.vld( last_dot )) then
 			local delta_x, delta_y = data.step, last_dot[2] - y
 			local width, rotation = data.thickness, math.atan2( delta_y, delta_x )
-			local x_shift, y_shift = pen.rotate_offset( 0, -width/4, rotation )
+			local x_shift, y_shift = pen.rot( 0, -width/4, rotation )
 			local pos_x, pos_y = pic_x + x_shift, pic_y - data.scale[2]*last_dot[2] + y_shift
 			local length = math.sqrt(( data.scale[1]*delta_x )^2 + ( data.scale[2]*delta_y )^2 )
-			pen.new_pixel( pos_x, pos_y, pic_z, data.color, length, width, nil, rotation )
+			pen.new.pixel( pos_x, pos_y, pic_z, data.color, length, width, nil, rotation )
 			pic_x = pic_x + data.scale[1]*data.step
 		end
 		last_dot = { x, y }
 		table.insert( memo, last_dot )
 	end
 	
-	pen.gui_builder( false )
-	if( orig_gui ) then pen.gui_builder( orig_gui ) end
+	pen.new.builder( false )
+	if( orig_gui ) then pen.new.builder( orig_gui ) end
 	return memo
 end
 
---[GLOBALS]
+-------------------------------------------------------     [CLASSES]     -------------------------------------------------------
+
+pen.V = { --https://github.com/Wiseluster/lua-vector/blob/master/vector.lua
+	__mt = {
+		__add = function( a, b )
+			if( type( b ) == "number" ) then
+				b = { x = b, y = b } end
+			return pen.V.new( a.x + b.x, a.y + b.y )
+		end,
+		__sub = function( a, b )
+			if( type( b ) == "number" ) then
+				b = { x = b, y = b } end
+			return pen.V.new( a.x - b.x, a.y - b.y )
+		end,
+		__mul = function( a, b )
+			if( type( b ) == "number" ) then
+				return pen.V.new( a.x*b, a.y*b ) end
+			return a.x*b.x + a.y*b.y
+		end,
+		__div = function( a, b )
+			if( type( b ) ~= "number" ) then
+				return a end
+			return pen.V.new( a.x/b, a.y/b )
+		end,
+		__eq = function( a, b )
+			if( type( b ) == "number" ) then
+				return false end
+			return a.x == b.x and a.y == b.y
+		end,
+		__unm = function( a )
+			return pen.V.new( -a.x, -a.y )
+		end,
+		__tostring = function( a )
+			return table.concat({ "[", a.x, ";", a.y, "]" })
+		end,
+	},
+	new = function( x, y )
+		return setmetatable({ x = x or 0, y = y or 0 }, pen.V.__mt )
+	end,
+	len = function( v )
+		return math.sqrt(( v.x )^2 + ( v.y )^2 )
+	end,
+	abs = function( v )
+		return pen.V.new( math.abs( v.x ), math.abs( v.y ))
+	end,
+	max = function( v, a )
+		return pen.V.new( math.max( v.x, a ), math.max( v.y, a ))
+	end,
+	min = function( v, a )
+		return pen.V.new( math.min( v.x, a ), math.min( v.y, a ))
+	end,
+	rot = function( v, a )
+		if( a == 0 ) then return v end
+		local x = v.x*math.cos( a ) + v.y*math.sin( a )
+		local y = v.x*math.sin( a ) - v.y*math.cos( a )
+		return pen.V.new( x, y )
+	end,
+}
+
+-------------------------------------------------------     [META]     -------------------------------------------------------
+
 pen.FLAG_UPDATE_UTF = "PENMAN_UTF_MAP_UPDATE"
 pen.FLAG_FANCY_FONT = "PENMAN_FANCY_FONTING"
 pen.FLAG_RESTART_CHECK = "PENMAN_GAME_HAS_STARTED"
@@ -5080,7 +5126,7 @@ pen.GLOBAL_JPAD_TARGET = "PENMAN_JPAD_TARGET_"
 
 pen.MARKER_TAB = "\\_"
 pen.MARKER_FANCY_TEXT = { "{>%S->{", "}<%S-<}", "{%-}%S-{%-}" }
-pen.MARKER_MAGIC_APPEND = "%-%-<{> MAGICAL APPEND MARKER <}>%-%-"
+pen.MARKER_MAGIC_APPEND = "%-%-<{> MAGIC APPEND MARKER <}>%-%-"
 
 pen.FILE_PIC_NIL = "data/ui_gfx/empty.png"
 pen.FILE_PIC_NUL = "data/ui_gfx/empty_white.png"
@@ -5159,7 +5205,7 @@ pen.FONT_MODS = {
 	end,
 	crossed = function( data, pic_x, pic_y, pic_z, char_data, color, index ) --make this be font height related
 		local off_x, off_y = unpack( char_data.dims )
-		pen.new_pixel( pic_x.g - 1, pic_y.g + ( off_y - 1 )/2, pic_z + 0.001, color, ( off_x + 2 ), 1 )
+		pen.new.pixel( pic_x.g - 1, pic_y.g + ( off_y - 1 )/2, pic_z + 0.001, color, ( off_x + 2 ), 1 )
 	end,
 	underscore = function( data, pic_x, pic_y, pic_z, char_data, color, index ) --make this be font height related
 		local alpha = color[4]
@@ -5177,7 +5223,7 @@ pen.FONT_MODS = {
 		else new_color = char_data.ram.under_color_memo or color end
 		
 		local off_x, off_y = unpack( char_data.dims )
-		pen.new_pixel( pic_x.g, pic_y.g + off_y*0.8, pic_z + 0.001, new_color, off_x, 1, alpha )
+		pen.new.pixel( pic_x.g, pic_y.g + off_y*0.8, pic_z + 0.001, new_color, off_x, 1, alpha )
 	end,
 	shadow = function( data, pic_x, pic_y, pic_z, char_data, color, index )
 		GuiZSetForNextWidget( pen.c.gui_data.g, pic_z + 0.0001 )
@@ -5237,7 +5283,7 @@ pen.FONT_MODS = {
 		local clicked, r_clicked, is_hovered = pen.cache( id_tbl, function( old_val )
 			local out = old_val or { 0, 0, 0 }
 			local off_x, off_y = unpack( char_data.dims )
-			local clicked, r_clicked, is_hovered = pen.new_interface( pic_x.l - off_x*0.75, pic_y.l, off_x*1.5, off_y, pic_z )
+			local clicked, r_clicked, is_hovered = pen.new.interface( pic_x.l - off_x*0.75, pic_y.l, off_x*1.5, off_y, pic_z )
 			
 			if( clicked ) then out[1] = frame_num end
 			if( r_clicked ) then out[2] = frame_num end
@@ -5261,7 +5307,7 @@ pen.FONT_MODS = {
 		local clicked, r_clicked, is_hovered = pen.cache({ "hyperlink_state", tip_id })
 		if( index.lcl == 1 and frame_num < ( is_hovered or 0 )) then
 			local off_x, off_y = unpack( char_data.dims )
-			pen.new_tooltip( text, {
+			pen.new.tip( text, {
 				tid = tip_id,
 				is_active = true,
 				pic_z = pic_z - 10,
@@ -5347,7 +5393,7 @@ pen.FONT_MODS = {
 			idt.frame_rendered = frame_num - pen.b2n( is_new )
 			local step_x = idt.pos.c == 0 and 1 or char_data.dims[1]
 			local step_y = is_new and char_data.dims[2] or 0
-			pen.new_pixel( pic_x.g + step_x - 1, pic_y.g + step_y, pic_z + 0.002,
+			pen.new.pixel( pic_x.g + step_x - 1, pic_y.g + step_y, pic_z + 0.002,
 				data.cursor_color or pen.PALETTE.VNL.YELLOW, 1, char_data.dims[2], frame_num%30 < 15 and 1 or 0.1 )
 			if( not( is_new )) then
 				idt.index = index.gbl + ( idt.pos.c == 0 and -1 or 0 ) end
@@ -5365,7 +5411,7 @@ pen.FONT_MODS = {
 			if( _pos_id > h_pos_id ) then local temp = _pos_id; _pos_id = h_pos_id; h_pos_id = temp end
 			local this_pos_id = 10000*index.lin + index.chr
 			if( this_pos_id >= _pos_id and this_pos_id <= h_pos_id ) then
-				pen.new_pixel( pic_x.g, pic_y.g, pic_z + 0.003,
+				pen.new.pixel( pic_x.g, pic_y.g, pic_z + 0.003,
 					data.cursor_color or pen.PALETTE.VNL.YELLOW, char_data.dims[1], char_data.dims[2], 0.25 )
 			end
 		end
@@ -8431,6 +8477,369 @@ pen.FILE_XML_KEY = [[
 </Sprite>
 ]]
 
+-------------------------------------------------------     [LIBMAN]     -------------------------------------------------------
+
+pen.lib = pen.lib or {}
+
+local path = ""
+local path_template = { pen.PATH, "lib/", "_", ".lua" }
+pen.t.loop({ "nxml", "base64", "matrix", "complex", "EZWand", "_libman", "_stuffman" }, function( i, v )
+	path_template[3] = v
+	path_template[2] = ""; path = table.concat( path_template )
+	if( ModDoesFileExist( path )) then pen.lib[ v ] = dofile_once( path ); return end
+	path_template[2] = "lib/"; path = table.concat( path_template )
+	if( ModDoesFileExist( path )) then pen.lib[ v ] = dofile_once( path ); return end
+end)
+--parallax
+
+function pen.lib.sprite_builder( path, print_me )
+	if( not( pen.vld( pen.lib.nxml ))) then return end
+
+	local pos_x, pos_y = -1, -1
+	local step, dims, l = 0, { 0, 0 }, 0
+	local xml = pen.lib.nxml.parse( pen.magic_read( path ))
+	pen.t.loop( xml:all_of( "RectAnimation" ), function( i,v )
+		local is_child = v.attr.parent ~= nil
+		if( xml.attr.default_animation == v.attr.name ) then
+			pos_x = tonumber( v.attr.pos_x )
+			pos_y = tonumber( v.attr.pos_y )
+			l = tonumber( v.attr.frames_per_row )
+			dims[1] = tonumber( v.attr.frame_width )
+			dims[2] = tonumber( v.attr.frame_height )
+		elseif( not( is_child ) and pos_x ~= -1 ) then
+			if( step == 0 ) then step = v.attr.pos_y - pos_y end
+			pos_y = pos_y + step
+			v.attr.pos_x = pos_x
+			v.attr.pos_y = pos_y
+			v.attr.frames_per_row = l
+			v.attr.frame_width = dims[1]
+			v.attr.frame_height = dims[2]
+		end
+
+		if( not( is_child )) then return end
+		local p = pen.t.loop( xml:all_of( "RectAnimation" ), function( e,p )
+			if( p.attr.name == v.attr.parent ) then return p end
+		end)
+
+		v.children = p.children
+		pen.t.loop( p.attr, function( k,a ) v.attr[k] = v.attr[k] or a end)
+		v.attr.parent = nil
+	end)
+	if( print_me ) then print( tostring( xml )) end
+	pen.magic_write( path, tostring( xml ))
+end
+
+function pen.lib.font_builder( font, chars, atlas, data ) --search the id at https://symbl.cc/
+	if( not( pen.vld( pen.lib.nxml ))) then return end
+
+	chars, data = chars or {}, data or {}
+	local xml = pen.lib.nxml.parse( ModDoesFileExist( font ) and pen.magic_read( font ) or pen.FILE_XML_FONT )
+	if( data.pic ) then xml:first_of( "Texture" ).content = { data.pic } end
+	if( data.height ) then xml:first_of( "LineHeight" ).content = { data.height } end
+	if( data.char_padding ) then xml:first_of( "CharSpace" ).content = { data.char_padding } end
+	if( data.word_padding ) then xml:first_of( "WordSpace" ).content = { data.word_padding } end
+	local pic_id, pic = 0, xml:first_of( "Texture" ):text()
+	local _, pic_w, pic_h = pen.magic_draw( pic, 0, 0 )
+	-- pen.t.loop( xml:all_of( "QuadChar" ), function( i, c )
+	-- 	local new_x = c.attr.rect_x + c.attr.rect_w + 2
+	-- 	if( pic_w < new_x ) then pic_w = new_x end
+	-- 	local new_y = c.attr.rect_y + c.attr.rect_h + 2
+	-- 	if( pic_h < new_y ) then pic_h = new_y end
+	-- end)
+
+	local new_chars, x_memo = {}, pic_w + 1
+	for i,c in pairs( chars ) do
+		local got_some = pen.t.loop( xml:all_of( "QuadChar" ), function( i, c )
+			if( c.attr.id == i ) then return true end
+		end)
+		if( not( got_some )) then
+			chars[ i ].forced = true
+			table.insert( xml.children, {
+				name = "QuadChar",
+				children = {},
+				attr = {
+					id = i, width = 0,
+					offset_x = 0, offset_y = 0,
+					rect_w = 0, rect_h = 0,
+					rect_x = 0, rect_y = 0,
+				},
+			})
+		end
+	end
+	pen.t.loop( xml:all_of( "QuadChar" ), function( i, c )
+		if( chars[ c.attr.id ] == nil ) then return end
+		if( not( chars[ c.attr.id ].forced )) then return end
+		
+		c.attr.rect_x, c.attr.rect_y = x_memo, 0
+		c.attr.width = chars[ c.attr.id ].pos[3] or chars[ c.attr.id ].rect_w
+		table.insert( new_chars, {
+			chars[ c.attr.id ].pos[1], chars[ c.attr.id ].pos[2],
+			c.attr.width, c.attr.rect_x, c.attr.rect_y,
+		})
+		
+		c.attr.rect_w = chars[ c.attr.id ].rect_w
+		c.attr.rect_h = chars[ c.attr.id ].rect_h or pic_h
+		c.attr.offset_x = chars[ c.attr.id ].offset_x or 0
+		c.attr.offset_y = chars[ c.attr.id ].offset_y or 0
+		x_memo = x_memo + c.attr.width + 1
+	end)
+	
+	if( pen.vld( atlas )) then
+		pic_id, pic = pen.pic_builder( pic, pic_w + ( pen.t.count( chars ) + 5 )*10, pic_h )
+		if( not( pen.vld( pic_id ))) then return end
+		xml:first_of( "Texture" ).content = { pic }
+		pen.t.loop( new_chars, function( i, v )
+			pen.pic_paster( pic_id, pen.magic_draw( atlas, 0, 0 ), { v[3], pic_h }, { v[4], v[5]}, { v[1], v[2]})
+		end)
+	end
+	
+	pen.magic_write( font, tostring( xml ))
+end
+
+-- Exposure Types: contact, wetting, breathing, effect
+-- Default Damage Types: heal, burn, curse, poison, piercing, radiation, corrosion
+-- Extra Damage Types: heat, cold, magic, light, pollution, dissolution, purification
+-- damage values are total harm per frame per second for a fully submerged entity
+function pen.lib.set_matter_damage( hooman, data )
+	if( not( pen.vld( pen.lib.nxml ))) then return end
+
+	local dmg_tbl = pen.MATTER_EXPOSURES
+	local dmg_comp = EntityGetFirstComponentIncludingDisabled( hooman, "DamageModelComponent" )
+	if( not( pen.vld( dmg_comp, true ))) then return end
+	local char_comp = EntityGetFirstComponentIncludingDisabled( hooman, "CharacterDataComponent" )
+	if( not( pen.vld( char_comp, true ))) then return end
+
+	data = data or {}
+	data.matter_overrides = data.matter_overrides or {}
+	data.body_matter = data.body_matter or ComponentGetValue2( dmg_comp, "ragdoll_material" )
+	data.blood_matter = data.blood_matter or ComponentGetValue2( dmg_comp, "blood_material" )
+	data.breathing_immune = data.breathing_immune or not( ComponentGetValue2( dmg_comp, "air_needed" ))
+	data.no_burn = data.no_burn or ( ComponentGetValue2( dmg_comp, "fire_damage_amount" ) == 0 )
+
+	--immune to own blood type and body_matter
+	--check reactions with body_matter to apply damage
+
+	local matters, old_matters = ComponentGetValue2( dmg_comp, "materials_that_damage" ), {}
+	for value in string.gmatch( matters, pen.ptrn( "," )) do table.insert( old_matters, value ) end
+	local damages, old_damages = ComponentGetValue2( dmg_comp, "materials_how_much_damage" ), {}
+	for value in string.gmatch( damages, pen.ptrn( "," )) do table.insert( old_damages, tonumber( value )) end
+	matters, damages = "", ""
+
+	local c_min_x = ComponentGetValue2( char_comp, "collision_aabb_min_x" )
+	local c_max_x = ComponentGetValue2( char_comp, "collision_aabb_max_x" )
+	local c_min_y = ComponentGetValue2( char_comp, "collision_aabb_min_y" )
+	local c_max_y = ComponentGetValue2( char_comp, "collision_aabb_max_y" )
+	local k = 25*60*math.abs( c_max_x - c_min_x )*math.abs( c_max_y - c_min_y )
+
+	--define custom damage types in xml
+	local function damage_compiler( name, custom, data )
+		custom = data.matter_overrides[ name ] or pen.t.unarray( pen.t.pack( custom ))
+		if( not( pen.vld( custom ))) then custom = nil end
+		local dmg_data = pen.ght( custom or dmg_tbl[ name ], true )
+		if( not( pen.vld( dmg_data ))) then return 0 end
+
+		local matter_mult = dmg_data[2] or 1
+		dmg_data = dmg_tbl[ dmg_data[1]] or dmg_data
+
+		local total, got_thresholded = 0, false
+		local exposures = { "contact", "wetting", "breathing" }
+		local default_types = { "heal", "burn", "curse", "poison", "piercing", "radiation", "corrosion" }
+		local extra_types = { "heat", "cold", "magic", "light", "pollution", "dissolution", "purification" }
+		pen.t.loop( exposures, function( i, exposure )
+			if( not( data.effect_affected ) and dmg_data.effect ) then return true end
+			if( data[ exposure.."_immune" ]) then return end
+			local e_mult = dmg_data[ exposure ]
+			if( e_mult == nil ) then return end
+
+			pen.t.loop( default_types, function( e, dmg_type )
+				local t_mult = dmg_data[ dmg_type ]
+				if( t_mult == nil ) then return end
+				local dmg = matter_mult*e_mult*t_mult*dmg_data.dmg
+
+				local threshold = data[ "threshold_"..dmg_type ]
+				got_thresholded, threshold = threshold ~= nil, threshold or 0
+				if( threshold < dmg ) then total = total + ( dmg - threshold ) end
+			end)
+
+			pen.t.loop( extra_types, function( e, dmg_type )
+				local t_mult = dmg_data[ dmg_type ]
+				if( t_mult == nil ) then return end
+				local dmg = matter_mult*e_mult*t_mult*dmg_data.dmg
+
+				local threshold = data[ "threshold_"..dmg_type ]
+				got_thresholded, threshold = threshold ~= nil, threshold or dmg
+				if( threshold < dmg ) then total = total + ( dmg - threshold ) end
+			end)
+		end)
+
+		local dmg = nil
+		for i,v in ipairs( old_matters ) do
+			if( v == name ) then old_dmg = old_damages[i]; break end
+		end
+		if( not( data.update_existing ) or got_thresholded ) then
+			return total/k
+		else return dmg or 0 end
+	end
+
+	local xml = pen.lib.nxml.parse( pen.magic_read( "data/materials.xml" ))
+	pen.t.loop( xml.children, function( i,v )
+		if( v.name ~= "CellData" and v.name ~= "CellDataChild" ) then return end
+		local dmg = damage_compiler( v.attr.name, v.attr.dmg_tbl, data )
+		EntitySetDamageFromMaterial( hooman, v.attr.name, dmg )
+	end)
+end
+
+function pen.lib.player_builder( hooman, func )
+	if( not( pen.vld( pen.lib.nxml ))) then return end
+
+	if( ModIsEnabled( "vector_core" )) then
+		pen.GENERIC_CHAR_SETUP.CharacterPlatformingComponent.accel_x = 0.001
+		pen.GENERIC_CHAR_SETUP.CharacterPlatformingComponent.accel_x_air = 0.001
+		pen.GENERIC_CHAR_SETUP.CharacterPlatformingComponent.run_velocity = 0
+	end
+	
+	pen.t.loop( pen.GENERIC_CHAR_SETUP, function( name, values )
+		local nuke_it = values == true
+		pen.magic_comp( hooman, name, function( comp_id, v_tbl, is_enabled )
+			if( nuke_it ) then EntityRemoveComponent( hooman, comp_id ); return end
+			pen.t.loop( values, function( field, value ) pen.magic_comp( comp_id, field, value ) end)
+		end)
+	end)
+
+	local data = { hooman = hooman }
+	data.arm_id = pen.get_child( hooman, "arm_r" )
+	local inh_comp = EntityGetFirstComponentIncludingDisabled( data.arm_id, "InheritTransformComponent" )
+	ComponentSetValue2( inh_comp, "parent_hotspot_tag", "arm_r" )
+	local hot_comp = EntityGetFirstComponentIncludingDisabled( data.arm_id, "HotspotComponent" )
+	ComponentSetValue2( hot_comp, "sprite_hotspot_name", "" )
+	ComponentSetValue2( hot_comp, "offset", 0, 0 )
+	EntityRemoveComponent( data.arm_id, EntityGetFirstComponentIncludingDisabled( data.arm_id, "SpriteComponent" ))
+	
+	EntityKill( pen.get_child( hooman, "cape" ))
+	EntityKill( pen.get_child( hooman, "no_heal_in_meat_biome" ))
+
+	local player_path = EntityGetFilename( hooman )
+	for i,v in ipairs({ "inventory_quick", "inventory_full" }) do
+		pen.child_play( pen.get_child( hooman, v ), function( parent, child, k )
+			if( EntityGetFilename( child ) == player_path ) then EntityKill( child ) end
+		end)
+	end
+
+	data.sfx_comp = EntityGetFirstComponentIncludingDisabled( hooman, "AudioComponent" )
+	data.char_comp = EntityGetFirstComponentIncludingDisabled( hooman, "CharacterDataComponent" )
+	data.plat_comp = EntityGetFirstComponentIncludingDisabled( hooman, "CharacterPlatformingComponent" )
+	data.dmg_comp = EntityGetFirstComponentIncludingDisabled( hooman, "DamageModelComponent" )
+	data.ing_comp = EntityGetFirstComponentIncludingDisabled( hooman, "IngestionComponent" )
+	data.pick_comp = EntityGetFirstComponentIncludingDisabled( hooman, "ItemPickUpperComponent" )
+	data.kick_comp = EntityGetFirstComponentIncludingDisabled( hooman, "KickComponent" )
+	data.bubl_comp = EntityGetFirstComponentIncludingDisabled( hooman, "LiquidDisplacerComponent" )
+	data.suck_comp = EntityGetFirstComponentIncludingDisabled( hooman, "MaterialSuckerComponent" )
+	data.shot_comp = EntityGetFirstComponentIncludingDisabled( hooman, "PlatformShooterPlayerComponent" )
+	data.coll_comp = EntityGetFirstComponentIncludingDisabled( hooman, "PlayerCollisionComponent" )
+	data.inv_comp = EntityGetFirstComponentIncludingDisabled( hooman, "Inventory2Component" )
+	
+	data.pic_char = EntityAddComponent2( hooman, "SpriteComponent", {
+		_tags = "character",
+		rect_animation = "stand", z_index = 0.6,
+		image_file = "mods/penman/extra/pics/player.xml" })
+	data.pic_aim = EntityAddComponent2( hooman, "SpriteComponent", {
+		_tags = "aiming_reticle",
+		image_file = "data/ui_gfx/mouse_cursor.png",
+		emissive = true, visible = false, has_special_scale = true,
+		offset_x = -42.5, offset_y = -25, z_index = -10000 })
+	if( pen.vld( func )) then data = func( hooman, data ) or data end
+	
+	local pic_xml = pen.lib.nxml.parse( pen.magic_read( ComponentGetValue2( data.pic_char, "image_file" )))
+	ComponentSetValue2( data.pic_char, "offset_x", tonumber( pic_xml.attr.offset_x or 0 ))
+	ComponentSetValue2( data.pic_char, "offset_y", tonumber( pic_xml.attr.offset_y or 0 ))
+	EntityRefreshSprite( hooman, data.pic_char )
+	
+	local is_player = pic_xml.attr.is_player ~= nil
+	
+	local char_w, char_h = 0, 0
+	local frame_w, frame_h = 0, 0
+	local collider, hitboxes = {}, {}
+	pen.t.loop( pic_xml:all_of( "RectAnimation" ), function( i,v )
+		if( pic_xml.attr.default_animation == v.attr.name ) then
+			frame_w = tonumber( v.attr.frame_width or 0 )
+			frame_h = tonumber( v.attr.frame_height or 0 )
+		elseif( v.attr.name == "icon" ) then
+			char_w = tonumber( v.attr.frame_width or 0 )
+			char_h = tonumber( v.attr.frame_height or 0 )
+		elseif( v.attr.name == "collider" ) then
+			collider.w = tonumber( v.attr.frame_width or 0 )
+			collider.h = tonumber( v.attr.frame_height or 0 ) + 0.1
+			collider.x = tonumber( v.attr.offset_x or 0 )
+			collider.y = tonumber( v.attr.offset_y or 0 ) - 1
+		elseif( string.find( v.attr.name, "^hitbox" ) ~= nil ) then
+			local tag = ""
+			if( v.attr.name ~= "hitbox" ) then
+				tag = string.gsub( v.attr.name, "^hitbox_", "" )
+			end
+			table.insert( hitboxes, {
+				tag = tag,
+				state = v.attr.state == "true",
+				dmg = tonumber( v.attr.dmg or 1 ),
+				w = tonumber( v.attr.frame_width or 0 ),
+				h = tonumber( v.attr.frame_height or 0 ) + 0.1,
+				x = tonumber( v.attr.offset_x or 0 ),
+				y = tonumber( v.attr.offset_y or 0 ),
+			})
+		end
+	end)
+	
+	ComponentSetValue2( data.dmg_comp, "ragdoll_offset_x", -frame_w/2 )
+	ComponentSetValue2( data.dmg_comp, "ragdoll_offset_y", -frame_h/2 )
+	ComponentSetValue2( data.char_comp, "buoyancy_check_offset_y", tonumber( pic_xml.attr.center_y or 0 ))
+	ComponentSetValue2( data.char_comp, "collision_aabb_max_x", collider.w + collider.x )
+	ComponentSetValue2( data.char_comp, "collision_aabb_max_y", collider.h + collider.y )
+	ComponentSetValue2( data.char_comp, "collision_aabb_min_x", collider.x )
+	ComponentSetValue2( data.char_comp, "collision_aabb_min_y", collider.y )
+	ComponentSetValue2( data.char_comp, "climb_over_y", math.floor( char_h/5 ))
+	ComponentSetValue2( data.char_comp, "eff_hg_size_x", char_w/2 )
+	ComponentSetValue2( data.bubl_comp, "radius", char_w )
+
+	pen.t.loop( hitboxes, function( i,v )
+		EntityAddComponent2( hooman, "HitboxComponent", {
+			_tags = v.tag,
+			_enabled = v.state,
+
+			is_item = false,
+			is_player = is_player,
+			is_enemy = not( is_player ),
+
+			damage_multiplier = v.dmg,
+			aabb_max_x = v.w + v.x, aabb_min_x = v.x,
+			aabb_max_y = v.h + v.y, aabb_min_y = v.y,
+		})
+	end)
+
+	pen.t.loop( pic_xml:all_of( "Hotspot" ), function( i,v )
+		EntityAddComponent2( hooman, "HotspotComponent", {
+			_tags = v.attr.name,
+			sprite_hotspot_name = v.attr.name,
+			transform_with_scale = true,
+		})
+	end)
+	ComponentSetValue2( EntityAddComponent2( hooman, "HotspotComponent", {
+		_tags = "kick_pos",
+		transform_with_scale = true,
+	}), "offset", char_w/2, collider.h + collider.y )
+	ComponentSetValue2( EntityAddComponent2( hooman, "HotspotComponent", {
+		_tags = "crouch_sensor",
+		transform_with_scale = true,
+	}), "offset", 0, -char_h + ( collider.h + collider.y ))
+	
+	return data
+end
+
+function pen.lib.nxml2entity()
+end
+function pen.lib.entity2nxml()
+end
+
+-------------------------------------------------------     [LUALS]     -------------------------------------------------------
+
 ---@class PenmanButtonData
 ---@field auid string [DFT: pic..pic_z ]<br> Unique animation ID.
 ---@field no_anim boolean [DFT: false ]<br> Will not do animations if set to true.
@@ -8442,7 +8851,7 @@ pen.FILE_XML_KEY = [[
 ---@field rmb_event fun( pic_x:number, pic_y:number, pic_z:number, pic:path, data:PenmanButtonData ): pic_x:number, pic_y:number, pic_z:number, pic:path, data:PenmanButtonData Gets called on r_click.
 ---@field hov_event fun( pic_x:number, pic_y:number, pic_z:number, pic:path, data:PenmanButtonData ): pic_x:number, pic_y:number, pic_z:number, pic:path, data:PenmanButtonData Gets called on is_hovered.
 ---@field idle_event fun( pic_x:number, pic_y:number, pic_z:number, pic:path, data:PenmanButtonData ): pic_x:number, pic_y:number, pic_z:number, pic:path, data:PenmanButtonData Get called on not( is_hovered )
----@field pic_func fun( pic_x:number, pic_y:number, pic_z:number, pic:path, data:PenmanButtonData ) Always gets called and get replaced with pen.new_image if is nil.
+---@field pic_func fun( pic_x:number, pic_y:number, pic_z:number, pic:path, data:PenmanButtonData ) Always gets called and get replaced with pen.new.image if is nil.
 
 ---@class PenmanTooltipData
 ---@field tid string [DFT: "dft" ]<br> The ID of the tooltip. Only one tip can be opened per unique ID.
@@ -8480,6 +8889,23 @@ pen.FILE_XML_KEY = [[
 ---@field scroll_step number [DFT: 11 ] A distance the content will move on a single bar step. 
 ---@field is_left boolean [DFT: false ] Flips the scroller to be left-facing in structure.
 
---<{> MAGICAL APPEND MARKER <}>--
+-------------------------------------------------------     [CREDITS]     -------------------------------------------------------
+
+pen.THANKS = { -- alphabetical order (github > steam > message)
+	"aarvlo", --https://discord.com/channels/453998283174576133/632303734877192192/1181759232400433182
+	"Alex", --https://github.com/alex-3141
+	"Copi", --https://github.com/Ramiels
+	"Dexter", --https://github.com/dextercd
+	"Evaisa", --https://github.com/EvaisaDev
+	"Horscht", --https://github.com/TheHorscht
+	"ImmortalDamned", --https://github.com/XM666-Dev
+	"Lamia", --https://github.com/lamia-zamia
+	"Nathan", --https://github.com/NathanSnail
+	"nphhpn", --https://discord.com/channels/453998283174576133/632303734877192192/1249051286834253914
+}
+
+-------------------------------------------------------     [CUSTOM]     -------------------------------------------------------
+
+--<{> MAGIC APPEND MARKER <}>--
 
 return pen

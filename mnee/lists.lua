@@ -880,6 +880,6 @@ local full_nums = {
 	[")"] = 1,
 }
 
---<{> MAGICAL APPEND MARKER <}>--
+--<{> MAGIC APPEND MARKER <}>--
 
 return { full_board, full_mouse, full_joy, full_shifted, full_fancy, full_twin, full_keys, full_offs, full_nums }

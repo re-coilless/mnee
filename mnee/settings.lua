@@ -128,6 +128,16 @@ function text_with_no_mod( key ) --inspired by Conga's approach
 				["русский"] = "Изменяет степень отконения перекрестья алгоритмом помощи в прицеливании.",
 				["简体中文"] = "控制瞄准辅助算法帮助你瞄准的力度大小",
 			},
+			["$mnee_force_report"] = {
+				["English"] = "Always Show Report",
+				["русский"] = "Всегда Показывать Статус",
+				["简体中文"] = "始终显示报告",
+			},
+			["$mnee_force_report_desc"] = {
+				["English"] = "Forces the status report to be always opened.",
+				["русский"] = "Окно статуса будет постоянно открыто.",
+				["简体中文"] = "强制始终打开状态报告。",
+			},
 			["$mnee_reset"] = {
 				["English"] = "Complete Reset",
 				["русский"] = "Полный Сброс",
@@ -258,6 +268,14 @@ mod_settings =
 		ui_name = " ",
 		not_setting = true,
 	},
+	add_dynamic_fields({
+		id = "FORCE_REPORT",
+		value_default = false,
+		scope = MOD_SETTING_SCOPE_RUNTIME,
+	},{
+		ui_name = function() return GameTextGetTranslatedOrNot( text_with_no_mod( "$mnee_force_report" )) end,
+		ui_description = function() return text_with_no_mod( "$mnee_force_report_desc" ) end,
+	}),
 	add_dynamic_fields({
 		id = "NUKE_EM",
 		value_default = false,

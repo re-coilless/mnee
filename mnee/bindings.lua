@@ -42,7 +42,7 @@ _MNEEDATA[ "mnee" ] = {
 _BINDINGS[ "mnee" ] = {
 	menu = { --[ACTUAL BINDING ID]
 		order_id = "a", --[SORTING ORDER]
-		is_clean = true, --[ONLY ACTIVATE WHEN PRESSED ALONE]
+		is_clean = false, --[ONLY ACTIVATE WHEN PRESSED ALONE]
 		is_advanced = true, --[ALLOW MULTIPLE KEYS DURING BINDING]
 		never_advanced = false, --[FORBID TO EVER BE REBINDED IN ADVANCED MODE]
 		is_weak = false, --[PREVENTS THE BIND FROM FIRING IF SPECIAL KEY IS PRESSED]
@@ -100,12 +100,22 @@ _BINDINGS[ "mnee" ] = {
 	
 	profile_change = {
 		order_id = "e",
-		is_clean = true,
+		is_advanced = true,
 
 		name = "$mnee_profile",
 		desc = "$mnee_profile_desc",
 
 		keys = pen.t.unarray({ "right_ctrl", "keypad_+" }),
+	},
+
+	report = {
+		order_id = "f",
+		split_modifiers = true,
+
+		name = "$mnee_report",
+		desc = "$mnee_report_desc",
+
+		keys = pen.t.unarray({ "right_ctrl", "m" }),
 	},
 }
 

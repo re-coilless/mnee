@@ -27,6 +27,7 @@ function OnModInit()
 
 	-- fix z levels
 	-- also try splitscreen for kappa
+	-- pressing right ctrl + m should generate status report
 	-- make procedural pause screen keyboard/mouse/gamepad that highlights all the bind's keys on hover of one of them (also add option to hide stuff from this menu; list all binds to the side in a scrolllist and highlight on hover)
 
 	mnee.G.m_list = mnee.G.m_list or ""
@@ -141,7 +142,7 @@ function OnModInit()
 		return pen.DIV_1..pen.t.loop_concat( mnee.G.jpad_maps, function( i, real_num )
 			if( real_num == -1 ) then return end
 			return pen.t.loop_concat({0,1}, function( k, v )
-				local value = pen.rounder( InputGetJoystickAnalogButton( real_num, v ), 100 )
+				local value = pen.rnd( InputGetJoystickAnalogButton( real_num, v ), 100 )
 				return { pen.DIV_2, i, "gpd_", ( v == 0 and "l2" or "r2" ), pen.DIV_2, value, pen.DIV_2, pen.DIV_1 }
 			end)
 		end)
@@ -160,7 +161,7 @@ function OnModInit()
 		end)
 	end
 
-	if( pen.vld( pen.lib )) then
+	if( pen.vld( pen.lib.nxml )) then
 		pen.magic_write( "data/fonts/_font_pixel.xml", pen.magic_read( "data/fonts/font_pixel.xml" ))
 		pen.lib.font_builder( "data/fonts/_font_pixel.xml", {
 			[176] = { pos = { 2, 10 }, rect_w = 2 }, --[°]
@@ -254,9 +255,9 @@ end
 
 function OnWorldPreUpdate()
 	dofile_once( "mods/mnee/lib.lua" )
-	if( not( GameHasFlagRun( mnee.INITER ))) then return pen.gui_builder( false ) end
+	if( not( GameHasFlagRun( mnee.INITER ))) then return pen.new.builder( false ) end
 	local ctrl_body = mnee.get_ctrl()
-	if( not( pen.vld( ctrl_body, true ))) then return pen.gui_builder( false ) end
+	if( not( pen.vld( ctrl_body, true ))) then return pen.new.builder( false ) end
 
 	mnee.clean_exe()
 	mnee.clean_disarmer()
@@ -327,12 +328,13 @@ function OnWorldPreUpdate()
 		end
 	end
 	mnee.ignore_service_mode = nil
-	
+
+	local force_report = pen.setting_get( "mnee.FORCE_REPORT" )
 	if( mnee.mnin( "bind", { "mnee", "menu" }, { pressed = true, vip = true })) then
 		pen.play_sound( pen.TUNES.PRSP[ mnee.G.gui_active and "CLOSE" or "OPEN" ])
 		if( mnee.G.gui_active ) then mnee.G.help_active = false end
 		mnee.G.gui_active = not( mnee.G.gui_active )
-		if( mnee.G.gui_active ) then pen.atimer( "main_window", nil, true ) end
+		if( mnee.G.gui_active ) then pen.atm( "main_window", nil, true ) end
 	end
 	if( mnee.mnin( "bind", { "mnee", "off" }, { pressed = true, vip = true })) then
 		local has_flag = GameHasFlagRun( mnee.TOGGLER )
@@ -349,6 +351,11 @@ function OnWorldPreUpdate()
 		pen.play_sound( pen.TUNES.PRSP.SWITCH )
 		GlobalsSetValue( mnee.UPDATER, frame_num )
 	end
+	if( not( force_report ) and mnee.mnin( "bind", { "mnee", "report" }, { pressed = true, vip = true })) then
+		pen.play_sound( pen.TUNES.PRSP[ mnee.G.report_active and "CLOSE" or "OPEN" ])
+		mnee.G.report_active = not( mnee.G.report_active )
+		if( mnee.G.report_active ) then pen.atm( "report_window", nil, true ) end
+	end
 	
 	mnee.stl = {
 		jslots = { false, false, false, false, },
@@ -356,7 +363,7 @@ function OnWorldPreUpdate()
 	}
 	if( not( pen.is_inv_active())) then
 		local will_remind = not( GameHasFlagRun( mnee.NO_REMINDER ))
-		local screen_w, screen_h = GuiGetScreenDimensions( pen.gui_builder())
+		local screen_w, screen_h = GuiGetScreenDimensions( pen.new.builder())
 		if( mnee.G.gui_active ) then
 			if( not( pen.vld( mnee.G.m_list ))) then
 				mnee.G.m_list = "|"..pen.t.loop_concat( _BINDINGS, function( mod ) return { mod, "|" } end)
@@ -364,9 +371,9 @@ function OnWorldPreUpdate()
 
 			pen.setting_set( "mnee.REMINDER", false )
 			pen.try( dofile, "mods/mnee/files/gui.lua", function( log )
-				pen.new_pixel( -5, -5, pen.LAYERS.WORLD_BACK + 1, pen.PALETTE.PRSP.WHITE, screen_w + 10, screen_h + 10 )
-				pen.new_text( screen_w/2, screen_h/2, pen.LAYERS.WORLD_BACK, GameTextGet( "$mnee_error" ), { is_centered = true, color = pen.PALETTE.PRSP.BLUE, fully_featured = true })
-				pen.new_text( screen_w/2, screen_h/2 + 50, pen.LAYERS.WORLD_BACK, mnee.G.m_list.."\n"..log, { is_centered = true, color = pen.PALETTE.PRSP.RED, dims = { 0.75*screen_w, -1 }})
+				pen.new.pixel( -5, -5, pen.LAYERS.WORLD_BACK + 1, pen.PALETTE.PRSP.WHITE, screen_w + 10, screen_h + 10 )
+				pen.new.text( screen_w/2, screen_h/2, pen.LAYERS.WORLD_BACK, GameTextGet( "$mnee_error" ), { is_centered = true, color = pen.PALETTE.PRSP.BLUE, fully_featured = true })
+				pen.new.text( screen_w/2, screen_h/2 + 50, pen.LAYERS.WORLD_BACK, mnee.G.m_list.."\n"..log, { is_centered = true, color = pen.PALETTE.PRSP.RED, dims = { 0.75*screen_w, -1 }})
 			end)
 		elseif( will_remind and pen.setting_get( "mnee.REMINDER" )) then
 			if( frame_num < 600 ) then return end
@@ -377,23 +384,23 @@ function OnWorldPreUpdate()
 			local pic_x, pic_y, pic_z = screen_w/2, screen_h, pen.LAYERS.MAIN - 10
 			pic_y = pic_y - 32*pen.animate( 1, "reminder", { ease_out = "wav1", frames = 15 })
 
-			local dims = pen.new_text( pic_x, pic_y + 6, pic_z, GameTextGet( "$mnee_tip", count - 1,
+			local dims = pen.new.text( pic_x, pic_y + 6, pic_z, GameTextGet( "$mnee_tip", count - 1,
 				mnee.get_binding_keys( "mnee", "menu" )), { is_centered = true, color = pen.PALETTE.PRSP.PURPLE, fully_featured = true })
 			local off = math.max( dims[1]/2 - 80, 40 )
 			
 			clicked = mnee.new_button( pic_x - off - 90,
 				pic_y + 20, pic_z, "mods/mnee/files/pics/button_90_B.png", { jpad = true })
-			pen.new_text( pic_x - off - 90/2, pic_y + 20, pic_z - 0.01,
+			pen.new.text( pic_x - off - 90/2, pic_y + 20, pic_z - 0.01,
 				GameTextGet( "$mnee_tipA" ), { is_centered_x = true, color = pen.PALETTE.PRSP.RED })
 			if( clicked ) then
 				pen.play_sound( pen.TUNES.PRSP[ mnee.G.gui_active and "CLOSE" or "OPEN" ])
 				mnee.G.gui_active, mnee.G.help_active = not( mnee.G.gui_active ), false
-				if( mnee.G.gui_active ) then pen.atimer( "main_window", nil, true ) end
+				if( mnee.G.gui_active ) then pen.atm( "main_window", nil, true ) end
 			end
 
 			clicked = mnee.new_button( pic_x + off,
 				pic_y + 20, pic_z, "mods/mnee/files/pics/button_90_A.png", { jpad = true })
-			pen.new_text( pic_x + off + 90/2, pic_y + 20, pic_z - 0.01,
+			pen.new.text( pic_x + off + 90/2, pic_y + 20, pic_z - 0.01,
 				GameTextGet( "$mnee_tipB" ), { is_centered_x = true, color = pen.PALETTE.PRSP.WHITE })
 			if( clicked ) then
 				GameAddFlagRun( mnee.NO_REMINDER )
@@ -406,13 +413,13 @@ function OnWorldPreUpdate()
 			if( clicked ) then
 				pen.play_sound( pen.TUNES.PRSP[ mnee.G.help_active and "CLOSE" or "OPEN" ])
 				mnee.G.help_active = not( mnee.G.help_active )
-				if( mnee.G.help_active ) then pen.atimer( "help_window", nil, true ) end
+				if( mnee.G.help_active ) then pen.atm( "help_window", nil, true ) end
 			end
 
 			off = off + 91
-			pen.new_pixel( pic_x - off - 1, pic_y - 5, pic_z + 0.01, pen.PALETTE.PRSP.WHITE, 2*( off + 1 ), 50 )
-			pen.new_pixel( pic_x - off - 2, pic_y - 6, pic_z + 0.015, pen.PALETTE.PRSP.BLUE, 2*( off + 2 ), 50 )
-			pen.new_interface( pic_x - off - 1, pic_y - 5, 2*( off + 1 ), 50, pic_z + 0.01 )
+			pen.new.pixel( pic_x - off - 1, pic_y - 5, pic_z + 0.01, pen.PALETTE.PRSP.WHITE, 2*( off + 1 ), 50 )
+			pen.new.pixel( pic_x - off - 2, pic_y - 6, pic_z + 0.015, pen.PALETTE.PRSP.BLUE, 2*( off + 2 ), 50 )
+			pen.new.interface( pic_x - off - 1, pic_y - 5, 2*( off + 1 ), 50, pic_z + 0.01 )
 		end
 
 		if( mnee.G.help_active ) then
@@ -429,24 +436,24 @@ function OnWorldPreUpdate()
 			
 			local clicked, is_hovered = false, false
 			local pic_z = pen.LAYERS.TIPS_BACK + 1.5
-			mnee.G.pos_help[1], mnee.G.pos_help[2], _,_,_, is_hovered = pen.new_dragger( "mnee_help_window", help_x, help_y, w_anim[1], 11, pic_z + 0.5, { jpad = true })
-			pen.new_pixel( help_x, help_y, pic_z + 0.01, pen.PALETTE.PRSP.WHITE, w_anim[1], w_anim[2])
-			pen.new_pixel( help_x - 1, help_y - 1, pic_z + 0.015, pen.PALETTE.PRSP.BLUE, w_anim[1] + 2, w_anim[2] + 2 )
+			mnee.G.pos_help[1], mnee.G.pos_help[2], _,_,_, is_hovered = pen.new.dragger( "mnee_help_window", help_x, help_y, w_anim[1], 11, pic_z + 0.5, { jpad = true })
+			pen.new.pixel( help_x, help_y, pic_z + 0.01, pen.PALETTE.PRSP.WHITE, w_anim[1], w_anim[2])
+			pen.new.pixel( help_x - 1, help_y - 1, pic_z + 0.015, pen.PALETTE.PRSP.BLUE, w_anim[1] + 2, w_anim[2] + 2 )
 			
 			local alpha = ( w_anim[1]/help_w )*( w_anim[2]/help_h )
 			if( alpha > 0.5 ) then
-				pen.new_text( help_x + w_anim[1]/2, help_y, pic_z - 0.015,
+				pen.new.text( help_x + w_anim[1]/2, help_y, pic_z - 0.015,
 					GameTextGet( "$mnee_help"), { is_centered_x = true, color = pen.PALETTE.PRSP.WHITE, alpha = alpha })
-				pen.new_pixel( help_x, help_y, pic_z - 0.01, pen.PALETTE.PRSP[ is_hovered and "RED" or "PURPLE" ], w_anim[1], 11 )
-				pen.new_pixel( help_x + w_anim[1] - 4, help_y, pic_z - 0.015, pen.PALETTE.PRSP.BLUE, 3, 11 )
-				pen.new_pixel( help_x + w_anim[1] - 3, help_y, pic_z - 0.02, pen.PALETTE.PRSP.PURPLE, 1, 11 )
-				pen.new_pixel( help_x, help_y + w_anim[2] - 4, pic_z - 0.01, pen.PALETTE.PRSP.PURPLE, w_anim[1], 4 )
-				pen.new_pixel( help_x + w_anim[1] - 4, help_y + w_anim[2] - 4, pic_z - 0.015, pen.PALETTE.PRSP.BLUE, 3, 4 )
-				pen.new_pixel( help_x + w_anim[1] - 3, help_y + w_anim[2] - 4, pic_z - 0.02, pen.PALETTE.PRSP.PURPLE, 1, 4 )
+				pen.new.pixel( help_x, help_y, pic_z - 0.01, pen.PALETTE.PRSP[ is_hovered and "RED" or "PURPLE" ], w_anim[1], 11 )
+				pen.new.pixel( help_x + w_anim[1] - 4, help_y, pic_z - 0.015, pen.PALETTE.PRSP.BLUE, 3, 11 )
+				pen.new.pixel( help_x + w_anim[1] - 3, help_y, pic_z - 0.02, pen.PALETTE.PRSP.PURPLE, 1, 11 )
+				pen.new.pixel( help_x, help_y + w_anim[2] - 4, pic_z - 0.01, pen.PALETTE.PRSP.PURPLE, w_anim[1], 4 )
+				pen.new.pixel( help_x + w_anim[1] - 4, help_y + w_anim[2] - 4, pic_z - 0.015, pen.PALETTE.PRSP.BLUE, 3, 4 )
+				pen.new.pixel( help_x + w_anim[1] - 3, help_y + w_anim[2] - 4, pic_z - 0.02, pen.PALETTE.PRSP.PURPLE, 1, 4 )
 				
 				local total_num = 11
 				mnee.new_scroller( "mnee_help", help_x, help_y + 11, pic_z, w_anim[1] - 4, w_anim[2] - 15, function( scroll_pos )
-					local dims = pen.new_text( 2, scroll_pos[1], pic_z,
+					local dims = pen.new.text( 2, scroll_pos[1], pic_z,
 						GameTextGet( "$mnee_help"..mnee.G.help_num, mnee.get_binding_keys( "mnee", "menu" ), mnee.get_binding_keys( "mnee", "profile_change" ), mnee.get_binding_keys( "mnee", "off" )), { dims = { w_anim[1] - 10, -1 }, color = pen.PALETTE.PRSP.BLUE, alpha = alpha, fully_featured = true })
 					return { dims[2] + 10, 1 }
 				end, { jpad = true })
@@ -470,14 +477,70 @@ function OnWorldPreUpdate()
 					pen.c.scroll_memo[ "mnee_help" ].py = 0
 				end
 
-				pen.new_image( help_x + 2, help_y + w_anim[2] - 11, pic_z - 0.02, "mods/mnee/files/pics/button_43_B.png" )
-				pen.new_text( help_x + 4, help_y + w_anim[2] - 11, pic_z - 0.025, mnee.G.help_num, { color = pen.PALETTE.PRSP.BLUE })
-				pen.new_text( help_x + 2 + 43/2, help_y + w_anim[2] - 11, pic_z - 0.025, "/", { color = pen.PALETTE.PRSP.BLUE, is_centered_x = true })
-				pen.new_text( help_x + 1 + 43, help_y + w_anim[2] - 11, pic_z - 0.025, total_num, { color = pen.PALETTE.PRSP.BLUE, is_right_x = true })
+				pen.new.image( help_x + 2, help_y + w_anim[2] - 11, pic_z - 0.02, "mods/mnee/files/pics/button_43_B.png" )
+				pen.new.text( help_x + 4, help_y + w_anim[2] - 11, pic_z - 0.025, mnee.G.help_num, { color = pen.PALETTE.PRSP.BLUE })
+				pen.new.text( help_x + 2 + 43/2, help_y + w_anim[2] - 11, pic_z - 0.025, "/", { color = pen.PALETTE.PRSP.BLUE, is_centered_x = true })
+				pen.new.text( help_x + 1 + 43, help_y + w_anim[2] - 11, pic_z - 0.025, total_num, { color = pen.PALETTE.PRSP.BLUE, is_right_x = true })
+			end
+		end
+
+		if( mnee.G.report_active or force_report ) then
+			local report_w, report_h = 250, 150
+			if( mnee.G.pos_report == nil ) then
+				mnee.G.pos_report = {( screen_w - report_w )/2, 50 }
+			end
+
+			local w_anim = {
+				report_w*pen.animate( 1, "report_window",
+					{ ease_in = "exp1.1", ease_out = "wav1.5", frames = 5, stillborn = true }),
+				report_h*pen.animate( 1, "report_window", { ease_out = "sin", frames = 10, stillborn = true })}
+			local report_x, report_y = unpack( mnee.G.pos_report )
+			
+			local clicked, is_hovered = false, false
+			local pic_z = pen.LAYERS.TIPS_BACK + 1.75
+			pen.new.pixel( report_x, report_y, pic_z + 0.01, pen.PALETTE.PRSP.WHITE, w_anim[1], w_anim[2])
+			pen.new.pixel( report_x - 1, report_y - 1, pic_z + 0.015, pen.PALETTE.PRSP.BLUE, w_anim[1] + 2, w_anim[2] + 2 )
+			pen.new.pixel( report_x, report_y + w_anim[2] - 1, pic_z + 0.005, pen.PALETTE.PRSP.PURPLE, w_anim[1], 1 )
+			pen.new.pixel( report_x, report_y, pic_z + 0.005, pen.PALETTE.PRSP.PURPLE, w_anim[1], 1 )
+
+			local alpha = ( w_anim[1]/report_w )*( w_anim[2]/report_h )
+			if( alpha > 0.5 ) then
+				local report = "|"..pen.t.loop_concat( _BINDINGS, function( mod ) return { mod, "|" } end)
+				report = report.."\n \nSERV: "..tostring( GameHasFlagRun( mnee.SERV_MODE )).."\nTOGGLER: "..tostring( GameHasFlagRun( mnee.TOGGLER )).."\nRETOGGLER: "..tostring( GameHasFlagRun( mnee.RETOGGLER )).."\nUPDATER: "..tostring( GlobalsGetValue( mnee.UPDATER, "0" )).."\nPRIO: "..tostring( GlobalsGetValue( mnee.PRIO_MODE, "0" ))
+				report = report.."\n \nJSLOTS: "..pen.t.pack( mnee.stl.jslots ).."\nEXE: "..tostring( GlobalsGetValue( mnee.G_EXE, "" )).."\nDISARMER: "..tostring( GlobalsGetValue( mnee.G_DISARMER, "" )).."\nAXES_MEMO: "..tostring( GlobalsGetValue( mnee.G_AXES_MEMO, "" ))
+				report = report.."\n \nDOWN: "..tostring( GlobalsGetValue( mnee.G_DOWN, "" ))
+				pen.magic_comp( ctrl_body, "VariableStorageComponent", function( comp, v, is_enabled )
+					local name = ComponentGetValue2( comp, "name" )
+					if( string.find( name, "^mnee_down_" ) ~= nil ) then
+						report = report.."\n"..string.upper( name )..": "..ComponentGetValue2( comp, "value_string" )
+					end
+				end)
+				report = report.."\n \nAXES: "..tostring( GlobalsGetValue( mnee.G_AXES, "" ))
+				pen.magic_comp( ctrl_body, "VariableStorageComponent", function( comp, v, is_enabled )
+					local name = ComponentGetValue2( comp, "name" )
+					if( string.find( name, "^mnee_axes_" ) ~= nil ) then
+						report = report.."\n"..string.upper( name )..": "..ComponentGetValue2( comp, "value_string" )
+					end
+				end)
+				report = report.."\n \nTRIGGERS: "..tostring( GlobalsGetValue( mnee.G_TRIGGERS, "" ))
+				pen.magic_comp( ctrl_body, "VariableStorageComponent", function( comp, v, is_enabled )
+					local name = ComponentGetValue2( comp, "name" )
+					if( string.find( name, "^mnee_triggers_" ) ~= nil ) then
+						report = report.."\n"..string.upper( name )..": "..ComponentGetValue2( comp, "value_string" )
+					end
+				end)
+				
+				mnee.new_scroller( "mnee_report", report_x, report_y + 1, pic_z, w_anim[1] - 4, w_anim[2] - 2, function( scroll_pos )
+					local dims = pen.new.text( 2, scroll_pos[1], pic_z,
+						report, { dims = { 240, -1 }, color = pen.PALETTE.PRSP.BLUE, alpha = alpha })
+					return { dims[2] + 10, 1 }
+				end, { jpad = true })
+
+				mnee.G.pos_report[1], mnee.G.pos_report[2], _,_,_, is_hovered = pen.new.dragger( "mnee_report_window", report_x, report_y, w_anim[1], w_anim[2], pic_z + 2, { jpad = true })
 			end
 		end
 	end
-	pen.gui_builder( true )
+	pen.new.builder( true )
 
 	for i,gslot in ipairs( mnee.stl.jslots ) do
 		if(( gslot or mnee.stl.jauto ) and mnee.G.jpad_maps[i] == -1 ) then
@@ -512,7 +575,7 @@ function OnPlayerSpawned( hooman )
 	GlobalsSetValue( mnee.G_DISARMER, pen.DIV_1 )
 	GlobalsSetValue( mnee.G_AXES_MEMO, pen.DIV_1 )
 
-	if( pen.vld( pen.lib )) then
+	if( pen.vld( pen.lib.nxml )) then
 		GlobalsSetValue( pen.GLOBAL_FONT_REMAP, pen.t.pack( pen.t.unarray({
 			["data/fonts/font_pixel.xml"] = "data/fonts/_font_pixel.xml",
 			["data/fonts/font_pixel_noshadow.xml"] = "data/fonts/_font_pixel_noshadow.xml",

@@ -677,12 +677,12 @@ function mnee.new_button( pic_x, pic_y, pic_z, pic, data )
 	data.hov_event = data.hov_event or function( pic_x, pic_y, pic_z, pic, d )
 		if( pen.vld( d.tip )) then
 			pen.uncutter( function( cut_x, cut_y, cut_w, cut_h )
-				return mnee.new_tooltip( d.tip, { is_active = true,
+				return mnee.new_tip( d.tip, { is_active = true,
 					pic_z = d.tip_z, min_width = d.min_width, fid = ( d.jpad or {})[1]})
 			end)
 		end
 		if( d.highlight ) then pen.new.pixel(
-			pic_x - 1, pic_y - 1, pic_z + 0.01, d.highlight,
+			pic_x - 1, pic_y - 1, pic_z + 0.1, d.highlight,
 			( d.s_x or 1 )*d.dims[1] + 2, ( d.s_y or 1 )*d.dims[2] + 2 ) end
 		return pic_x, pic_y, pic_z, pic, d
 	end
@@ -694,7 +694,7 @@ end
 ---@param text? string
 ---@param data? PenmanTooltipData
 ---@return boolean is_active
-function mnee.new_tooltip( text, data )
+function mnee.new_tip( text, data )
 	data = data or {}; data.frames = data.frames or 10
 	if( data.dims == true ) then data.dims = { -1, -1 } end
 	data.text_prefunc = function( text, data )
@@ -721,9 +721,9 @@ function mnee.new_tooltip( text, data )
 		
 		local scale_x = pen.animate({2,size_x}, d.t, { ease_in = "exp1.1", ease_out = "wav1.5", frames = d.frames })
 		local scale_y = pen.animate({2,size_y}, d.t, { ease_out = "sin", frames = d.frames })
-		pen.new.pixel( pic_x, pic_y, pic_z + 0.02,
+		pen.new.pixel( pic_x, pic_y, pic_z + 0.2,
 			pen.PALETTE.PRSP[( d.is_special or false ) and "RED" or "BLUE" ], scale_x, scale_y )
-		pen.new.pixel( pic_x + 1, pic_y + 1, pic_z + 0.01, pen.PALETTE.PRSP.WHITE, scale_x - 2, scale_y - 2 )
+		pen.new.pixel( pic_x + 1, pic_y + 1, pic_z + 0.1, pen.PALETTE.PRSP.WHITE, scale_x - 2, scale_y - 2 )
 	end)
 end
 
@@ -761,11 +761,11 @@ function mnee.new_pager( pic_x, pic_y, pic_z, data )
 	pen.new.image( t_x, t_y, pic_z,
 		"mods/mnee/files/pics/button_21_"..( max_page > 1 and "B" or "A" )..".png", { can_click = true })
 	if( max_page > 1 ) then
-		if( data.profile_mode ) then mnee.new_tooltip( GameTextGet( "$mnee_this_profile" )) end
+		if( data.profile_mode ) then mnee.new_tip( GameTextGet( "$mnee_this_profile" )) end
 
 		local text = data.page..( max_page < 10 and "/"..max_page or "" )
 		if( data.profile_mode ) then text = data.page - 1; text = string.char(( text < 1 and -29 or text ) + 64 ) end
-		pen.new.text( t_x + 2, t_y, pic_z - 0.01, text, { color = pen.PALETTE.PRSP.BLUE })
+		pen.new.text( t_x + 2, t_y, pic_z - 0.1, text, { color = pen.PALETTE.PRSP.BLUE })
 	end
 	
 	return data.page
@@ -791,9 +791,9 @@ function mnee.new_scroller( sid, pic_x, pic_y, pic_z, size_x, size_y, func, data
 	}
 	
 	if( not( data.is_compact )) then
-		pen.new.pixel( pic_x + size_x, pic_y, pic_z - 0.03, pen.PALETTE.PRSP.BLUE, 3, 1 )
-		pen.new.pixel( pic_x + size_x, pic_y + size_y - 1, pic_z - 0.03, pen.PALETTE.PRSP.BLUE, 3, 1 )
-		pen.new.pixel( pic_x + size_x + 1, pic_y, pic_z - 0.08, pen.PALETTE.PRSP.PURPLE, 1, size_y )
+		pen.new.pixel( pic_x + size_x, pic_y, pic_z - 0.3, pen.PALETTE.PRSP.BLUE, 3, 1 )
+		pen.new.pixel( pic_x + size_x, pic_y + size_y - 1, pic_z - 0.3, pen.PALETTE.PRSP.BLUE, 3, 1 )
+		pen.new.pixel( pic_x + size_x + 1, pic_y, pic_z - 0.8, pen.PALETTE.PRSP.PURPLE, 1, size_y )
 	end
 
 	return pen.try( pen.new.scroller, {
@@ -1036,7 +1036,7 @@ pen._new_interface = pen.new.interface
 pen.new.interface = function( pic_x, pic_y, s_x, s_y, pic_z, data )
 	data = data or {}
 	data.jpad = pen.ght( data.jpad )
-	data.emulator = data.emulator or function( pic_x, pic_y, pic_z, s_x, s_y, clicked, r_clicked, is_hovered, data )
+	data.emulator = data.emulator or function( pic_x, pic_y, _, s_x, s_y, clicked, r_clicked, is_hovered, data )
 		if( not( pen.vld( data.jpad[1]))) then return clicked, r_clicked, is_hovered end
 
 		if( pen.vld( pen.c.cutter_dims )) then
@@ -1189,7 +1189,7 @@ pen.new.interface = function( pic_x, pic_y, s_x, s_y, pic_z, data )
 
 		local is_jpad = false
 		if(( k or 0 ) > 0 ) then
-			local z = pen.LAYERS.DEBUG - k
+			local pic_z = pen.LAYERS.DEBUG - k
 			local anim = math.sin( frame_num/15 ) + 1
 			local pic = "mods/mnee/files/pics/corner.png"
 			pen.c.estimator_memo = pen.c.estimator_memo or {}
@@ -1288,34 +1288,34 @@ pen.new.interface = function( pic_x, pic_y, s_x, s_y, pic_z, data )
 			GlobalsSetValue( pen.GLOBAL_JPAD_MUI..k, pen.t.pack({
 				pos[1] + size[1]/2, pos[2] + size[2]/2, frame_num + 3 }))
 			pen.uncutter( function( cut_x, cut_y, cut_w, cut_h )
-				pen.new.image( pos[1] - 1, pos[2] - 1, z, pic,
+				pen.new.image( pos[1] - 1, pos[2] - 1, pic_z, pic,
 					{ color = pen.PALETTE[ "P"..k.."_A" ], s_x = 0.5, s_y = 0.5, alpha = anim })
-				pen.new.image( pos[1] - 1, pos[2] - 1, z + 0.1, pic,
+				pen.new.image( pos[1] - 1, pos[2] - 1, pic_z + 0.1, pic,
 					{ color = pen.PALETTE[ "P"..k.."_B" ], s_x = 0.5, s_y = 0.5, alpha = 0.75 })
-				pen.new.image( pos[1] + size[1] + 1, pos[2] - 1, z, pic,
+				pen.new.image( pos[1] + size[1] + 1, pos[2] - 1, pic_z, pic,
 					{ color = pen.PALETTE[ "P"..k.."_A" ], s_x = -0.5, s_y = 0.5, alpha = 1 - anim })
-				pen.new.image( pos[1] + size[1] + 1, pos[2] - 1, z + 0.1, pic,
+				pen.new.image( pos[1] + size[1] + 1, pos[2] - 1, pic_z + 0.1, pic,
 					{ color = pen.PALETTE[ "P"..k.."_B" ], s_x = -0.5, s_y = 0.5, alpha = 0.75 })
-				pen.new.image( pos[1] - 1, pos[2] + size[2] + 1, z, pic,
+				pen.new.image( pos[1] - 1, pos[2] + size[2] + 1, pic_z, pic,
 					{ color = pen.PALETTE[ "P"..k.."_A" ], s_x = 0.5, s_y = -0.5, alpha = 1 - anim })
-				pen.new.image( pos[1] - 1, pos[2] + size[2] + 1, z + 0.1, pic,
+				pen.new.image( pos[1] - 1, pos[2] + size[2] + 1, pic_z + 0.1, pic,
 					{ color = pen.PALETTE[ "P"..k.."_B" ], s_x = 0.5, s_y = -0.5, alpha = 0.75 })
-				pen.new.image( pos[1] + size[1] + 1, pos[2] + size[2] + 1, z, pic,
+				pen.new.image( pos[1] + size[1] + 1, pos[2] + size[2] + 1, pic_z, pic,
 					{ color = pen.PALETTE[ "P"..k.."_A" ], s_x = -0.5, s_y = -0.5, alpha = anim })
-				pen.new.image( pos[1] + size[1] + 1, pos[2] + size[2] + 1, z + 0.1, pic,
+				pen.new.image( pos[1] + size[1] + 1, pos[2] + size[2] + 1, pic_z + 0.1, pic,
 					{ color = pen.PALETTE[ "P"..k.."_B" ], s_x = -0.5, s_y = -0.5, alpha = 0.75 })
 				
-				pen.new.pixel( pos[1], pos[2], z, pen.PALETTE[ "P"..k.."_A" ], size[1], size[2], 0.1*alpha )
-				pen.new.pixel( pos[1], pos[2], z + 0.1, pen.PALETTE[ "P"..k.."_B" ], size[1], size[2], shadow*alpha )
+				pen.new.pixel( pos[1], pos[2], pic_z, pen.PALETTE[ "P"..k.."_A" ], size[1], size[2], 0.1*alpha )
+				pen.new.pixel( pos[1], pos[2], pic_z + 0.1, pen.PALETTE[ "P"..k.."_B" ], size[1], size[2], shadow*alpha )
 
 				if( cross == 0 ) then return end
 				local c_x, c_y = cross_off[1], cross_off[2]
-				pen.new.pixel( c_x - 3 - 0.5, c_y - 0.5, z - 5.1, pen.PALETTE[ "P"..k.."_A" ], 3, 1, cross )
-				pen.new.pixel( c_x + 1 - 0.5, c_y - 0.5, z - 5.1, pen.PALETTE[ "P"..k.."_A" ], 3, 1, cross )
-				pen.new.pixel( c_x - 0.5, c_y - 3 - 0.5, z - 5.1, pen.PALETTE[ "P"..k.."_A" ], 1, 3, cross )
-				pen.new.pixel( c_x - 0.5, c_y + 1 - 0.5, z - 5.1, pen.PALETTE[ "P"..k.."_A" ], 1, 3, cross )
-				pen.new.pixel( c_x - 500 - 0.5, c_y - 0.5, z - 5, pen.PALETTE[ "P"..k.."_B" ], 1000, 1, 0.1*cross )
-				pen.new.pixel( c_x - 0.5, c_y - 500 - 0.5, z - 5, pen.PALETTE[ "P"..k.."_B" ], 1, 1000, 0.1*cross )
+				pen.new.pixel( c_x - 3 - 0.5, c_y - 0.5, pic_z - 5.1, pen.PALETTE[ "P"..k.."_A" ], 3, 1, cross )
+				pen.new.pixel( c_x + 1 - 0.5, c_y - 0.5, pic_z - 5.1, pen.PALETTE[ "P"..k.."_A" ], 3, 1, cross )
+				pen.new.pixel( c_x - 0.5, c_y - 3 - 0.5, pic_z - 5.1, pen.PALETTE[ "P"..k.."_A" ], 1, 3, cross )
+				pen.new.pixel( c_x - 0.5, c_y + 1 - 0.5, pic_z - 5.1, pen.PALETTE[ "P"..k.."_A" ], 1, 3, cross )
+				pen.new.pixel( c_x - 500 - 0.5, c_y - 0.5, pic_z - 5, pen.PALETTE[ "P"..k.."_B" ], 1000, 1, 0.1*cross )
+				pen.new.pixel( c_x - 0.5, c_y - 500 - 0.5, pic_z - 5, pen.PALETTE[ "P"..k.."_B" ], 1, 1000, 0.1*cross )
 			end)
 		else
 			pen.uncutter( function( cut_x, cut_y, cut_w, cut_h )
@@ -1324,9 +1324,9 @@ pen.new.interface = function( pic_x, pic_y, s_x, s_y, pic_z, data )
 					if( cross == 0 ) then return end
 					local dot = pen.t.pack( GlobalsGetValue( pen.GLOBAL_JPAD_CURSOR..i, "|0|0|" ))
 					if( pen.check_bounds( dot, { s_x, s_y }, { pic_x, pic_y })) then
-						local z = pen.LAYERS.DEBUG - ( i + 5 )
-						pen.new.pixel( pic_x, pic_y, z, pen.PALETTE[ "P"..i.."_A" ], s_x, s_y, 0.2 )
-						pen.new.pixel( pic_x, pic_y, z, pen.PALETTE[ "P"..i.."_B" ], s_x, s_y, 0.1 )
+						local pic_z = pen.LAYERS.DEBUG - ( i + 5 )
+						pen.new.pixel( pic_x, pic_y, pic_z, pen.PALETTE[ "P"..i.."_A" ], s_x, s_y, 0.2 )
+						pen.new.pixel( pic_x, pic_y, pic_z, pen.PALETTE[ "P"..i.."_B" ], s_x, s_y, 0.1 )
 					end
 				end)
 			end)
@@ -1486,7 +1486,7 @@ function pen.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 
 		-- if( pen.vld( d.tip )) then
 		-- 	pen.uncutter( function( cut_x, cut_y, cut_w, cut_h )
-		-- 		return mnee.new_tooltip( d.tip, { is_active = true, min_width = d.min_width })
+		-- 		return mnee.new_tip( d.tip, { is_active = true, min_width = d.min_width })
 		-- 	end)
 		-- end
 		return pic_x, pic_y, pic_z, pic, d
@@ -1722,7 +1722,7 @@ function mnee.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 		local pic_x, pic_y = unpack( pen.t.pack( pen.setting_get( "mnee.KB_POS" )))
 		
 		local no_input = input == ""
-		local pic_z = pen.LAYERS.DEBUG + 1000
+		local pic_z = pen.LAYERS.KEYBOARD
 		for i,key in pairs( board[ layout ]) do
 			local np = ( i == "-" and input == "+" ) or ( i == "8" and input == "*" )
 			local k = key[ kind ] or key[ kind - 2 ] or key[ kind - 4 ] or key[ kind - 6 ]
@@ -1779,7 +1779,7 @@ function mnee.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 		new_x, new_y, state, _, r_clicked, is_hovered = pen.new.dragger( "mnee_kb_dragger_l", pic_x + 1, pic_y + 36, 10, 10, pic_z, { jpad = data.jpad[3]})
 		if( not( pen.epc( new_x - 1, pic_x ) and pen.epc( new_y - 36, pic_y ))) then pen.setting_set( "mnee.KB_POS", pen.t.pack({ new_x - 1, new_y - 36 })) end
 
-		mnee.new_tooltip( GameTextGet( "$mnee_rmb_dragger" ), {
+		mnee.new_tip( GameTextGet( "$mnee_rmb_dragger" ), {
 			is_active = ( state == 0 and is_hovered ), pic_z = pic_z - 10, fid = "dragger_mnee_kb_dragger_l_focus" })
 		pen.new.image( pic_x + 1, pic_y + 35, pic_z + 1.5,
 			"mods/mnee/files/pics/keyboard/dragger_left_"..( is_hovered and "B" or "A" )..".xml" )
@@ -1788,7 +1788,7 @@ function mnee.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 		new_x, new_y, state, _, r_clicked, is_hovered = pen.new.dragger( "mnee_kb_dragger_r", pic_x + 146, pic_y + 36, 10, 10, pic_z, { jpad = data.jpad[3]})
 		if( not( pen.epc( new_x - 146, pic_x ) and pen.epc( new_y - 36, pic_y ))) then pen.setting_set( "mnee.KB_POS", pen.t.pack({ new_x - 146, new_y - 36 })) end
 		
-		mnee.new_tooltip( GameTextGet( "$mnee_rmb_dragger" ), {
+		mnee.new_tip( GameTextGet( "$mnee_rmb_dragger" ), {
 			is_active = ( state == 0 and is_hovered ), pic_z = pic_z - 10, fid = "dragger_mnee_kb_dragger_r_focus" })
 		pen.new.image( pic_x + 145, pic_y + 35, pic_z + 1.5,
 			"mods/mnee/files/pics/keyboard/dragger_right_"..( is_hovered and "B" or "A" )..".xml" )
@@ -1813,11 +1813,11 @@ function mnee.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 		elseif( do_rmb ) then pen.play_sound( pen.TUNES.PRSP.CONFIRM ) end
 		
 		data.jpad = nil
-		mnee.new_tooltip( "", {
+		mnee.new_tip( "", {
 			tid = data.uid, is_active = true, is_special = is_active,
 			dims = { size_x, size_y }, pic_z = pic_z + 0.1, pos = { pic_x - data.edging, pic_y }})
 		if( do_hov ) then pen.new.pixel( pic_x - data.edging - 1, pic_y - 1,
-			pic_z + 0.15, pen.PALETTE.PRSP[ is_active and "BLUE" or "RED" ], size_x + 6, size_y + 6 ) end
+			pic_z + 0.2, pen.PALETTE.PRSP[ is_active and "BLUE" or "RED" ], size_x + 6, size_y + 6 ) end
 		mnee.new_scroller( data.uid.."_scroller", pic_x, pic_y + 1, pic_z, size_x, size_y + 2, function( scroll_pos )
 			if( not( data.no_wrap )) then
 				data.dims = { size_x, -1 } end

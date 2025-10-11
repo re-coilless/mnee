@@ -1825,7 +1825,7 @@ function pen.raytrace_entities( x, y, r, l, hit_action, data )
 
 			if( data.is_debugging ) then
 				local pic_x, pic_y = pen.world2gui( dot_x, dot_y )
-				pen.new.pixel( pic_x - 0.5, pic_y - 0.5, pen.LAYERS.WORLD_BACK, pen.PALETTE.VNL[ will_do and "RUNIC" or "RED" ])
+				pen.new.pixel( pic_x - 0.5, pic_y - 0.5, pen.LAYERS.DEBUG, pen.PALETTE.VNL[ will_do and "RUNIC" or "RED" ])
 			end
 		end
 	end
@@ -4038,7 +4038,7 @@ function pen.new.image( pic_x, pic_y, pic_z, pic, data )
 	if( data.has_shadow ) then
 		local ss_x, ss_y = 1/w + 1, 1/h + 1
 		pen.colourer( gui, pen.PALETTE.SHADOW )
-		GuiZSetForNextWidget( gui, pic_z + 0.001 )
+		GuiZSetForNextWidget( gui, pic_z + 0.01 )
 		GuiOptionsAddForNextWidget( gui, 2 ) --NonInteractive
 		GuiImage( gui, auid, pic_x - 0.5, pic_y - 0.5, pic,
 			math.max( 0.1*( data.alpha or 1 ), 0.05 ), ss_x, ss_y, data.angle or 0, data.anim_type or 2, data.anim or "" )
@@ -4418,7 +4418,7 @@ function pen.new.scroller( sid, pic_x, pic_y, pic_z, size_x, size_y, func, data 
 
 		local step_y = bar_y*( data.scroll_step or 11 )/( new_height - size_y )
 		local out_y = func[2]( sid,
-			pic_x + ( data.is_left and -5 or size_x ), pic_y, pic_z - 0.01, size_x, size_y, bar_height, pos_y, data )
+			pic_x + ( data.is_left and -5 or size_x ), pic_y, pic_z - 0.1, size_x, size_y, bar_height, pos_y, data )
 
 		local new_y = out_y[1][1]
 		local target_y = pen.c.scroll_memo[ sid ].ty
@@ -4476,7 +4476,7 @@ function pen.new.scroller( sid, pic_x, pic_y, pic_z, size_x, size_y, func, data 
 
 		local step_x = bar_x*( data.scroll_step or 11 )/( new_length - size_x )
 		local out_x = func[3]( sid, pic_x,
-			pic_y + ( data.is_top and -5 or size_y ), pic_z - 0.01, size_x, size_y, bar_length, pos_x, data )
+			pic_y + ( data.is_top and -5 or size_y ), pic_z - 0.1, size_x, size_y, bar_length, pos_x, data )
 
 		local new_x = out_x[1][1]
 		local target_x = pen.c.scroll_memo[ sid ].tx
@@ -4572,7 +4572,7 @@ function pen.new.text( pic_x, pic_y, pic_z, text, data )
 		pen.colourer( gui, color, alpha )
 		GuiText( gui, pic_x, pic_y, txt, scale, font, is_pixel )
 		if( not( has_shadow )) then return end
-		GuiZSetForNextWidget( gui, pic_z + 0.001 )
+		GuiZSetForNextWidget( gui, pic_z + 0.01 )
 		pen.colourer( gui, data.color_shadow or pen.PALETTE.SHADOW, math.max( 0.1*alpha, 0.05 ))
 		GuiText( gui, pic_x + scale/2, pic_y + scale/2, txt, scale, font, is_pixel )
 	end
@@ -4772,7 +4772,7 @@ function pen.new.text_srcl( sid, pic_x, pic_y, pic_z, dims, text, data )
 		return pen.new.text( pic_x, pic_y, pic_z, text, data )
 	elseif( dims[2] ~= nil ) then
 		data.dims = { dims[1], -1 }
-		return pen.new.scroller( sid, pic_x, pic_y, pic_z - 0.001, dims[1], dims[2], function( scroll_pos )
+		return pen.new.scroller( sid, pic_x, pic_y, pic_z - 0.01, dims[1], dims[2], function( scroll_pos )
 			local dims = pen.new.text( 0, scroll_pos[1], pic_z, text, data )
 			return { dims[2], 1 }
 		end, data )
@@ -4879,7 +4879,7 @@ function pen.new.tip( text, data, func )
 					GlobalsSetValue( pen.GLOBAL_TIPZ_RESOLVER, 0 )
 					GlobalsSetValue( pen.GLOBAL_TIPZ_RESOLVER_FRAME, frame_num )
 				else
-					z_resolver = tonumber( GlobalsGetValue( pen.GLOBAL_TIPZ_RESOLVER, "0" )) - 0.015
+					z_resolver = tonumber( GlobalsGetValue( pen.GLOBAL_TIPZ_RESOLVER, "0" )) - 0.5
 					GlobalsSetValue( pen.GLOBAL_TIPZ_RESOLVER, z_resolver )
 				end
 				z_resolver = z_resolver - 1
@@ -4914,7 +4914,7 @@ function pen.new.tip( text, data, func )
 			
 			local gui, uid = pen.new.builder()
 			GuiOptionsAddForNextWidget( gui, 2 ) --NonInteractive
-			GuiZSetForNextWidget( gui, pic_z + 0.01 )
+			GuiZSetForNextWidget( gui, pic_z + 0.1 )
 			GuiImageNinePiece( gui, uid,
 				pic_x, pic_y, size_x, size_y,
 				1.15*math.max( 1 - inter_alpha/6, 0.1 ),
@@ -5205,7 +5205,7 @@ pen.FONT_MODS = {
 	end,
 	crossed = function( data, pic_x, pic_y, pic_z, char_data, color, index ) --make this be font height related
 		local off_x, off_y = unpack( char_data.dims )
-		pen.new.pixel( pic_x.g - 1, pic_y.g + ( off_y - 1 )/2, pic_z + 0.001, color, ( off_x + 2 ), 1 )
+		pen.new.pixel( pic_x.g - 1, pic_y.g + ( off_y - 1 )/2, pic_z + 0.01, color, ( off_x + 2 ), 1 )
 	end,
 	underscore = function( data, pic_x, pic_y, pic_z, char_data, color, index ) --make this be font height related
 		local alpha = color[4]
@@ -5223,10 +5223,10 @@ pen.FONT_MODS = {
 		else new_color = char_data.ram.under_color_memo or color end
 		
 		local off_x, off_y = unpack( char_data.dims )
-		pen.new.pixel( pic_x.g, pic_y.g + off_y*0.8, pic_z + 0.001, new_color, off_x, 1, alpha )
+		pen.new.pixel( pic_x.g, pic_y.g + off_y*0.8, pic_z + 0.01, new_color, off_x, 1, alpha )
 	end,
 	shadow = function( data, pic_x, pic_y, pic_z, char_data, color, index )
-		GuiZSetForNextWidget( pen.c.gui_data.g, pic_z + 0.0001 )
+		GuiZSetForNextWidget( pen.c.gui_data.g, pic_z + 0.01 )
 		pen.colourer( nil, pen.PALETTE.SHADOW, 0.5*(( color or {})[4] or 1 ))
 		GuiText( pen.c.gui_data.g, pic_x.l + 0.6, pic_y.l + 0.6, char_data.char, 1, char_data.font[1], char_data.font[2])
 	end,
@@ -5393,7 +5393,7 @@ pen.FONT_MODS = {
 			idt.frame_rendered = frame_num - pen.b2n( is_new )
 			local step_x = idt.pos.c == 0 and 1 or char_data.dims[1]
 			local step_y = is_new and char_data.dims[2] or 0
-			pen.new.pixel( pic_x.g + step_x - 1, pic_y.g + step_y, pic_z + 0.002,
+			pen.new.pixel( pic_x.g + step_x - 1, pic_y.g + step_y, pic_z + 0.02,
 				data.cursor_color or pen.PALETTE.VNL.YELLOW, 1, char_data.dims[2], frame_num%30 < 15 and 1 or 0.1 )
 			if( not( is_new )) then
 				idt.index = index.gbl + ( idt.pos.c == 0 and -1 or 0 ) end
@@ -5411,7 +5411,7 @@ pen.FONT_MODS = {
 			if( _pos_id > h_pos_id ) then local temp = _pos_id; _pos_id = h_pos_id; h_pos_id = temp end
 			local this_pos_id = 10000*index.lin + index.chr
 			if( this_pos_id >= _pos_id and this_pos_id <= h_pos_id ) then
-				pen.new.pixel( pic_x.g, pic_y.g, pic_z + 0.003,
+				pen.new.pixel( pic_x.g, pic_y.g, pic_z + 0.03,
 					data.cursor_color or pen.PALETTE.VNL.YELLOW, char_data.dims[1], char_data.dims[2], 0.25 )
 			end
 		end
@@ -5751,31 +5751,89 @@ pen.TUNES = {
 }
 
 pen.LAYERS = {
-	WORLD_BACK = 10110,
-	WORLD = 10105,
-	WORLD_FRONT = 10100,
-	WORLD_UI = 500,
+	WORLD_BACK = 11000,
+	WORLD = 10500,
+	WORLD_FRONT = 10000,
+	WORLD_UI = 5000,
 	
-	BACKGROUND = 100,
+	BACKGROUND = 1000,
 
-	MAIN_DEEP = 10,
-	MAIN_BACK = 5,
+	MAIN_DEEP = 100,
+	MAIN_BACK = 50,
 	MAIN = 0,
-	MAIN_FRONT = -5,
-	MAIN_UI = -10,
+	MAIN_FRONT = -50,
+	MAIN_OVERLAY = -100,
 
-	ICONS_BACK = -13,
-	ICONS = -15,
-	ICONS_FRONT = -20,
+	ICONS_DEEP = -125,
+	ICONS_BACK = -150,
+	ICONS = -200,
+	ICONS_FRONT = -250,
+	ICONS_OVERLAY = -275,
 
-	FOREGROUND = -100,
+	MENU_BACK = 400,
+	MENU = 500,
+	MENU_FRONT = 600,
 
-	TIPS_BACK = -10100,
-	TIPS = -10105,
-	TIPS_FRONT = -10110,
+	FOREGROUND = -1000,
 
-	DEBUG = -50000,
-	TUTORIAL = -99999,
+	TIPS_BACK = -10000,
+	TIPS = -10500,
+	TIPS_FRONT = -11000,
+
+	HOVER = -25000,
+	TUTORIAL = -50000,
+	KEYBOARD = -90000,
+	DEBUG = -99999,
+
+--[[
+penman
+	debug_world = -pen.LAYERS.DEBUG
+	hew_core = pen.LAYERS.WORLD
+	default_tip = pen.LAYERS.TIPS
+	debug = pen.LAYERS.DEBUG
+mnee
+	global_error = pen.LAYERS.WORLD_BACK + 10
+	core = pen.LAYERS.BACKGROUND + 15
+	reminder = pen.LAYERS.BACKGROUND - 10
+	help = pen.LAYERS.BACKGROUND - 15
+	report = pen.LAYERS.BACKGROUND - 20
+	input = pen.LAYERS.KEYBOARD
+	default_error = pen.LAYERS.DEBUG
+	controller_gui = pen.LAYERS.DEBUG
+index
+	world_invs_marker = pen.LAYERS.WORLD_FRONT + 10
+	pickup_prompt = pen.LAYERS.WORLD_FRONT
+	boss_bars = pen.LAYERS.WORLD_UI + 10
+	pickup_info = pen.LAYERS.WORLD_UI
+	world_tip = pen.LAYERS.WORLD_UI - 10
+	inv_background = pen.LAYERS.BACKGROUND
+	tipping_highlight = pen.LAYERS.BACKGROUND - 5
+	inv_titles = pen.LAYERS.MAIN_DEEP
+	info = pen.LAYERS.MAIN
+	wand = pen.LAYERS.MAIN
+	icons = pen.LAYERS.MAIN
+	bars = pen.LAYERS.MAIN - 5
+	slot_bg = pen.LAYERS.MAIN_FRONT + 10
+	potion_bg = pen.LAYERS.MAIN_FRONT + 5
+	slot_active_dragger = pen.LAYERS.MAIN_FRONT
+	slot_hover = pen.LAYERS.MAIN_FRONT
+	spell_frame_hovered = pen.LAYERS.ICONS
+	default_slot_pic = pen.LAYERS.ICONS
+	spell_frame = pen.LAYERS.ICONS_FRONT + 5
+	slot_active/slot_locked = pen.LAYERS.ICONS_FRONT + 1
+	slot_extra = pen.LAYERS.ICONS_FRONT
+	gmodder = pen.LAYERS.MAIN_OVERLAY
+	logger = pen.LAYERS.MAIN_OVERLAY
+	applet = pen.LAYERS.FOREGROUND
+	applet_icon = pen.LAYERS.FOREGROUND - 5
+	tipping_interface = pen.LAYERS.TIPS_FRONT
+	applet_interface = pen.LAYERS.TIPS_FRONT
+	dragger_rmb_note = pen.LAYERS.TIPS_FRONT
+	dragged_slot = pen.LAYERS.HOVER
+mrshll
+	core = pen.LAYERS.BACKGROUND + 10
+	main_button = pen.LAYERS.FOREGROUND
+]]
 }
 
 pen.INIT_THREADS = {

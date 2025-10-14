@@ -330,7 +330,7 @@ function OnWorldPreUpdate()
 
 	local force_report = pen.setting_get( "mnee.FORCE_REPORT" )
 	if( mnee.mnin( "bind", { "mnee", "menu" }, { pressed = true, vip = true })) then
-		pen.play_sound( pen.TUNES.PRSP[ mnee.G.gui_active and "CLOSE" or "OPEN" ])
+		pen.play_sound( pen.S.PRSP[ mnee.G.gui_active and "CLOSE" or "OPEN" ])
 		if( mnee.G.gui_active ) then mnee.G.help_active = false end
 		mnee.G.gui_active = not( mnee.G.gui_active )
 		if( mnee.G.gui_active ) then pen.atm( "main_window", nil, true ) end
@@ -341,17 +341,17 @@ function OnWorldPreUpdate()
 			GameRemoveFlagRun( mnee.TOGGLER )
 		else GameAddFlagRun( mnee.TOGGLER ) end
 		GamePrint( GameTextGet( table.concat({ "$mnee_", ( has_flag and "" or "no_" ), "input" })))
-		pen.play_sound( pen.TUNES.PRSP[ has_flag and "PICK" or "DROP" ])
+		pen.play_sound( pen.S.PRSP[ has_flag and "PICK" or "DROP" ])
 	end
 	if( mnee.mnin( "bind", { "mnee", "profile_change" }, { pressed = true })) then
 		local prf = pen.setting_get( "mnee.PROFILE" ) == 2 and 3 or 2
 		pen.setting_set( "mnee.PROFILE", prf )
 		GamePrint( GameTextGet( "$mnee_this_profile" )..": "..string.char( prf + 64 ))
-		pen.play_sound( pen.TUNES.PRSP.SWITCH )
+		pen.play_sound( pen.S.PRSP.SWITCH )
 		GlobalsSetValue( mnee.UPDATER, frame_num )
 	end
 	if( not( force_report ) and mnee.mnin( "bind", { "mnee", "report" }, { pressed = true, vip = true })) then
-		pen.play_sound( pen.TUNES.PRSP[ mnee.G.report_active and "CLOSE" or "OPEN" ])
+		pen.play_sound( pen.S.PRSP[ mnee.G.report_active and "CLOSE" or "OPEN" ])
 		mnee.G.report_active = not( mnee.G.report_active )
 		if( mnee.G.report_active ) then pen.atm( "report_window", nil, true ) end
 	end
@@ -370,9 +370,9 @@ function OnWorldPreUpdate()
 
 			pen.setting_set( "mnee.REMINDER", false )
 			pen.try( dofile, "mods/mnee/files/gui.lua", function( log )
-				pen.new.pixel( -5, -5, pen.LAYERS.WORLD_BACK + 11, pen.PALETTE.PRSP.WHITE, screen_w + 10, screen_h + 10 )
-				pen.new.text( screen_w/2, screen_h/2, pen.LAYERS.WORLD_BACK + 10, GameTextGet( "$mnee_error" ), { is_centered = true, color = pen.PALETTE.PRSP.BLUE, fully_featured = true })
-				pen.new.text( screen_w/2, screen_h/2 + 50, pen.LAYERS.WORLD_BACK + 10, mnee.G.m_list.."\n"..log, { is_centered = true, color = pen.PALETTE.PRSP.RED, dims = { 0.75*screen_w, -1 }})
+				pen.new.pixel( -5, -5, pen.Z.WORLD_BACK + 11, pen.P.PRSP.WHITE, screen_w + 10, screen_h + 10 )
+				pen.new.text( screen_w/2, screen_h/2, pen.Z.WORLD_BACK + 10, GameTextGet( "$mnee_error" ), { is_centered = true, color = pen.P.PRSP.BLUE, fully_featured = true })
+				pen.new.text( screen_w/2, screen_h/2 + 50, pen.Z.WORLD_BACK + 10, mnee.G.m_list.."\n"..log, { is_centered = true, color = pen.P.PRSP.RED, dims = { 0.75*screen_w, -1 }})
 			end)
 		elseif( will_remind and pen.setting_get( "mnee.REMINDER" )) then
 			if( frame_num < 600 ) then return end
@@ -380,19 +380,19 @@ function OnWorldPreUpdate()
 			if( count < 2 ) then return end
 			
 			local clicked = false
-			local pic_x, pic_y, pic_z = screen_w/2, screen_h, pen.LAYERS.BACKGROUND - 10
+			local pic_x, pic_y, pic_z = screen_w/2, screen_h, pen.Z.BACKGROUND - 10
 			pic_y = pic_y - 32*pen.animate( 1, "reminder", { ease_out = "wav1", frames = 15 })
 
 			local dims = pen.new.text( pic_x, pic_y + 6, pic_z, GameTextGet( "$mnee_tip", count - 1,
-				mnee.get_binding_keys( "mnee", "menu" )), { is_centered = true, color = pen.PALETTE.PRSP.PURPLE, fully_featured = true })
+				mnee.get_binding_keys( "mnee", "menu" )), { is_centered = true, color = pen.P.PRSP.PURPLE, fully_featured = true })
 			local off = math.max( dims[1]/2 - 80, 40 )
 			
 			clicked = mnee.new_button( pic_x - off - 90,
 				pic_y + 20, pic_z, "mods/mnee/files/pics/button_90_B.png", { jpad = true })
 			pen.new.text( pic_x - off - 90/2, pic_y + 20, pic_z - 0.1,
-				GameTextGet( "$mnee_tipA" ), { is_centered_x = true, color = pen.PALETTE.PRSP.RED })
+				GameTextGet( "$mnee_tipA" ), { is_centered_x = true, color = pen.P.PRSP.RED })
 			if( clicked ) then
-				pen.play_sound( pen.TUNES.PRSP[ mnee.G.gui_active and "CLOSE" or "OPEN" ])
+				pen.play_sound( pen.S.PRSP[ mnee.G.gui_active and "CLOSE" or "OPEN" ])
 				mnee.G.gui_active, mnee.G.help_active = not( mnee.G.gui_active ), false
 				if( mnee.G.gui_active ) then pen.atm( "main_window", nil, true ) end
 			end
@@ -400,24 +400,24 @@ function OnWorldPreUpdate()
 			clicked = mnee.new_button( pic_x + off,
 				pic_y + 20, pic_z, "mods/mnee/files/pics/button_90_A.png", { jpad = true })
 			pen.new.text( pic_x + off + 90/2, pic_y + 20, pic_z - 0.1,
-				GameTextGet( "$mnee_tipB" ), { is_centered_x = true, color = pen.PALETTE.PRSP.WHITE })
+				GameTextGet( "$mnee_tipB" ), { is_centered_x = true, color = pen.P.PRSP.WHITE })
 			if( clicked ) then
 				GameAddFlagRun( mnee.NO_REMINDER )
-				pen.play_sound( pen.TUNES.PRSP.CLOSE )
+				pen.play_sound( pen.S.PRSP.CLOSE )
 				mnee.G.help_active = false
 			end
 
 			clicked = mnee.new_button( pic_x - 5, pic_y + 20, pic_z, "mods/mnee/files/pics/help.png",
-				{ auid = "help_reminder", highlight = pen.PALETTE.PRSP.PURPLE, jpad_vip = true })
+				{ auid = "help_reminder", highlight = pen.P.PRSP.PURPLE, jpad_vip = true })
 			if( clicked ) then
-				pen.play_sound( pen.TUNES.PRSP[ mnee.G.help_active and "CLOSE" or "OPEN" ])
+				pen.play_sound( pen.S.PRSP[ mnee.G.help_active and "CLOSE" or "OPEN" ])
 				mnee.G.help_active = not( mnee.G.help_active )
 				if( mnee.G.help_active ) then pen.atm( "help_window", nil, true ) end
 			end
 
 			off = off + 91
-			pen.new.pixel( pic_x - off - 1, pic_y - 5, pic_z + 0.1, pen.PALETTE.PRSP.WHITE, 2*( off + 1 ), 50 )
-			pen.new.pixel( pic_x - off - 2, pic_y - 6, pic_z + 0.2, pen.PALETTE.PRSP.BLUE, 2*( off + 2 ), 50 )
+			pen.new.pixel( pic_x - off - 1, pic_y - 5, pic_z + 0.1, pen.P.PRSP.WHITE, 2*( off + 1 ), 50 )
+			pen.new.pixel( pic_x - off - 2, pic_y - 6, pic_z + 0.2, pen.P.PRSP.BLUE, 2*( off + 2 ), 50 )
 			pen.new.interface( pic_x - off - 1, pic_y - 5, 2*( off + 1 ), 50, pic_z + 0.1 )
 		end
 
@@ -434,26 +434,26 @@ function OnWorldPreUpdate()
 			local help_x, help_y = unpack( mnee.G.pos_help )
 			
 			local clicked, is_hovered = false, false
-			local pic_z = pen.LAYERS.BACKGROUND - 15
+			local pic_z = pen.Z.BACKGROUND - 15
 			mnee.G.pos_help[1], mnee.G.pos_help[2], _,_,_, is_hovered = pen.new.dragger( "mnee_help_window", help_x, help_y, w_anim[1], 11, pic_z + 0.5, { jpad = true })
-			pen.new.pixel( help_x, help_y, pic_z + 0.1, pen.PALETTE.PRSP.WHITE, w_anim[1], w_anim[2])
-			pen.new.pixel( help_x - 1, help_y - 1, pic_z + 0.2, pen.PALETTE.PRSP.BLUE, w_anim[1] + 2, w_anim[2] + 2 )
+			pen.new.pixel( help_x, help_y, pic_z + 0.1, pen.P.PRSP.WHITE, w_anim[1], w_anim[2])
+			pen.new.pixel( help_x - 1, help_y - 1, pic_z + 0.2, pen.P.PRSP.BLUE, w_anim[1] + 2, w_anim[2] + 2 )
 			
 			local alpha = ( w_anim[1]/help_w )*( w_anim[2]/help_h )
 			if( alpha > 0.5 ) then
 				pen.new.text( help_x + w_anim[1]/2, help_y, pic_z - 0.2,
-					GameTextGet( "$mnee_help"), { is_centered_x = true, color = pen.PALETTE.PRSP.WHITE, alpha = alpha })
-				pen.new.pixel( help_x, help_y, pic_z - 0.1, pen.PALETTE.PRSP[ is_hovered and "RED" or "PURPLE" ], w_anim[1], 11 )
-				pen.new.pixel( help_x + w_anim[1] - 4, help_y, pic_z - 0.2, pen.PALETTE.PRSP.BLUE, 3, 11 )
-				pen.new.pixel( help_x + w_anim[1] - 3, help_y, pic_z - 0.3, pen.PALETTE.PRSP.PURPLE, 1, 11 )
-				pen.new.pixel( help_x, help_y + w_anim[2] - 4, pic_z - 0.1, pen.PALETTE.PRSP.PURPLE, w_anim[1], 4 )
-				pen.new.pixel( help_x + w_anim[1] - 4, help_y + w_anim[2] - 4, pic_z - 0.2, pen.PALETTE.PRSP.BLUE, 3, 4 )
-				pen.new.pixel( help_x + w_anim[1] - 3, help_y + w_anim[2] - 4, pic_z - 0.3, pen.PALETTE.PRSP.PURPLE, 1, 4 )
+					GameTextGet( "$mnee_help"), { is_centered_x = true, color = pen.P.PRSP.WHITE, alpha = alpha })
+				pen.new.pixel( help_x, help_y, pic_z - 0.1, pen.P.PRSP[ is_hovered and "RED" or "PURPLE" ], w_anim[1], 11 )
+				pen.new.pixel( help_x + w_anim[1] - 4, help_y, pic_z - 0.2, pen.P.PRSP.BLUE, 3, 11 )
+				pen.new.pixel( help_x + w_anim[1] - 3, help_y, pic_z - 0.3, pen.P.PRSP.PURPLE, 1, 11 )
+				pen.new.pixel( help_x, help_y + w_anim[2] - 4, pic_z - 0.1, pen.P.PRSP.PURPLE, w_anim[1], 4 )
+				pen.new.pixel( help_x + w_anim[1] - 4, help_y + w_anim[2] - 4, pic_z - 0.2, pen.P.PRSP.BLUE, 3, 4 )
+				pen.new.pixel( help_x + w_anim[1] - 3, help_y + w_anim[2] - 4, pic_z - 0.3, pen.P.PRSP.PURPLE, 1, 4 )
 				
 				local total_num = 11
 				mnee.new_scroller( "mnee_help", help_x, help_y + 11, pic_z, w_anim[1] - 4, w_anim[2] - 15, function( scroll_pos )
 					local dims = pen.new.text( 2, scroll_pos[1], pic_z,
-						GameTextGet( "$mnee_help"..mnee.G.help_num, mnee.get_binding_keys( "mnee", "menu" ), mnee.get_binding_keys( "mnee", "profile_change" ), mnee.get_binding_keys( "mnee", "off" )), { dims = { w_anim[1] - 10, -1 }, color = pen.PALETTE.PRSP.BLUE, alpha = alpha, fully_featured = true })
+						GameTextGet( "$mnee_help"..mnee.G.help_num, mnee.get_binding_keys( "mnee", "menu" ), mnee.get_binding_keys( "mnee", "profile_change" ), mnee.get_binding_keys( "mnee", "off" )), { dims = { w_anim[1] - 10, -1 }, color = pen.P.PRSP.BLUE, alpha = alpha, fully_featured = true })
 					return { dims[2] + 10, 1 }
 				end, { jpad = true })
 
@@ -471,15 +471,15 @@ function OnWorldPreUpdate()
 				end
 
 				if( update ) then
-					pen.play_sound( pen.TUNES.PRSP.SWITCH )
+					pen.play_sound( pen.S.PRSP.SWITCH )
 					pen.c.estimator_memo[ "mnee_help_anim_y" ] = 0
 					pen.c.scroll_memo[ "mnee_help" ].py = 0
 				end
 
 				pen.new.image( help_x + 2, help_y + w_anim[2] - 11, pic_z - 0.3, "mods/mnee/files/pics/button_43_B.png" )
-				pen.new.text( help_x + 4, help_y + w_anim[2] - 11, pic_z - 0.4, mnee.G.help_num, { color = pen.PALETTE.PRSP.BLUE })
-				pen.new.text( help_x + 2 + 43/2, help_y + w_anim[2] - 11, pic_z - 0.4, "/", { color = pen.PALETTE.PRSP.BLUE, is_centered_x = true })
-				pen.new.text( help_x + 1 + 43, help_y + w_anim[2] - 11, pic_z - 0.4, total_num, { color = pen.PALETTE.PRSP.BLUE, is_right_x = true })
+				pen.new.text( help_x + 4, help_y + w_anim[2] - 11, pic_z - 0.4, mnee.G.help_num, { color = pen.P.PRSP.BLUE })
+				pen.new.text( help_x + 2 + 43/2, help_y + w_anim[2] - 11, pic_z - 0.4, "/", { color = pen.P.PRSP.BLUE, is_centered_x = true })
+				pen.new.text( help_x + 1 + 43, help_y + w_anim[2] - 11, pic_z - 0.4, total_num, { color = pen.P.PRSP.BLUE, is_right_x = true })
 			end
 		end
 
@@ -496,11 +496,11 @@ function OnWorldPreUpdate()
 			local report_x, report_y = unpack( mnee.G.pos_report )
 			
 			local clicked, is_hovered = false, false
-			local pic_z = pen.LAYERS.BACKGROUND - 20
-			pen.new.pixel( report_x, report_y, pic_z + 0.1, pen.PALETTE.PRSP.WHITE, w_anim[1], w_anim[2])
-			pen.new.pixel( report_x - 1, report_y - 1, pic_z + 0.2, pen.PALETTE.PRSP.BLUE, w_anim[1] + 2, w_anim[2] + 2 )
-			pen.new.pixel( report_x, report_y + w_anim[2] - 1, pic_z - 0.1, pen.PALETTE.PRSP.PURPLE, w_anim[1], 1 )
-			pen.new.pixel( report_x, report_y, pic_z - 0.1, pen.PALETTE.PRSP.PURPLE, w_anim[1], 1 )
+			local pic_z = pen.Z.BACKGROUND - 20
+			pen.new.pixel( report_x, report_y, pic_z + 0.1, pen.P.PRSP.WHITE, w_anim[1], w_anim[2])
+			pen.new.pixel( report_x - 1, report_y - 1, pic_z + 0.2, pen.P.PRSP.BLUE, w_anim[1] + 2, w_anim[2] + 2 )
+			pen.new.pixel( report_x, report_y + w_anim[2] - 1, pic_z - 0.1, pen.P.PRSP.PURPLE, w_anim[1], 1 )
+			pen.new.pixel( report_x, report_y, pic_z - 0.1, pen.P.PRSP.PURPLE, w_anim[1], 1 )
 
 			local alpha = ( w_anim[1]/report_w )*( w_anim[2]/report_h )
 			if( alpha > 0.5 ) then
@@ -531,7 +531,7 @@ function OnWorldPreUpdate()
 				
 				mnee.new_scroller( "mnee_report", report_x, report_y + 1, pic_z, w_anim[1] - 4, w_anim[2] - 2, function( scroll_pos )
 					local dims = pen.new.text( 2, scroll_pos[1], pic_z,
-						report, { dims = { 240, -1 }, color = pen.PALETTE.PRSP.BLUE, alpha = alpha })
+						report, { dims = { 240, -1 }, color = pen.P.PRSP.BLUE, alpha = alpha })
 					return { dims[2] + 10, 1 }
 				end, { jpad = true })
 
@@ -547,12 +547,12 @@ function OnWorldPreUpdate()
 			if( not( mnee.stl.jauto )) then
 				if(( ctl or -1 ) == -1 ) then
 					GamePrint( GameTextGet( "$mnee_error" ))
-					pen.play_sound( pen.TUNES.PRSP.ERROR )
-				else pen.play_sound( pen.TUNES.PRSP.CONFIRM ) end
+					pen.play_sound( pen.S.PRSP.ERROR )
+				else pen.play_sound( pen.S.PRSP.CONFIRM ) end
 			end
 		elseif( gslot ) then
 			GamePrint( GameTextGet( "$mnee_no_slot" ))
-			pen.play_sound( pen.TUNES.PRSP.ERROR )
+			pen.play_sound( pen.S.PRSP.ERROR )
 		end
 	end
 end

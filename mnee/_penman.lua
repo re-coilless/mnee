@@ -1,6 +1,4 @@
--- if you are using this as a standalone library, it is highly recommended to covert the "pen" table to a local variable
-pen = pen or {} -- replace this line with "local pen = {}"
-
+pen = pen or {}
 pen.t = pen.t or {} -- table funcs
 pen.c = pen.c or {} -- cache table
 pen.new = pen.new or {} -- gui library
@@ -1825,7 +1823,7 @@ function pen.raytrace_entities( x, y, r, l, hit_action, data )
 
 			if( data.is_debugging ) then
 				local pic_x, pic_y = pen.world2gui( dot_x, dot_y )
-				pen.new.pixel( pic_x - 0.5, pic_y - 0.5, pen.LAYERS.DEBUG, pen.PALETTE.VNL[ will_do and "RUNIC" or "RED" ])
+				pen.new.pixel( pic_x - 0.5, pic_y - 0.5, pen.Z.DEBUG, pen.P.VNL[ will_do and "RUNIC" or "RED" ])
 			end
 		end
 	end
@@ -2334,7 +2332,7 @@ function pen.get_color_matter( matter )
 		if( pen.magic_write and not( pen.c.matter_color_file )) then
 			pen.magic_write( pen.FILE_MATTER_COLOR, pen.FILE_XML_MATTER_COLOR )
 			pen.c.matter_color_file = true
-		else return pen.PALETTE.W end
+		else return pen.P.W end
 	end
 
 	local color_probe = EntityLoad( pen.FILE_MATTER_COLOR )
@@ -2347,7 +2345,7 @@ end
 function pen.debug_dot( x, y, data )
 	if( type( data or {}) == "number" ) then
 		GameCreateSpriteForXFrames( pen.FILE_PIC_NUL, x, y, true, 0, 0, frames or 1, true )
-	else x, y = pen.world2gui( x, y ); pen.new.pixel( x - 0.5, y - 0.5, pen.LAYERS.DEBUG, data ) end
+	else x, y = pen.world2gui( x, y ); pen.new.pixel( x - 0.5, y - 0.5, pen.Z.DEBUG, data ) end
 end
 
 function pen.debug_vector( x, y, l, r, is_line )
@@ -2367,8 +2365,8 @@ function pen.debug_vector( x, y, l, r, is_line )
 		r = math.atan2( d_y, d_x )
 	end
 
-	local c0 = pen.magic_rgb( pen.PALETTE.VNL.WARNING, false, "hsv" )[1]
-	local c1, c2, c3 = unpack( pen.magic_rgb( pen.PALETTE.VNL.RUNIC, false, "hsv" ))
+	local c0 = pen.magic_rgb( pen.P.VNL.WARNING, false, "hsv" )[1]
+	local c1, c2, c3 = unpack( pen.magic_rgb( pen.P.VNL.RUNIC, false, "hsv" ))
 	
 	local amount = math.abs( l )
 	local d_c = ( c0 - c1 )/amount
@@ -2378,7 +2376,7 @@ function pen.debug_vector( x, y, l, r, is_line )
 		local off_x, off_y = pen.rot( -0.5, -0.5, r )
 		local pic_x, pic_y = x + i*d_x + off_x, y + i*d_y + off_y
 		local pic_c = pen.magic_rgb({ d_c*i + c1, c2, c3 }, true, "hsv" )
-		pen.new.pixel( pic_x, pic_y, pen.LAYERS.DEBUG, pic_c, nil, nil, 1, r )
+		pen.new.pixel( pic_x, pic_y, pen.Z.DEBUG, pic_c, nil, nil, 1, r )
 	end
 end
 
@@ -2388,10 +2386,10 @@ function pen.debug_print( text, x, y, color )
 		local is_guied = color == true
 		if( not( is_guied )) then
 			pic_x, pic_y = pen.world2gui( x, y ) else color = nil end
-		pen.new.text_shad( pic_x, pic_y, ( is_guied and 1 or -1 )*pen.LAYERS.DEBUG, text, {
-			alpha = 0.5, is_centered_x = true, is_centered_y = true, color = color or pen.PALETTE.VNL.WARNING })
+		pen.new.text_shad( pic_x, pic_y, ( is_guied and 1 or -1 )*pen.Z.DEBUG, text, {
+			alpha = 0.5, is_centered_x = true, is_centered_y = true, color = color or pen.P.VNL.WARNING })
 	else --stolen from fairmod + thanks Nathan
-		color = color or pen.PALETTE.VNL.WARNING
+		color = color or pen.P.VNL.WARNING
 		if( ModIsEnabled( "index_core" )) then
 			local log = GlobalsGetValue( "INDEX_GLOBAL_CUSTOM_LOG", "" )
 			local c = "{-}|"..color[1].."|"..color[2].."|"..color[3].."|"..( color[4] or 1 ).."|{-}"
@@ -3932,13 +3930,13 @@ function pen.new.interface( pic_x, pic_y, s_x, s_y, pic_z, data )
 
 	if( is_hovered ) then
 		if( data.is_debugging ) then
-			pen.new.pixel( local_x, local_y, pen.LAYERS.DEBUG, {255,100,100,0.75}, s_x, s_y, nil, data.angle )
+			pen.new.pixel( local_x, local_y, pen.Z.DEBUG, {255,100,100,0.75}, s_x, s_y, nil, data.angle )
 		end
 		
 		local size = 500
 		local gui = pen.new.builder()
 		pen.c.gui_data.i = pen.c.gui_data.i + 1
-		GuiZSetForNextWidget( gui, pen.LAYERS.DEBUG )
+		GuiZSetForNextWidget( gui, pen.Z.DEBUG )
 		GuiImage( gui, pen.c.gui_data.i, m_x - size, m_y - size, pen.FILE_PIC_NIL, 1, size, size, data.angle or 0 )
 
 		local is_new = tonumber( GlobalsGetValue( pen.GLOBAL_INTERFACE_FRAME, "0" )) ~= frame_num
@@ -3987,7 +3985,7 @@ function pen.new.pixel( pic_x, pic_y, pic_z, c, s_x, s_y, alpha, angle )
 	GuiOptionsAddForNextWidget( gui, 2 ) --NonInteractive
 	pen.c.gui_data.i = pen.c.gui_data.i - 1
 
-	c = pen.ght( c or pen.PALETTE.W )
+	c = pen.ght( c or pen.P.W )
 	GuiColorSetForNextWidget( gui, c[1]/255, ( c[2] or c[1])/255, ( c[3] or c[1])/255, 1 )
 	GuiImage( gui, 1020, pic_x, pic_y, pen.FILE_PIC_NUL, alpha or c[4] or 1, ( s_x or 1 )/2, ( s_y or 1 )/2, angle or 0 )
 end
@@ -4006,9 +4004,8 @@ function pen.new.image( pic_x, pic_y, pic_z, pic, data )
 		local drift_x, drift_y = pen.rot( -w/2, -h/2, angle )
 		pic_x, pic_y = pic_x + drift_x, pic_y + drift_y
 	end
-
-	local is_inside = pen.vld( pen.c.cutter_dims )
-	if( is_inside ) then
+	
+	if( pen.vld( pen.c.cutter_dims ) and not( data.no_culling )) then
 		local r_w, r_h = pen.rot( w, h, angle )
 		local real_x = pen.c.cutter_dims.xy[1] + pic_x
 		if( r_w*pic_x < 0 ) then real_x = real_x + r_w end
@@ -4037,7 +4034,7 @@ function pen.new.image( pic_x, pic_y, pic_z, pic, data )
 		data.alpha or 1, s_x, s_y, angle, data.anim_type or 2, data.anim or "" )
 	if( data.has_shadow ) then
 		local ss_x, ss_y = 1/w + 1, 1/h + 1
-		pen.colourer( gui, pen.PALETTE.SHADOW )
+		pen.colourer( gui, pen.P.SHADOW )
 		GuiZSetForNextWidget( gui, pic_z + 0.01 )
 		GuiOptionsAddForNextWidget( gui, 2 ) --NonInteractive
 		GuiImage( gui, auid, pic_x - 0.5, pic_y - 0.5, pic,
@@ -4230,10 +4227,10 @@ function pen.new.scroller( sid, pic_x, pic_y, pic_z, size_x, size_y, func, data 
 	func[2] = func[2] or function( sid, pic_x, pic_y, pic_z, size_x, size_y, bar_height, bar_y, data )
 		local out = {}
 		local color = data.bar_colors or {
-			pen.PALETTE.VNL.NINE_MAIN, pen.PALETTE.VNL.NINE_ACCENT,
-			pen.PALETTE.VNL.NINE_MAIN_DARK, pen.PALETTE.VNL.NINE_ACCENT_DARK,
-			pen.PALETTE.VNL.NINE_MAIN, pen.PALETTE.VNL.NINE_ACCENT,
-			pen.PALETTE.VNL.NINE_MAIN_DARK, pen.PALETTE.VNL.NINE_ACCENT_DARK,
+			pen.P.VNL.NINE_MAIN, pen.P.VNL.NINE_ACCENT,
+			pen.P.VNL.NINE_MAIN_DARK, pen.P.VNL.NINE_ACCENT_DARK,
+			pen.P.VNL.NINE_MAIN, pen.P.VNL.NINE_ACCENT,
+			pen.P.VNL.NINE_MAIN_DARK, pen.P.VNL.NINE_ACCENT_DARK,
 			{ 0, 0, 0, 0.83 }
 		}
 		color[10] = color[10] or color[9]
@@ -4298,10 +4295,10 @@ function pen.new.scroller( sid, pic_x, pic_y, pic_z, size_x, size_y, func, data 
 	func[3] = func[3] or function( sid, pic_x, pic_y, pic_z, size_x, size_y, bar_length, bar_x, data )
 		local out = {}
 		local color = data.bar_colors or {
-			pen.PALETTE.VNL.NINE_MAIN, pen.PALETTE.VNL.NINE_ACCENT,
-			pen.PALETTE.VNL.NINE_MAIN_DARK, pen.PALETTE.VNL.NINE_ACCENT_DARK,
-			pen.PALETTE.VNL.NINE_MAIN, pen.PALETTE.VNL.NINE_ACCENT,
-			pen.PALETTE.VNL.NINE_MAIN_DARK, pen.PALETTE.VNL.NINE_ACCENT_DARK,
+			pen.P.VNL.NINE_MAIN, pen.P.VNL.NINE_ACCENT,
+			pen.P.VNL.NINE_MAIN_DARK, pen.P.VNL.NINE_ACCENT_DARK,
+			pen.P.VNL.NINE_MAIN, pen.P.VNL.NINE_ACCENT,
+			pen.P.VNL.NINE_MAIN_DARK, pen.P.VNL.NINE_ACCENT_DARK,
 			{ 0, 0, 0, 0.83 }
 		}
 		color[10] = color[10] or color[9]
@@ -4437,7 +4434,7 @@ function pen.new.scroller( sid, pic_x, pic_y, pic_z, size_x, size_y, func, data 
 				else pen.c.scroll_memo[ sid ].ty = math.min( new_y + step_y*ky, pic_y + bar_y + 3 ) end
 			elseif( out_y[i][2]) then pen.c.scroll_memo[ sid ].ty = pic_y + 3 + ( i == 3 and bar_y or 0 ) end
 			if( not( data.go_down or data.go_up ) and ( out_y[i][1] or out_y[i][2])) then
-				pen.play_sound( pen.TUNES.VNL[
+				pen.play_sound( pen.S.VNL[
 					out_y[i][1] == 1 and "HOVER" or ( out_y[i][2] and "CLICK" or "SELECT" )])
 			end
 		end
@@ -4449,7 +4446,7 @@ function pen.new.scroller( sid, pic_x, pic_y, pic_z, size_x, size_y, func, data 
 		is_static = out_y[1][2] ~= 2 or pen.epc( new_y, pos_y )
 		if( not( progress_y >= 0 and progress_y <= 1 )) then
 			pen.c.estimator_memo[ eid_y ] = math.min( math.max( pen.c.estimator_memo[ eid_y ], 0 ), 1 )
-		elseif( not( is_static or is_waiting )) then pen.play_sound( pen.TUNES.VNL.HOVER ) end
+		elseif( not( is_static or is_waiting )) then pen.play_sound( pen.S.VNL.HOVER ) end
 
 		if( old_height ~= new_height ) then
 			if( progress_y ~= 1 and old_height > 0 ) then
@@ -4495,7 +4492,7 @@ function pen.new.scroller( sid, pic_x, pic_y, pic_z, size_x, size_y, func, data 
 				else pen.c.scroll_memo[ sid ].tx = math.min( new_x + step_x*kx, pic_x + bar_x + 3 ) end
 			elseif( out_x[i][2]) then pen.c.scroll_memo[ sid ].tx = pic_x + 3 + ( i == 3 and bar_x or 0 ) end
 			if( not( data.go_right or data.go_left ) and ( out_x[i][1] or out_x[i][2])) then
-				pen.play_sound( pen.TUNES.VNL[
+				pen.play_sound( pen.S.VNL[
 					out_x[i][1] == 1 and "HOVER" or ( out_x[i][2] and "CLICK" or "SELECT" )])
 			end
 		end
@@ -4507,7 +4504,7 @@ function pen.new.scroller( sid, pic_x, pic_y, pic_z, size_x, size_y, func, data 
 		is_static = out_x[1][2] ~= 2 or pen.epc( new_x, pos_x )
 		if( not( progress_x >= 0 and progress_x <= 1 )) then
 			pen.c.estimator_memo[ eid_x ] = math.min( math.max( pen.c.estimator_memo[ eid_x ], 0 ), 1 )
-		elseif( not( is_static or is_waiting )) then pen.play_sound( pen.TUNES.VNL.HOVER ) end
+		elseif( not( is_static or is_waiting )) then pen.play_sound( pen.S.VNL.HOVER ) end
 
 		if( old_length ~= new_length ) then
 			if( progress_x ~= 1 and old_length > 0 ) then
@@ -4528,9 +4525,9 @@ function pen.new.slider( uid, pic_x, pic_y, pic_z, length, data )
 
 	local min_pos = pic_x + 1
 	local max_pos = min_pos + length
-	pen.new.pixel( pic_x, pic_y - 3, pic_z, pen.PALETTE.W, 1, 7 )
-	pen.new.pixel( max_pos + 7, pic_y - 3, pic_z, pen.PALETTE.W, 1, 7 )
-	pen.new.pixel( min_pos + 1 + length*pos, pic_y - 2, pic_z, pen.PALETTE.VNL.YELLOW, 5, 5 )
+	pen.new.pixel( pic_x, pic_y - 3, pic_z, pen.P.W, 1, 7 )
+	pen.new.pixel( max_pos + 7, pic_y - 3, pic_z, pen.P.W, 1, 7 )
+	pen.new.pixel( min_pos + 1 + length*pos, pic_y - 2, pic_z, pen.P.VNL.YELLOW, 5, 5 )
 
 	--scrolling + clicking at the sides
 	--proper visuals
@@ -4573,7 +4570,7 @@ function pen.new.text( pic_x, pic_y, pic_z, text, data )
 		GuiText( gui, pic_x, pic_y, txt, scale, font, is_pixel )
 		if( not( has_shadow )) then return end
 		GuiZSetForNextWidget( gui, pic_z + 0.01 )
-		pen.colourer( gui, data.color_shadow or pen.PALETTE.SHADOW, math.max( 0.1*alpha, 0.05 ))
+		pen.colourer( gui, data.color_shadow or pen.P.SHADOW, math.max( 0.1*alpha, 0.05 ))
 		GuiText( gui, pic_x + scale/2, pic_y + scale/2, txt, scale, font, is_pixel )
 	end
 	
@@ -4703,7 +4700,7 @@ function pen.new.text( pic_x, pic_y, pic_z, text, data )
 			end)
 
 			local char = pen.magic_byte( char_id )
-			local clr = data.color or pen.PALETTE.W
+			local clr = data.color or pen.P.W
 			local font = { data.font, is_pixel_font }
 			local off = { pen.get_char_dims( char, char_id, font[1])}
 			for e,func in ipairs( element.f ) do
@@ -4810,7 +4807,7 @@ function pen.new.tip( text, data, func )
 	data.tid = data.tid or "dft"
 	data.edging = data.edging or 2
 	data.frames = data.frames or 15
-	data.pic_z = data.pic_z or pen.LAYERS.TIPS
+	data.pic_z = data.pic_z or pen.Z.TIPS
 	data.allow_hover = data.allow_hover or false
 	data.do_corrections = data.do_corrections or not( pen.vld( data.pos ))
 	
@@ -5216,7 +5213,7 @@ pen.FONT_MODS = {
 				if( type( new_color[1]) == "string" ) then
 					if( index.lcl == 1 and new_color[3] == "FORCED" ) then
 						char_data.ram.under_color_locked = true end
-					new_color = pen.PALETTE[ new_color[1]][ new_color[2]]
+					new_color = pen.P[ new_color[1]][ new_color[2]]
 				end
 				char_data.ram.under_color_memo = new_color
 			else new_color = color end
@@ -5227,7 +5224,7 @@ pen.FONT_MODS = {
 	end,
 	shadow = function( data, pic_x, pic_y, pic_z, char_data, color, index )
 		GuiZSetForNextWidget( pen.c.gui_data.g, pic_z + 0.01 )
-		pen.colourer( nil, pen.PALETTE.SHADOW, 0.5*(( color or {})[4] or 1 ))
+		pen.colourer( nil, pen.P.SHADOW, 0.5*(( color or {})[4] or 1 ))
 		GuiText( pen.c.gui_data.g, pic_x.l + 0.6, pic_y.l + 0.6, char_data.char, 1, char_data.font[1], char_data.font[2])
 	end,
 	runic = function( data, pic_x, pic_y, pic_z, char_data, color, index )
@@ -5244,7 +5241,7 @@ pen.FONT_MODS = {
 			new_color = pen.t.pack( char_data.extra[ #char_data.extra ])
 			if( pen.vld( new_color )) then
 				if( type( new_color[1]) == "string" ) then
-					new_color = pen.PALETTE[ new_color[1]][ new_color[2]] end
+					new_color = pen.P[ new_color[1]][ new_color[2]] end
 				char_data.ram.color_memo = new_color
 			else new_color = nil end
 		else new_color = char_data.ram.color_memo end
@@ -5289,7 +5286,7 @@ pen.FONT_MODS = {
 			if( r_clicked ) then out[2] = frame_num end
 			if( is_hovered ) then out[3] = frame_num + 5 end
 
-			if( clicked or r_clicked ) then pen.play_sound( pen.TUNES.VNL.CLICK ) end
+			if( clicked or r_clicked ) then pen.play_sound( pen.S.VNL.CLICK ) end
 			return unpack(( clicked or r_clicked or is_hovered ) and out or {})
 		end, { always_update = true, reset_count = 0 })
 
@@ -5322,7 +5319,7 @@ pen.FONT_MODS = {
 
 		local frame_num = GameGetFrameNum()
 		local clicked, r_clicked, is_hovered = pen.cache({ "hyperlink_state", link_id })
-		color = ( clicked or 0 ) == 0 and pen.PALETTE.VNL.MANA or pen.PALETTE.VNL.RED
+		color = ( clicked or 0 ) == 0 and pen.P.VNL.MANA or pen.P.VNL.RED
 		if( frame_num < ( is_hovered or 0 )) then
 			pen.FONT_MODS.underscore( data, pic_x, pic_y, pic_z, char_data, color, index )
 		end
@@ -5394,7 +5391,7 @@ pen.FONT_MODS = {
 			local step_x = idt.pos.c == 0 and 1 or char_data.dims[1]
 			local step_y = is_new and char_data.dims[2] or 0
 			pen.new.pixel( pic_x.g + step_x - 1, pic_y.g + step_y, pic_z + 0.02,
-				data.cursor_color or pen.PALETTE.VNL.YELLOW, 1, char_data.dims[2], frame_num%30 < 15 and 1 or 0.1 )
+				data.cursor_color or pen.P.VNL.YELLOW, 1, char_data.dims[2], frame_num%30 < 15 and 1 or 0.1 )
 			if( not( is_new )) then
 				idt.index = index.gbl + ( idt.pos.c == 0 and -1 or 0 ) end
 			if( frame_num%3 == 0 and pen.vld( pen.c.cutter_dims )) then
@@ -5412,7 +5409,7 @@ pen.FONT_MODS = {
 			local this_pos_id = 10000*index.lin + index.chr
 			if( this_pos_id >= _pos_id and this_pos_id <= h_pos_id ) then
 				pen.new.pixel( pic_x.g, pic_y.g, pic_z + 0.03,
-					data.cursor_color or pen.PALETTE.VNL.YELLOW, char_data.dims[1], char_data.dims[2], 0.25 )
+					data.cursor_color or pen.P.VNL.YELLOW, char_data.dims[1], char_data.dims[2], 0.25 )
 			end
 		end
 
@@ -5598,7 +5595,7 @@ pen.SDF = { --https://iquilezles.org/articles/distfunctions2d/
 	end,
 }
 
-pen.PALETTE = {
+pen.P = {
 	B = {0,0,0}, _="ff000000",
 	ERR = {255,0,0}, _="ffff0000",
 	W = {255,255,255}, _="ffffffff",
@@ -5730,7 +5727,7 @@ pen.PALETTE = {
 	},
 }
 
-pen.TUNES = {
+pen.S = {
 	VNL = {
 		CLICK = {"data/audio/Desktop/ui.bank","ui/button_click"},
 		HOVER = {"data/audio/Desktop/ui.bank","ui/item_move_over_new_slot"},
@@ -5750,7 +5747,7 @@ pen.TUNES = {
 	}
 }
 
-pen.LAYERS = {
+pen.Z = {
 	WORLD_BACK = 11000,
 	WORLD = 10500,
 	WORLD_FRONT = 10000,
@@ -5787,52 +5784,52 @@ pen.LAYERS = {
 
 --[[
 penman
-	debug_world = -pen.LAYERS.DEBUG
-	hew_core = pen.LAYERS.WORLD
-	default_tip = pen.LAYERS.TIPS
-	debug = pen.LAYERS.DEBUG
+	debug_world = -pen.Z.DEBUG
+	hew_core = pen.Z.WORLD
+	default_tip = pen.Z.TIPS
+	debug = pen.Z.DEBUG
 mnee
-	global_error = pen.LAYERS.WORLD_BACK + 10
-	core = pen.LAYERS.BACKGROUND + 15
-	reminder = pen.LAYERS.BACKGROUND - 10
-	help = pen.LAYERS.BACKGROUND - 15
-	report = pen.LAYERS.BACKGROUND - 20
-	input = pen.LAYERS.KEYBOARD
-	default_error = pen.LAYERS.DEBUG
-	controller_gui = pen.LAYERS.DEBUG
+	global_error = pen.Z.WORLD_BACK + 10
+	core = pen.Z.BACKGROUND + 15
+	reminder = pen.Z.BACKGROUND - 10
+	help = pen.Z.BACKGROUND - 15
+	report = pen.Z.BACKGROUND - 20
+	input = pen.Z.KEYBOARD
+	default_error = pen.Z.DEBUG
+	controller_gui = pen.Z.DEBUG
 index
-	world_invs_marker = pen.LAYERS.WORLD_FRONT + 10
-	pickup_prompt = pen.LAYERS.WORLD_FRONT
-	boss_bars = pen.LAYERS.WORLD_UI + 10
-	pickup_info = pen.LAYERS.WORLD_UI
-	world_tip = pen.LAYERS.WORLD_UI - 10
-	inv_background = pen.LAYERS.BACKGROUND
-	tipping_highlight = pen.LAYERS.BACKGROUND - 5
-	inv_titles = pen.LAYERS.MAIN_DEEP
-	info = pen.LAYERS.MAIN
-	wand = pen.LAYERS.MAIN
-	icons = pen.LAYERS.MAIN
-	bars = pen.LAYERS.MAIN - 5
-	slot_bg = pen.LAYERS.MAIN_FRONT + 10
-	potion_bg = pen.LAYERS.MAIN_FRONT + 5
-	slot_active_dragger = pen.LAYERS.MAIN_FRONT
-	slot_hover = pen.LAYERS.MAIN_FRONT
-	spell_frame_hovered = pen.LAYERS.ICONS
-	default_slot_pic = pen.LAYERS.ICONS
-	spell_frame = pen.LAYERS.ICONS_FRONT + 5
-	slot_active/slot_locked = pen.LAYERS.ICONS_FRONT + 1
-	slot_extra = pen.LAYERS.ICONS_FRONT
-	gmodder = pen.LAYERS.MAIN_OVERLAY
-	logger = pen.LAYERS.MAIN_OVERLAY
-	applet = pen.LAYERS.FOREGROUND
-	applet_icon = pen.LAYERS.FOREGROUND - 5
-	tipping_interface = pen.LAYERS.TIPS_FRONT
-	applet_interface = pen.LAYERS.TIPS_FRONT
-	dragger_rmb_note = pen.LAYERS.TIPS_FRONT
-	dragged_slot = pen.LAYERS.HOVER
+	world_invs_marker = pen.Z.WORLD_FRONT + 10
+	pickup_prompt = pen.Z.WORLD_FRONT
+	boss_bars = pen.Z.WORLD_UI + 10
+	pickup_info = pen.Z.WORLD_UI
+	world_tip = pen.Z.WORLD_UI - 10
+	inv_background = pen.Z.BACKGROUND
+	tipping_highlight = pen.Z.BACKGROUND - 5
+	inv_titles = pen.Z.MAIN_DEEP
+	info = pen.Z.MAIN
+	wand = pen.Z.MAIN
+	icons = pen.Z.MAIN
+	bars = pen.Z.MAIN - 5
+	slot_bg = pen.Z.MAIN_FRONT + 10
+	potion_bg = pen.Z.MAIN_FRONT + 5
+	slot_active_dragger = pen.Z.MAIN_FRONT
+	slot_hover = pen.Z.MAIN_FRONT
+	spell_frame_hovered = pen.Z.ICONS
+	default_slot_pic = pen.Z.ICONS
+	spell_frame = pen.Z.ICONS_FRONT + 5
+	slot_active/slot_locked = pen.Z.ICONS_FRONT + 1
+	slot_extra = pen.Z.ICONS_FRONT
+	gmodder = pen.Z.MAIN_OVERLAY
+	logger = pen.Z.MAIN_OVERLAY
+	applet = pen.Z.FOREGROUND
+	applet_icon = pen.Z.FOREGROUND - 5
+	tipping_interface = pen.Z.TIPS_FRONT
+	applet_interface = pen.Z.TIPS_FRONT
+	dragger_rmb_note = pen.Z.TIPS_FRONT
+	dragged_slot = pen.Z.HOVER
 mrshll
-	core = pen.LAYERS.BACKGROUND + 10
-	main_button = pen.LAYERS.FOREGROUND
+	core = pen.Z.BACKGROUND + 10
+	main_button = pen.Z.FOREGROUND
 ]]
 }
 
@@ -8919,7 +8916,7 @@ end
 ---@field min_width number [DFT: 121 ] The minimal width a tooltip can be if the dims field is left empty.
 ---@field max_width number [DFT: 0.9*screen_width ] The maximum width a tooltip can be if the dims field is left empty.
 ---@field pos table [DFT: mouse_pos ]<br> The position of the tooltip on the screen.
----@field pic_z number [DFT: pen.LAYERS.TIPS ]<br> The depth to draw the tooltip at.
+---@field pic_z number [DFT: pen.Z.TIPS ]<br> The depth to draw the tooltip at.
 ---@field is_left boolean [DFT: false ]<br> Will draw the tooltip to the left if set to true.
 ---@field is_over boolean [DFT: false ]<br> Will draw the tooltip up above if set to true.
 ---@field frames number [DFT: 15 ]<br> The duration of the opening animation.
@@ -8965,5 +8962,3 @@ pen.THANKS = { -- alphabetical order (github > steam > message)
 -------------------------------------------------------     [CUSTOM]     -------------------------------------------------------
 
 --<{> MAGIC APPEND MARKER <}>--
-
-return pen

@@ -664,7 +664,7 @@ function mnee.new_button( pic_x, pic_y, pic_z, pic, data )
 	data = data or {}
 	data.ignore_multihover = false
 	data.frames = data.frames or 20
-	data.highlight = data.highlight or pen.PALETTE.PRSP.RED
+	data.highlight = data.highlight or pen.P.PRSP.RED
 	
 	data.lmb_event = data.lmb_event or function( pic_x, pic_y, pic_z, pic, d )
 		if( not( d.no_anim )) then pen.atm( d.auid.."l", nil, true ) end
@@ -715,15 +715,15 @@ function mnee.new_tip( text, data )
 			pen.new.text( pic_x + d.edging, pic_y + d.edging - 2, pic_z, text, {
 				fully_featured = d.fully_featured, --funcs = d.font_mods,
 				dims = { size_x - d.edging, size_y }, line_offset = d.line_offset or -2,
-				color = pen.PALETTE.PRSP.BLUE, alpha = pen.animate( 1, d.t, { ease_in = "exp5", frames = d.frames }),
+				color = pen.P.PRSP.BLUE, alpha = pen.animate( 1, d.t, { ease_in = "exp5", frames = d.frames }),
 			})
 		end
 		
 		local scale_x = pen.animate({2,size_x}, d.t, { ease_in = "exp1.1", ease_out = "wav1.5", frames = d.frames })
 		local scale_y = pen.animate({2,size_y}, d.t, { ease_out = "sin", frames = d.frames })
 		pen.new.pixel( pic_x, pic_y, pic_z + 0.2,
-			pen.PALETTE.PRSP[( d.is_special or false ) and "RED" or "BLUE" ], scale_x, scale_y )
-		pen.new.pixel( pic_x + 1, pic_y + 1, pic_z + 0.1, pen.PALETTE.PRSP.WHITE, scale_x - 2, scale_y - 2 )
+			pen.P.PRSP[( d.is_special or false ) and "RED" or "BLUE" ], scale_x, scale_y )
+		pen.new.pixel( pic_x + 1, pic_y + 1, pic_z + 0.1, pen.P.PRSP.WHITE, scale_x - 2, scale_y - 2 )
 	end)
 end
 
@@ -754,8 +754,8 @@ function mnee.new_pager( pic_x, pic_y, pic_z, data )
 		click = { clicked[1] and 1 or ( r_clicked[1] and -1 or 0 ), clicked[2] and 1 or ( r_clicked[2] and -1 or 0 )}
 	})
 	if( sfx_type == 1 ) then
-		pen.play_sound( pen.TUNES.PRSP.CLICK_ALT )
-	elseif( sfx_type == -1 ) then pen.play_sound( pen.TUNES.PRSP.SWITCH ) end
+		pen.play_sound( pen.S.PRSP.CLICK_ALT )
+	elseif( sfx_type == -1 ) then pen.play_sound( pen.S.PRSP.SWITCH ) end
 	
 	if( data.compact_mode ) then t_y = t_y - 11 else t_x = pic_x + 11 end
 	pen.new.image( t_x, t_y, pic_z,
@@ -765,7 +765,7 @@ function mnee.new_pager( pic_x, pic_y, pic_z, data )
 
 		local text = data.page..( max_page < 10 and "/"..max_page or "" )
 		if( data.profile_mode ) then text = data.page - 1; text = string.char(( text < 1 and -29 or text ) + 64 ) end
-		pen.new.text( t_x + 2, t_y, pic_z - 0.1, text, { color = pen.PALETTE.PRSP.BLUE })
+		pen.new.text( t_x + 2, t_y, pic_z - 0.1, text, { color = pen.P.PRSP.BLUE })
 	end
 	
 	return data.page
@@ -783,26 +783,26 @@ end
 function mnee.new_scroller( sid, pic_x, pic_y, pic_z, size_x, size_y, func, data )
 	data = data or {}
 	data.bar_colors = data.bar_colors or {
-		pen.PALETTE.PRSP[ data.is_compact and "PURPLE" or "BLUE" ], pen.PALETTE.PRSP.RED,
-		pen.PALETTE.PRSP[ data.is_compact and "PURPLE" or "BLUE" ], pen.PALETTE.PRSP.RED,
-		pen.PALETTE.PRSP[ data.is_compact and "PURPLE" or "BLUE" ], pen.PALETTE.PRSP.RED,
-		pen.PALETTE.PRSP[ data.is_compact and "PURPLE" or "BLUE" ], pen.PALETTE.PRSP.RED,
-		pen.PALETTE.PRSP.PURPLE, pen.PALETTE.PRSP.BLUE
+		pen.P.PRSP[ data.is_compact and "PURPLE" or "BLUE" ], pen.P.PRSP.RED,
+		pen.P.PRSP[ data.is_compact and "PURPLE" or "BLUE" ], pen.P.PRSP.RED,
+		pen.P.PRSP[ data.is_compact and "PURPLE" or "BLUE" ], pen.P.PRSP.RED,
+		pen.P.PRSP[ data.is_compact and "PURPLE" or "BLUE" ], pen.P.PRSP.RED,
+		pen.P.PRSP.PURPLE, pen.P.PRSP.BLUE
 	}
 	
 	if( not( data.is_compact )) then
-		pen.new.pixel( pic_x + size_x, pic_y, pic_z - 0.3, pen.PALETTE.PRSP.BLUE, 3, 1 )
-		pen.new.pixel( pic_x + size_x, pic_y + size_y - 1, pic_z - 0.3, pen.PALETTE.PRSP.BLUE, 3, 1 )
-		pen.new.pixel( pic_x + size_x + 1, pic_y, pic_z - 0.8, pen.PALETTE.PRSP.PURPLE, 1, size_y )
+		pen.new.pixel( pic_x + size_x, pic_y, pic_z - 0.3, pen.P.PRSP.BLUE, 3, 1 )
+		pen.new.pixel( pic_x + size_x, pic_y + size_y - 1, pic_z - 0.3, pen.P.PRSP.BLUE, 3, 1 )
+		pen.new.pixel( pic_x + size_x + 1, pic_y, pic_z - 0.8, pen.P.PRSP.PURPLE, 1, size_y )
 	end
 
 	return pen.try( pen.new.scroller, {
 		sid, pic_x, pic_y, pic_z, size_x, size_y, func, data
 	}, function( log, _, pic_x, pic_y )
-		pen.new.text_shad( pic_x, pic_y - 11, pen.LAYERS.DEBUG,
-			mnee.G.m_list, { color = pen.PALETTE.PRSP.RED, color_shadow = pen.PALETTE.PRSP.BLUE })
-		pen.new.text_shad( pic_x, pic_y, pen.LAYERS.DEBUG, log, {
-			color = pen.PALETTE.PRSP.RED, color_shadow = pen.PALETTE.PRSP.BLUE, dims = { size_x - 1, -1 }})
+		pen.new.text_shad( pic_x, pic_y - 11, pen.Z.DEBUG,
+			mnee.G.m_list, { color = pen.P.PRSP.RED, color_shadow = pen.P.PRSP.BLUE })
+		pen.new.text_shad( pic_x, pic_y, pen.Z.DEBUG, log, {
+			color = pen.P.PRSP.RED, color_shadow = pen.P.PRSP.BLUE, dims = { size_x - 1, -1 }})
 	end)
 end
 
@@ -1189,7 +1189,7 @@ pen.new.interface = function( pic_x, pic_y, s_x, s_y, pic_z, data )
 
 		local is_jpad = false
 		if(( k or 0 ) > 0 ) then
-			local pic_z = pen.LAYERS.DEBUG - k
+			local pic_z = pen.Z.DEBUG - k
 			local anim = math.sin( frame_num/15 ) + 1
 			local pic = "mods/mnee/files/pics/corner.png"
 			pen.c.estimator_memo = pen.c.estimator_memo or {}
@@ -1289,33 +1289,33 @@ pen.new.interface = function( pic_x, pic_y, s_x, s_y, pic_z, data )
 				pos[1] + size[1]/2, pos[2] + size[2]/2, frame_num + 3 }))
 			pen.uncutter( function( cut_x, cut_y, cut_w, cut_h )
 				pen.new.image( pos[1] - 1, pos[2] - 1, pic_z, pic,
-					{ color = pen.PALETTE[ "P"..k.."_A" ], s_x = 0.5, s_y = 0.5, alpha = anim })
+					{ color = pen.P[ "P"..k.."_A" ], s_x = 0.5, s_y = 0.5, alpha = anim })
 				pen.new.image( pos[1] - 1, pos[2] - 1, pic_z + 0.1, pic,
-					{ color = pen.PALETTE[ "P"..k.."_B" ], s_x = 0.5, s_y = 0.5, alpha = 0.75 })
+					{ color = pen.P[ "P"..k.."_B" ], s_x = 0.5, s_y = 0.5, alpha = 0.75 })
 				pen.new.image( pos[1] + size[1] + 1, pos[2] - 1, pic_z, pic,
-					{ color = pen.PALETTE[ "P"..k.."_A" ], s_x = -0.5, s_y = 0.5, alpha = 1 - anim })
+					{ color = pen.P[ "P"..k.."_A" ], s_x = -0.5, s_y = 0.5, alpha = 1 - anim })
 				pen.new.image( pos[1] + size[1] + 1, pos[2] - 1, pic_z + 0.1, pic,
-					{ color = pen.PALETTE[ "P"..k.."_B" ], s_x = -0.5, s_y = 0.5, alpha = 0.75 })
+					{ color = pen.P[ "P"..k.."_B" ], s_x = -0.5, s_y = 0.5, alpha = 0.75 })
 				pen.new.image( pos[1] - 1, pos[2] + size[2] + 1, pic_z, pic,
-					{ color = pen.PALETTE[ "P"..k.."_A" ], s_x = 0.5, s_y = -0.5, alpha = 1 - anim })
+					{ color = pen.P[ "P"..k.."_A" ], s_x = 0.5, s_y = -0.5, alpha = 1 - anim })
 				pen.new.image( pos[1] - 1, pos[2] + size[2] + 1, pic_z + 0.1, pic,
-					{ color = pen.PALETTE[ "P"..k.."_B" ], s_x = 0.5, s_y = -0.5, alpha = 0.75 })
+					{ color = pen.P[ "P"..k.."_B" ], s_x = 0.5, s_y = -0.5, alpha = 0.75 })
 				pen.new.image( pos[1] + size[1] + 1, pos[2] + size[2] + 1, pic_z, pic,
-					{ color = pen.PALETTE[ "P"..k.."_A" ], s_x = -0.5, s_y = -0.5, alpha = anim })
+					{ color = pen.P[ "P"..k.."_A" ], s_x = -0.5, s_y = -0.5, alpha = anim })
 				pen.new.image( pos[1] + size[1] + 1, pos[2] + size[2] + 1, pic_z + 0.1, pic,
-					{ color = pen.PALETTE[ "P"..k.."_B" ], s_x = -0.5, s_y = -0.5, alpha = 0.75 })
+					{ color = pen.P[ "P"..k.."_B" ], s_x = -0.5, s_y = -0.5, alpha = 0.75 })
 				
-				pen.new.pixel( pos[1], pos[2], pic_z, pen.PALETTE[ "P"..k.."_A" ], size[1], size[2], 0.1*alpha )
-				pen.new.pixel( pos[1], pos[2], pic_z + 0.1, pen.PALETTE[ "P"..k.."_B" ], size[1], size[2], shadow*alpha )
+				pen.new.pixel( pos[1], pos[2], pic_z, pen.P[ "P"..k.."_A" ], size[1], size[2], 0.1*alpha )
+				pen.new.pixel( pos[1], pos[2], pic_z + 0.1, pen.P[ "P"..k.."_B" ], size[1], size[2], shadow*alpha )
 
 				if( cross == 0 ) then return end
 				local c_x, c_y = cross_off[1], cross_off[2]
-				pen.new.pixel( c_x - 3 - 0.5, c_y - 0.5, pic_z - 5.1, pen.PALETTE[ "P"..k.."_A" ], 3, 1, cross )
-				pen.new.pixel( c_x + 1 - 0.5, c_y - 0.5, pic_z - 5.1, pen.PALETTE[ "P"..k.."_A" ], 3, 1, cross )
-				pen.new.pixel( c_x - 0.5, c_y - 3 - 0.5, pic_z - 5.1, pen.PALETTE[ "P"..k.."_A" ], 1, 3, cross )
-				pen.new.pixel( c_x - 0.5, c_y + 1 - 0.5, pic_z - 5.1, pen.PALETTE[ "P"..k.."_A" ], 1, 3, cross )
-				pen.new.pixel( c_x - 500 - 0.5, c_y - 0.5, pic_z - 5, pen.PALETTE[ "P"..k.."_B" ], 1000, 1, 0.1*cross )
-				pen.new.pixel( c_x - 0.5, c_y - 500 - 0.5, pic_z - 5, pen.PALETTE[ "P"..k.."_B" ], 1, 1000, 0.1*cross )
+				pen.new.pixel( c_x - 3 - 0.5, c_y - 0.5, pic_z - 5.1, pen.P[ "P"..k.."_A" ], 3, 1, cross )
+				pen.new.pixel( c_x + 1 - 0.5, c_y - 0.5, pic_z - 5.1, pen.P[ "P"..k.."_A" ], 3, 1, cross )
+				pen.new.pixel( c_x - 0.5, c_y - 3 - 0.5, pic_z - 5.1, pen.P[ "P"..k.."_A" ], 1, 3, cross )
+				pen.new.pixel( c_x - 0.5, c_y + 1 - 0.5, pic_z - 5.1, pen.P[ "P"..k.."_A" ], 1, 3, cross )
+				pen.new.pixel( c_x - 500 - 0.5, c_y - 0.5, pic_z - 5, pen.P[ "P"..k.."_B" ], 1000, 1, 0.1*cross )
+				pen.new.pixel( c_x - 0.5, c_y - 500 - 0.5, pic_z - 5, pen.P[ "P"..k.."_B" ], 1, 1000, 0.1*cross )
 			end)
 		else
 			pen.uncutter( function( cut_x, cut_y, cut_w, cut_h )
@@ -1324,9 +1324,9 @@ pen.new.interface = function( pic_x, pic_y, s_x, s_y, pic_z, data )
 					if( cross == 0 ) then return end
 					local dot = pen.t.pack( GlobalsGetValue( pen.GLOBAL_JPAD_CURSOR..i, "|0|0|" ))
 					if( pen.check_bounds( dot, { s_x, s_y }, { pic_x, pic_y })) then
-						local pic_z = pen.LAYERS.DEBUG - ( i + 5 )
-						pen.new.pixel( pic_x, pic_y, pic_z, pen.PALETTE[ "P"..i.."_A" ], s_x, s_y, 0.2 )
-						pen.new.pixel( pic_x, pic_y, pic_z, pen.PALETTE[ "P"..i.."_B" ], s_x, s_y, 0.1 )
+						local pic_z = pen.Z.DEBUG - ( i + 5 )
+						pen.new.pixel( pic_x, pic_y, pic_z, pen.P[ "P"..i.."_A" ], s_x, s_y, 0.2 )
+						pen.new.pixel( pic_x, pic_y, pic_z, pen.P[ "P"..i.."_B" ], s_x, s_y, 0.1 )
 					end
 				end)
 			end)
@@ -1641,8 +1641,8 @@ function pen.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 
 	data.vis_func = data.vis_func or function( pic_x, pic_y, pic_z, size_x, size_y, is_active, do_lmb, do_rmb, do_hov, t, data )
 		if( do_lmb ) then
-			pen.play_sound( pen.TUNES.VNL[ is_active and "RESET" or "CLICK" ])
-		elseif( do_rmb ) then pen.play_sound( pen.TUNES.VNL.BUY ) end
+			pen.play_sound( pen.S.VNL[ is_active and "RESET" or "CLICK" ])
+		elseif( do_rmb ) then pen.play_sound( pen.S.VNL.BUY ) end
 		
 		data.jpad = nil
 		pen.new.tip( "", {
@@ -1655,7 +1655,7 @@ function pen.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 				t = pen.c.input_data.buffer
 				data.no_culling, data.fully_featured = true, true
 				pen.new.text( scroll_pos[2], scroll_pos[1], pic_z - 1, "{>cursor>{"..( t or "" ).."}<cursor<}", data )
-			elseif( do_hov ) then data.color = pen.PALETTE.VNL.YELLOW end
+			elseif( do_hov ) then data.color = pen.P.VNL.YELLOW end
 			
 			data.no_culling, data.fully_featured = false, false
 			local dims, new_line = pen.new.text( scroll_pos[2], scroll_pos[1], pic_z, t, data )
@@ -1722,7 +1722,7 @@ function mnee.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 		local pic_x, pic_y = unpack( pen.t.pack( pen.setting_get( "mnee.KB_POS" )))
 		
 		local no_input = input == ""
-		local pic_z = pen.LAYERS.KEYBOARD
+		local pic_z = pen.Z.KEYBOARD
 		for i,key in pairs( board[ layout ]) do
 			local np = ( i == "-" and input == "+" ) or ( i == "8" and input == "*" )
 			local k = key[ kind ] or key[ kind - 2 ] or key[ kind - 4 ] or key[ kind - 6 ]
@@ -1771,7 +1771,7 @@ function mnee.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 			_r_clicked = mnee.mnin( "bind", { "mnee", "clipboard" }, { pressed = true, vip = true }),
 			tip = { GameTextGet( "$mnee_this_layout", meta[ layout ][""].name ),
 			GameTextGet( "$mnee_rmb_layout" )}, tip_z = pic_z - 10, jpad = data.jpad[3]})
-		if( clicked ) then pen.play_sound( pen.TUNES.PRSP.SWITCH );
+		if( clicked ) then pen.play_sound( pen.S.PRSP.SWITCH );
 			pen.setting_set( "mnee.KB_LAYOUT", layout >= #board and 1 or layout + 1 ) end
 		if( clicked or r_clicked ) then input = "" end
 		mnee.ignore_service_mode = nil
@@ -1806,18 +1806,18 @@ function mnee.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 
 		return input
 	end
-	data.cursor_color = pen.PALETTE.PRSP.RED
+	data.cursor_color = pen.P.PRSP.RED
 	data.vis_func = function( pic_x, pic_y, pic_z, size_x, size_y, is_active, do_lmb, do_rmb, do_hov, t, data )
 		if( do_lmb ) then
-			pen.play_sound( pen.TUNES.PRSP[ is_active and "DROP" or "PICK" ])
-		elseif( do_rmb ) then pen.play_sound( pen.TUNES.PRSP.CONFIRM ) end
+			pen.play_sound( pen.S.PRSP[ is_active and "DROP" or "PICK" ])
+		elseif( do_rmb ) then pen.play_sound( pen.S.PRSP.CONFIRM ) end
 		
 		data.jpad = nil
 		mnee.new_tip( "", {
 			tid = data.uid, is_active = true, is_special = is_active,
 			dims = { size_x, size_y }, pic_z = pic_z + 0.1, pos = { pic_x - data.edging, pic_y }})
 		if( do_hov ) then pen.new.pixel( pic_x - data.edging - 1, pic_y - 1,
-			pic_z + 0.2, pen.PALETTE.PRSP[ is_active and "BLUE" or "RED" ], size_x + 6, size_y + 6 ) end
+			pic_z + 0.2, pen.P.PRSP[ is_active and "BLUE" or "RED" ], size_x + 6, size_y + 6 ) end
 		mnee.new_scroller( data.uid.."_scroller", pic_x, pic_y + 1, pic_z, size_x, size_y + 2, function( scroll_pos )
 			if( not( data.no_wrap )) then
 				data.dims = { size_x, -1 } end
@@ -1828,7 +1828,7 @@ function mnee.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 			end
 
 			data.no_culling, data.fully_featured = false, false
-			data.color = pen.PALETTE.PRSP[ is_active and "BLUE" or ( do_hov and "RED" or "BLUE" )]
+			data.color = pen.P.PRSP[ is_active and "BLUE" or ( do_hov and "RED" or "BLUE" )]
 			local dims, new_line = pen.new.text( scroll_pos[2], scroll_pos[1] - 1, pic_z, t, data )
 			return { dims[2] + ( string.sub( t, -1, -1 ) == "\n" and new_line or 0 ) + 1, dims[1]}
 		end, data )
@@ -1837,8 +1837,8 @@ function mnee.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 	return pen.try( pen.new_input, {
 		iid, pic_x, pic_y, pic_z, size_x, size_y, text, data
 	}, function( log, _, pic_x, pic_y )
-		pen.new.text_shad( pic_x, pic_y, pen.LAYERS.DEBUG, log, {
-			color = pen.PALETTE.PRSP.RED, color_shadow = pen.PALETTE.PRSP.BLUE, dims = { size_x - 1, -1 }})
+		pen.new.text_shad( pic_x, pic_y, pen.Z.DEBUG, log, {
+			color = pen.P.PRSP.RED, color_shadow = pen.P.PRSP.BLUE, dims = { size_x - 1, -1 }})
 	end)
 end
 
@@ -1871,7 +1871,7 @@ mnee.BANNED_KEYS = pen.t.unarray({
 	"left_windows", "right_windows",
 })
 
-pen.TUNES.PRSP = {
+pen.S.PRSP = {
 	CLICK = {"mods/mnee/files/mnee.bank","button_generic"},
 	CLICK_ALT = {"mods/mnee/files/mnee.bank","button_special"},
 	SELECT = {"mods/mnee/files/mnee.bank","select"},

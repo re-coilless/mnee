@@ -315,8 +315,8 @@ mod_settings =
 		scope = MOD_SETTING_SCOPE_RUNTIME,
 	},
 	{
-		id = "FOLDED_NODES",
-		ui_name = "Folded Nodes",
+		id = "UNFOLDED_NODES",
+		ui_name = "Unfolded Nodes",
 		ui_description = "",
 		hidden = true,
 		value_default = "",

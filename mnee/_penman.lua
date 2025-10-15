@@ -3990,6 +3990,24 @@ function pen.new.pixel( pic_x, pic_y, pic_z, c, s_x, s_y, alpha, angle )
 	GuiImage( gui, 1020, pic_x, pic_y, pen.FILE_PIC_NUL, alpha or c[4] or 1, ( s_x or 1 )/2, ( s_y or 1 )/2, angle or 0 )
 end
 
+function pen.is_culled( x, y, w, h, a )
+	local screen_w, screen_h = pen.get_screen_data()
+	local screen = { xy = { 0, 0 }, wh = { screen_w, screen_h }}
+	return pen.t.loop({ screen, pen.c.cutter_dims }, function( i, dims )
+		local was_outer = false
+		local real_w, real_h = pen.rot( w, h, a )
+		
+		local real_x = dims.xy[1] + x
+		if( x < 0 ) then real_x, was_outer = real_x + real_w, true end
+		local real_y = dims.xy[2] + y
+		if( y < 0 ) then real_y, was_outer = real_y + real_h, true end
+
+		if( not( was_outer ) or ( real_x <= dims.xy[1] and real_y <= dims.xy[2])) then
+			if( not( pen.check_bounds({ real_x, real_y }, dims.wh, dims.xy ))) then return true end
+		end
+	end)
+end
+
 function pen.new.image( pic_x, pic_y, pic_z, pic, data )
 	if( not( pen.vld( pic ))) then return end
 	
@@ -4004,16 +4022,9 @@ function pen.new.image( pic_x, pic_y, pic_z, pic, data )
 		local drift_x, drift_y = pen.rot( -w/2, -h/2, angle )
 		pic_x, pic_y = pic_x + drift_x, pic_y + drift_y
 	end
-	
-	if( pen.vld( pen.c.cutter_dims ) and not( data.no_culling )) then
-		local r_w, r_h = pen.rot( w, h, angle )
-		local real_x = pen.c.cutter_dims.xy[1] + pic_x
-		if( r_w*pic_x < 0 ) then real_x = real_x + r_w end
-		local real_y = pen.c.cutter_dims.xy[2] + pic_y
-		if( r_h*pic_y < 0 ) then real_y = real_y + r_h end
-		if( not( pen.check_bounds({ real_x, real_y }, pen.c.cutter_dims.wh, pen.c.cutter_dims.xy ))) then return end
-	end
-	
+
+	if( not( data.no_culling ) and pen.is_culled( pic_x, pic_y, w, h, angle )) then return end
+
 	local auid = data.auid
 	local gui = pen.c.anim_guis[ auid ]
 	local will_anim = is_anim and auid

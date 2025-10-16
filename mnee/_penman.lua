@@ -2332,7 +2332,7 @@ function pen.get_color_matter( matter )
 		if( pen.magic_write and not( pen.c.matter_color_file )) then
 			pen.magic_write( pen.FILE_MATTER_COLOR, pen.FILE_XML_MATTER_COLOR )
 			pen.c.matter_color_file = true
-		else return pen.P.W end
+		else return pen.P.WHITE end
 	end
 
 	local color_probe = EntityLoad( pen.FILE_MATTER_COLOR )
@@ -3985,7 +3985,7 @@ function pen.new.pixel( pic_x, pic_y, pic_z, c, s_x, s_y, alpha, angle )
 	GuiOptionsAddForNextWidget( gui, 2 ) --NonInteractive
 	pen.c.gui_data.i = pen.c.gui_data.i - 1
 
-	c = pen.ght( c or pen.P.W )
+	c = pen.ght( c or pen.P.WHITE )
 	GuiColorSetForNextWidget( gui, c[1]/255, ( c[2] or c[1])/255, ( c[3] or c[1])/255, 1 )
 	GuiImage( gui, 1020, pic_x, pic_y, pen.FILE_PIC_NUL, alpha or c[4] or 1, ( s_x or 1 )/2, ( s_y or 1 )/2, angle or 0 )
 end
@@ -4536,8 +4536,8 @@ function pen.new.slider( uid, pic_x, pic_y, pic_z, length, data )
 
 	local min_pos = pic_x + 1
 	local max_pos = min_pos + length
-	pen.new.pixel( pic_x, pic_y - 3, pic_z, pen.P.W, 1, 7 )
-	pen.new.pixel( max_pos + 7, pic_y - 3, pic_z, pen.P.W, 1, 7 )
+	pen.new.pixel( pic_x, pic_y - 3, pic_z, pen.P.WHITE, 1, 7 )
+	pen.new.pixel( max_pos + 7, pic_y - 3, pic_z, pen.P.WHITE, 1, 7 )
 	pen.new.pixel( min_pos + 1 + length*pos, pic_y - 2, pic_z, pen.P.VNL.YELLOW, 5, 5 )
 
 	--scrolling + clicking at the sides
@@ -4711,7 +4711,7 @@ function pen.new.text( pic_x, pic_y, pic_z, text, data )
 			end)
 
 			local char = pen.magic_byte( char_id )
-			local clr = data.color or pen.P.W
+			local clr = data.color or pen.P.WHITE
 			local font = { data.font, is_pixel_font }
 			local off = { pen.get_char_dims( char, char_id, font[1])}
 			for e,func in ipairs( element.f ) do
@@ -5159,6 +5159,246 @@ pen.DIV_2 = "!"
 
 pen.CACHE_RESET_DELAY = 20000
 
+pen.P = {
+	ERR = {255,0,0}, _="ffff0000",
+	BLACK = {0,0,0}, _="ff000000",
+	WHITE = {255,255,255}, _="ffffffff",
+	SHADOW = {46,34,47}, _="ff2e222f",
+
+	P1_A = {245,132,132}, _="fff58484",
+	P1_B = {69,49,68}, _="ff453144",
+	P2_A = {136,121,247}, _="ff8879f7",
+	P2_B = {41,69,79}, _="ff29454f",
+	P3_A = {105,153,93}, _="ff69995d",
+	P3_B = {48,63,46}, _="ff303f2e",
+	P4_A = {218,175,102}, _="ffdaaf66",
+	P4_B = {72,64,49}, _="ff484031",
+	
+	VNL = {
+		HP = {135,191,28}, _="ff87bf1c",
+		RED = {208,70,70}, _="ffd04646",
+		MANA = {66,168,226}, _="ff42a8e2",
+		CAST = {252,138,67}, _="fffc8a43",
+		GREEN = {70,208,70}, _="ff46d046",
+		BROWN = {121,71,56}, _="ff794738",
+		DAMAGE = {166,70,56}, _="ffa64638",
+		HP_LOW = {106,44,35}, _="ff6a2c23",
+		GREY = {170,170,170}, _="ffaaaaaa",
+		DGREY = {130,130,130}, _="ff828282",
+		LGREY = {210,210,210}, _="ffd2d2d2",
+		FLIGHT = {255,170,64}, _="ffffaa40",
+		RUNIC = {121,201,153}, _="ff79c999",
+		WARNING = {252,67,85}, _="fffc4355",
+		YELLOW = {255,255,178}, _="ffffffb2",
+
+		DARK_SLOT = {185,220,223}, _="ffb9dcdf",
+		BRIGHT_SLOT = {255,0,0}, _="ffff0000",
+		NINE_MAIN = {180,159,129}, _="ffb49f81",
+		NINE_MAIN_DARK = {148,128,100}, _="ff948064",
+		NINE_ACCENT = {237,169,73}, _="ffeda949",
+		NINE_ACCENT_DARK = {201,137,48}, _="ffc98930",
+
+		ACTION_PROJECTILE = {185,86,50}, _="ffb95632",
+		ACTION_STATIC = {204,128,182}, _="ffcc80b6",
+		ACTION_MODIFIER = {202,161,70}, _="ffcaa146",
+		ACTION_DRAW = {168,213,218}, _="ffa8d5da",
+		ACTION_MATERIAL = {142,195,115}, _="ff8ec373",
+		ACTION_UTILITY = {63,132,146}, _="ff3f8492",
+		ACTION_PASSIVE = {115,93,142}, _="ff735d8e",
+		ACTION_OTHER = {74,68,109}, _="ff4a446d",
+	},
+	HRMS = {
+		GOLD_1 = {205,104,61}, _="ffcd683d",
+		GOLD_2 = {230,144,78}, _="ffe6904e",
+		GOLD_3 = {251,185,84}, _="fffbb954",
+		GREEN_1 = {35,144,99}, _="ff239063",
+		GREEN_2 = {30,188,115}, _="ff1ebc73",
+		GREEN_3 = {145,219,105}, _="ff91db69",
+		GREY_1 = {46,34,47}, _="ff2e222f",
+		GREY_2 = {105,79,98}, _="ff694f62",
+		GREY_3 = {127,112,138}, _="ff7f708a",
+		GREY_4 = {155,171,178}, _="ff9babb2",
+		GREY_5 = {199,220,208}, _="ffc7dcd0",
+		RED_1 = {110,39,39}, _="ff6e2727",
+		RED_2 = {174,35,52}, _="ffae2334",
+		RED_3 = {232,59,59}, _="ffe83b3b",
+		BLUE_1 = {72,74,119}, _="ff484a77",
+		BLUE_2 = {77,101,180}, _="ff4d65b4",
+		BLUE_3 = {77,155,230}, _="ff4d9be6",
+	},
+	PRSP = {
+		RED = {245,132,132}, _="fff58484",
+		BLUE = {136,121,247}, _="ff8879f7",
+		GREEN = {105,153,93}, _="ff69995d",
+		GREY = {176,176,176}, _="ffb0b0b0",
+		WHITE = {238,226,206}, _="ffeee2ce",
+		PURPLE = {179,141,232}, _="ffb38de8",
+	},
+	N40 = { --ammo types, classes, misc colors
+		HOLO_1 = {182,213,60}, _="ffb6d53c",
+		HOLO_2 = {144,168,49}, _="ff90a831",
+		HOLO_3 = {121,140,42}, _="ff798c2a",
+		HOLO_RED_1 = {195,3,3}, _="ffc30303",
+		HOLO_RED_2 = {136,0,21}, _="ff880015",
+		HOLO_RED_3 = {62,0,10}, _="ff3e000a",
+	},
+	NCRS = {
+		GREY_1 = {21,29,40}, _="ff151d28",
+		GREY_2 = {32,46,55}, _="ff202e37",
+		GREY_3 = {57,74,80}, _="ff394a50",
+		GREY_4 = {87,114,119}, _="ff577277",
+		RED_1 = {65,29,49}, _="ff411d31",
+		RED_2 = {117,36,56}, _="ff752438",
+		RED_3 = {165,48,48}, _="ffa53030",
+		RED_4 = {207,87,60}, _="ffcf573c",
+		RED_5 = {218,134,62}, _="ffda863e",
+		GREEN_1 = {70,130,50}, _="ff468232",
+		GREEN_2 = {117,167,67}, _="ff75a743",
+		GREEN_3 = {168,202,88}, _="ffa8ca58",
+		GREEN_4 = {208,218,145}, _="ffd0da91",
+		PURPLE_1 = {36,21,39}, _="ff241527",
+		PURPLE_2 = {34,32,52}, _="ff222034",
+		PURPLE_3 = {69,40,60}, _="ff45283c",
+		PURPLE_4 = {122,54,123}, _="ff7a367b",
+		PURPLE_5 = {162,62,140}, _="ffa23e8c",
+		PURPLE_6 = {198,81,151}, _="ffc65197",
+	},
+	HEIR = {
+		IRON_1 = {32,46,55}, _="ff202e37",
+		IRON_2 = {57,74,80}, _="ff394a50",
+		IRON_3 = {87,114,119}, _="ff577277",
+		IRON_4 = {129,151,150}, _="ff819796",
+		IRON_5 = {147,152,161}, _="ff9398a1",
+		IRON_6 = {168,181,178}, _="ffa8b5b2",
+		STEEL_1 = {78,84,89}, _="ff4e5459",
+		STEEL_2 = {124,129,143}, _="ff7c818f",
+		STEEL_3 = {143,167,188}, _="ff8fa7bc",
+		STEEL_4 = {159,168,167}, _="ff9fa8a7",
+		STEEL_5 = {167,181,192}, _="ffa7b5c0",
+		SIGIL_1 = {128,12,83}, _="ff800c53",
+		SIGIL_2 = {189,31,63}, _="ffbd1f3f",
+		EPEE_1 = {56,89,179}, _="ff3859b3",
+		EPEE_2 = {51,136,222}, _="ff3388de",
+		FATE_1 = {30,64,88}, _="ff1e4058",
+		FATE_2 = {0,101,84}, _="ff006554",
+		HEIR_1 = {48,40,48}, _="ff302830",
+		HEIR_2 = {72,40,42}, _="ff48282a",
+		CORE_1 = {124,21,120}, _="ff7c1578",
+		CORE_2 = {177,44,155}, _="ffb12c9b",
+		CORE_3 = {219,48,144}, _="ffdb3090",
+		CORE_4 = {214,68,158}, _="ffd6449e",
+		CORE_5 = {232,86,146}, _="ffe85692",
+		CORE_6 = {238,121,150}, _="ffee7996",
+		CORE_7 = {230,154,167}, _="ffe69aa7",
+	},
+}
+
+pen.S = {
+	VNL = {
+		CLICK = {"data/audio/Desktop/ui.bank","ui/button_click"},
+		HOVER = {"data/audio/Desktop/ui.bank","ui/item_move_over_new_slot"},
+		ERROR = {"data/audio/Desktop/ui.bank","ui/item_move_denied"},
+		RESET = {"data/audio/Desktop/ui.bank","ui/replay_saved"},
+
+		OPEN = {"data/audio/Desktop/ui.bank","ui/inventory_open"},
+		CLOSE = {"data/audio/Desktop/ui.bank","ui/inventory_close"},
+		BUY = {"data/audio/Desktop/event_cues.bank","event_cues/shop_item/create"},
+		DROP = {"data/audio/Desktop/ui.bank","ui/item_remove"},
+		PICK = {"data/audio/Desktop/event_cues.bank","event_cues/pick_item_generic/create"},
+		SELECT = {"data/audio/Desktop/ui.bank","ui/item_equipped"},
+		MOVE_NONE = {"data/audio/Desktop/ui.bank","ui/item_move_success"},
+		MOVE_ITEM = {"data/audio/Desktop/ui.bank","ui/item_switch_places"},
+		
+		MAGIC_TRIGGER = {"data/audio/Desktop/event_cues.bank","event_cues/intro_enable_controls/create"},
+	}
+}
+
+pen.Z = {
+	WORLD_BACK = 11000,
+	WORLD = 10500,
+	WORLD_FRONT = 10000,
+	WORLD_UI = 5000,
+	
+	BACKGROUND = 1000,
+
+	MAIN_DEEP = 100,
+	MAIN_BACK = 50,
+	MAIN = 0,
+	MAIN_FRONT = -50,
+	MAIN_OVERLAY = -100,
+
+	ICONS_DEEP = -125,
+	ICONS_BACK = -150,
+	ICONS = -200,
+	ICONS_FRONT = -250,
+	ICONS_OVERLAY = -275,
+
+	MENU_BACK = 400,
+	MENU = 500,
+	MENU_FRONT = 600,
+
+	FOREGROUND = -1000,
+
+	TIPS_BACK = -10000,
+	TIPS = -10500,
+	TIPS_FRONT = -11000,
+
+	HOVER = -25000,
+	TUTORIAL = -50000,
+	KEYBOARD = -90000,
+	DEBUG = -99999,
+
+--[[
+penman
+	debug_world = -pen.Z.DEBUG
+	hew_core = pen.Z.WORLD
+	default_tip = pen.Z.TIPS
+	debug = pen.Z.DEBUG
+mnee
+	global_error = pen.Z.WORLD_BACK + 10
+	core = pen.Z.BACKGROUND + 15
+	reminder = pen.Z.BACKGROUND - 10
+	help = pen.Z.BACKGROUND - 15
+	report = pen.Z.BACKGROUND - 20
+	input = pen.Z.KEYBOARD
+	default_error = pen.Z.DEBUG
+	controller_gui = pen.Z.DEBUG
+index
+	world_invs_marker = pen.Z.WORLD_FRONT + 10
+	pickup_prompt = pen.Z.WORLD_FRONT
+	boss_bars = pen.Z.WORLD_UI + 10
+	pickup_info = pen.Z.WORLD_UI
+	world_tip = pen.Z.WORLD_UI - 10
+	inv_background = pen.Z.BACKGROUND
+	tipping_highlight = pen.Z.BACKGROUND - 5
+	inv_titles = pen.Z.MAIN_DEEP
+	info = pen.Z.MAIN
+	wand = pen.Z.MAIN
+	icons = pen.Z.MAIN
+	bars = pen.Z.MAIN - 5
+	slot_bg = pen.Z.MAIN_FRONT + 10
+	potion_bg = pen.Z.MAIN_FRONT + 5
+	slot_active_dragger = pen.Z.MAIN_FRONT
+	slot_hover = pen.Z.MAIN_FRONT
+	spell_frame_hovered = pen.Z.ICONS
+	default_slot_pic = pen.Z.ICONS
+	spell_frame = pen.Z.ICONS_FRONT + 5
+	slot_active/slot_locked = pen.Z.ICONS_FRONT + 1
+	slot_extra = pen.Z.ICONS_FRONT
+	gmodder = pen.Z.MAIN_OVERLAY
+	logger = pen.Z.MAIN_OVERLAY
+	applet = pen.Z.FOREGROUND
+	applet_icon = pen.Z.FOREGROUND - 5
+	tipping_interface = pen.Z.TIPS_FRONT
+	applet_interface = pen.Z.TIPS_FRONT
+	dragger_rmb_note = pen.Z.TIPS_FRONT
+	dragged_slot = pen.Z.HOVER
+mrshll
+	core = pen.Z.BACKGROUND + 10
+	main_button = pen.Z.FOREGROUND
+]]
+}
+
 pen.AI_COMPS = {
 	AIAttackComponent = 1,
 	AdvancedFishAIComponent = 1,
@@ -5604,244 +5844,6 @@ pen.SDF = { --https://iquilezles.org/articles/distfunctions2d/
 		end
 		return s*math.sqrt( v )
 	end,
-}
-
-pen.P = {
-	B = {0,0,0}, _="ff000000",
-	ERR = {255,0,0}, _="ffff0000",
-	W = {255,255,255}, _="ffffffff",
-	SHADOW = {46,34,47}, _="ff2e222f",
-
-	P1_A = {245,132,132}, _="fff58484",
-	P1_B = {69,49,68}, _="ff453144",
-	P2_A = {136,121,247}, _="ff8879f7",
-	P2_B = {41,69,79}, _="ff29454f",
-	P3_A = {105,153,93}, _="ff69995d",
-	P3_B = {48,63,46}, _="ff303f2e",
-	P4_A = {218,175,102}, _="ffdaaf66",
-	P4_B = {72,64,49}, _="ff484031",
-	
-	VNL = {
-		HP = {135,191,28}, _="ff87bf1c",
-		RED = {208,70,70}, _="ffd04646",
-		GREEN = {70,208,70}, _="ff46d046",
-		MANA = {66,168,226}, _="ff42a8e2",
-		CAST = {252,138,67}, _="fffc8a43",
-		BROWN = {121,71,56}, _="ff794738",
-		DAMAGE = {166,70,56}, _="ffa64638",
-		HP_LOW = {106,44,35}, _="ff6a2c23",
-		DGREY = {130,130,130}, _="ff828282",
-		GREY = {170,170,170}, _="ffaaaaaa",
-		LGREY = {210,210,210}, _="ffd2d2d2",
-		FLIGHT = {255,170,64}, _="ffffaa40",
-		RUNIC = {121,201,153}, _="ff79c999",
-		WARNING = {252,67,85}, _="fffc4355",
-		YELLOW = {255,255,178}, _="ffffffb2",
-		DARK_SLOT = {185,220,223}, _="ffb9dcdf",
-		BRIGHT_SLOT = {255,0,0}, _="ffff0000",
-		NINE_MAIN = {180,159,129}, _="ffb49f81",
-		NINE_MAIN_DARK = {148,128,100}, _="ff948064",
-		NINE_ACCENT = {237,169,73}, _="ffeda949",
-		NINE_ACCENT_DARK = {201,137,48}, _="ffc98930",
-		ACTION_PROJECTILE = {185,86,50}, _="ffb95632",
-		ACTION_STATIC = {204,128,182}, _="ffcc80b6",
-		ACTION_MODIFIER = {202,161,70}, _="ffcaa146",
-		ACTION_DRAW = {168,213,218}, _="ffa8d5da",
-		ACTION_MATERIAL = {142,195,115}, _="ff8ec373",
-		ACTION_UTILITY = {63,132,146}, _="ff3f8492",
-		ACTION_PASSIVE = {115,93,142}, _="ff735d8e",
-		ACTION_OTHER = {74,68,109}, _="ff4a446d",
-	},
-	HRMS = {
-		GOLD_1 = {205,104,61}, _="ffcd683d",
-		GOLD_2 = {230,144,78}, _="ffe6904e",
-		GOLD_3 = {251,185,84}, _="fffbb954",
-		GREEN_1 = {35,144,99}, _="ff239063",
-		GREEN_2 = {30,188,115}, _="ff1ebc73",
-		GREEN_3 = {145,219,105}, _="ff91db69",
-		GREY_1 = {46,34,47}, _="ff2e222f",
-		GREY_2 = {105,79,98}, _="ff694f62",
-		GREY_3 = {127,112,138}, _="ff7f708a",
-		GREY_4 = {155,171,178}, _="ff9babb2",
-		GREY_5 = {199,220,208}, _="ffc7dcd0",
-		RED_1 = {110,39,39}, _="ff6e2727",
-		RED_2 = {174,35,52}, _="ffae2334",
-		RED_3 = {232,59,59}, _="ffe83b3b",
-		BLUE_1 = {72,74,119}, _="ff484a77",
-		BLUE_2 = {77,101,180}, _="ff4d65b4",
-		BLUE_3 = {77,155,230}, _="ff4d9be6",
-	},
-	PRSP = {
-		RED = {245,132,132}, _="fff58484",
-		BLUE = {136,121,247}, _="ff8879f7",
-		GREEN = {105,153,93}, _="ff69995d",
-		GREY = {176,176,176}, _="ffb0b0b0",
-		WHITE = {238,226,206}, _="ffeee2ce",
-		PURPLE = {179,141,232}, _="ffb38de8",
-	},
-	N40 = { --ammo types, classes, misc colors
-		HOLO_1 = {182,213,60}, _="ffb6d53c",
-		HOLO_2 = {144,168,49}, _="ff90a831",
-		HOLO_3 = {121,140,42}, _="ff798c2a",
-		HOLO_RED_1 = {195,3,3}, _="ffc30303",
-		HOLO_RED_2 = {136,0,21}, _="ff880015",
-		HOLO_RED_3 = {62,0,10}, _="ff3e000a",
-	},
-	NCRS = {
-		GREY_1 = {21,29,40}, _="ff151d28",
-		GREY_2 = {32,46,55}, _="ff202e37",
-		GREY_3 = {57,74,80}, _="ff394a50",
-		GREY_4 = {87,114,119}, _="ff577277",
-		RED_1 = {65,29,49}, _="ff411d31",
-		RED_2 = {117,36,56}, _="ff752438",
-		RED_3 = {165,48,48}, _="ffa53030",
-		RED_4 = {207,87,60}, _="ffcf573c",
-		RED_5 = {218,134,62}, _="ffda863e",
-		GREEN_1 = {70,130,50}, _="ff468232",
-		GREEN_2 = {117,167,67}, _="ff75a743",
-		GREEN_3 = {168,202,88}, _="ffa8ca58",
-		GREEN_4 = {208,218,145}, _="ffd0da91",
-		PURPLE_1 = {36,21,39}, _="ff241527",
-		PURPLE_2 = {34,32,52}, _="ff222034",
-		PURPLE_3 = {69,40,60}, _="ff45283c",
-		PURPLE_4 = {122,54,123}, _="ff7a367b",
-		PURPLE_5 = {162,62,140}, _="ffa23e8c",
-		PURPLE_6 = {198,81,151}, _="ffc65197",
-	},
-	HEIR = {
-		IRON_1 = {32,46,55}, _="ff202e37",
-		IRON_2 = {57,74,80}, _="ff394a50",
-		IRON_3 = {87,114,119}, _="ff577277",
-		IRON_4 = {129,151,150}, _="ff819796",
-		IRON_5 = {147,152,161}, _="ff9398a1",
-		IRON_6 = {168,181,178}, _="ffa8b5b2",
-		STEEL_1 = {78,84,89}, _="ff4e5459",
-		STEEL_2 = {124,129,143}, _="ff7c818f",
-		STEEL_3 = {143,167,188}, _="ff8fa7bc",
-		STEEL_4 = {159,168,167}, _="ff9fa8a7",
-		STEEL_5 = {167,181,192}, _="ffa7b5c0",
-		SIGIL_1 = {128,12,83}, _="ff800c53",
-		SIGIL_2 = {189,31,63}, _="ffbd1f3f",
-		EPEE_1 = {56,89,179}, _="ff3859b3",
-		EPEE_2 = {51,136,222}, _="ff3388de",
-		FATE_1 = {30,64,88}, _="ff1e4058",
-		FATE_2 = {0,101,84}, _="ff006554",
-		HEIR_1 = {48,40,48}, _="ff302830",
-		HEIR_2 = {72,40,42}, _="ff48282a",
-		CORE_1 = {124,21,120}, _="ff7c1578",
-		CORE_2 = {177,44,155}, _="ffb12c9b",
-		CORE_3 = {219,48,144}, _="ffdb3090",
-		CORE_4 = {214,68,158}, _="ffd6449e",
-		CORE_5 = {232,86,146}, _="ffe85692",
-		CORE_6 = {238,121,150}, _="ffee7996",
-		CORE_7 = {230,154,167}, _="ffe69aa7",
-	},
-}
-
-pen.S = {
-	VNL = {
-		CLICK = {"data/audio/Desktop/ui.bank","ui/button_click"},
-		HOVER = {"data/audio/Desktop/ui.bank","ui/item_move_over_new_slot"},
-		ERROR = {"data/audio/Desktop/ui.bank","ui/item_move_denied"},
-		RESET = {"data/audio/Desktop/ui.bank","ui/replay_saved"},
-
-		OPEN = {"data/audio/Desktop/ui.bank","ui/inventory_open"},
-		CLOSE = {"data/audio/Desktop/ui.bank","ui/inventory_close"},
-		BUY = {"data/audio/Desktop/event_cues.bank","event_cues/shop_item/create"},
-		DROP = {"data/audio/Desktop/ui.bank","ui/item_remove"},
-		PICK = {"data/audio/Desktop/event_cues.bank","event_cues/pick_item_generic/create"},
-		SELECT = {"data/audio/Desktop/ui.bank","ui/item_equipped"},
-		MOVE_NONE = {"data/audio/Desktop/ui.bank","ui/item_move_success"},
-		MOVE_ITEM = {"data/audio/Desktop/ui.bank","ui/item_switch_places"},
-		
-		MAGIC_TRIGGER = {"data/audio/Desktop/event_cues.bank","event_cues/intro_enable_controls/create"},
-	}
-}
-
-pen.Z = {
-	WORLD_BACK = 11000,
-	WORLD = 10500,
-	WORLD_FRONT = 10000,
-	WORLD_UI = 5000,
-	
-	BACKGROUND = 1000,
-
-	MAIN_DEEP = 100,
-	MAIN_BACK = 50,
-	MAIN = 0,
-	MAIN_FRONT = -50,
-	MAIN_OVERLAY = -100,
-
-	ICONS_DEEP = -125,
-	ICONS_BACK = -150,
-	ICONS = -200,
-	ICONS_FRONT = -250,
-	ICONS_OVERLAY = -275,
-
-	MENU_BACK = 400,
-	MENU = 500,
-	MENU_FRONT = 600,
-
-	FOREGROUND = -1000,
-
-	TIPS_BACK = -10000,
-	TIPS = -10500,
-	TIPS_FRONT = -11000,
-
-	HOVER = -25000,
-	TUTORIAL = -50000,
-	KEYBOARD = -90000,
-	DEBUG = -99999,
-
---[[
-penman
-	debug_world = -pen.Z.DEBUG
-	hew_core = pen.Z.WORLD
-	default_tip = pen.Z.TIPS
-	debug = pen.Z.DEBUG
-mnee
-	global_error = pen.Z.WORLD_BACK + 10
-	core = pen.Z.BACKGROUND + 15
-	reminder = pen.Z.BACKGROUND - 10
-	help = pen.Z.BACKGROUND - 15
-	report = pen.Z.BACKGROUND - 20
-	input = pen.Z.KEYBOARD
-	default_error = pen.Z.DEBUG
-	controller_gui = pen.Z.DEBUG
-index
-	world_invs_marker = pen.Z.WORLD_FRONT + 10
-	pickup_prompt = pen.Z.WORLD_FRONT
-	boss_bars = pen.Z.WORLD_UI + 10
-	pickup_info = pen.Z.WORLD_UI
-	world_tip = pen.Z.WORLD_UI - 10
-	inv_background = pen.Z.BACKGROUND
-	tipping_highlight = pen.Z.BACKGROUND - 5
-	inv_titles = pen.Z.MAIN_DEEP
-	info = pen.Z.MAIN
-	wand = pen.Z.MAIN
-	icons = pen.Z.MAIN
-	bars = pen.Z.MAIN - 5
-	slot_bg = pen.Z.MAIN_FRONT + 10
-	potion_bg = pen.Z.MAIN_FRONT + 5
-	slot_active_dragger = pen.Z.MAIN_FRONT
-	slot_hover = pen.Z.MAIN_FRONT
-	spell_frame_hovered = pen.Z.ICONS
-	default_slot_pic = pen.Z.ICONS
-	spell_frame = pen.Z.ICONS_FRONT + 5
-	slot_active/slot_locked = pen.Z.ICONS_FRONT + 1
-	slot_extra = pen.Z.ICONS_FRONT
-	gmodder = pen.Z.MAIN_OVERLAY
-	logger = pen.Z.MAIN_OVERLAY
-	applet = pen.Z.FOREGROUND
-	applet_icon = pen.Z.FOREGROUND - 5
-	tipping_interface = pen.Z.TIPS_FRONT
-	applet_interface = pen.Z.TIPS_FRONT
-	dragger_rmb_note = pen.Z.TIPS_FRONT
-	dragged_slot = pen.Z.HOVER
-mrshll
-	core = pen.Z.BACKGROUND + 10
-	main_button = pen.Z.FOREGROUND
-]]
 }
 
 pen.INIT_THREADS = {

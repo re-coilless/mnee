@@ -701,17 +701,6 @@ function pen.t.order( tbl, func )
     end
 end
 
-_print = print
-print = function( ... )
-	local out = {}
-	pen.t.loop({ ... }, function( i, v )
-		if( type( v ) == "table" ) then
-			table.insert( out, pen.t.parse( v, true )) --add formatting
-		else table.insert( out, tostring( v )) end --add color highlighting based on datatype
-	end)
-	_print( table.concat( out, "\n\t" ))
-end
-
 -------------------------------------------------------     [TEXT]     -------------------------------------------------------
 
 function pen.ptrn( id )
@@ -3640,10 +3629,13 @@ function pen.play_sound( sfx, x, y, no_bullshit )
 			EntityAddComponent2( loop_id, "AudioLoopComponent", {
 				_tags = "loop",
 				file = sfx[1], event_name = sfx[2],
-				volume_autofade_speed = tonumber( sfx[3]) or 0.25,
+				volume_autofade_speed = sfx[6] or 0.25,
 			})
 		end
-		GameEntityPlaySoundLoop( pen.c.looped_sfxes[ sfx_id ], "loop", 1.0 )
+		
+		GameEntityPlaySoundLoop( pen.c.looped_sfxes[ sfx_id ], "loop", sfx[4] or 1, sfx[5] or 1 )
+		local loop_comp = EntityGetFirstComponentIncludingDisabled( loop_id, "AudioLoopComponent", "loop" )
+		if( pen.vld( loop_comp, true )) then ComponentSetValue2( loop_comp, "m_volume", tonumber( sfx[3]) or 1 ) end
 	else GamePlaySound( sfx[1], sfx[2], x, y ) end
 end
 
@@ -4532,7 +4524,7 @@ function pen.new.slider( uid, pic_x, pic_y, pic_z, length, data )
 	data = data or {}
 
 	pen.c.slider_memo = pen.c.slider_memo or {}
-	local pos = pen.c.slider_memo[ uid ] or 0
+	local pos = pen.c.slider_memo[ uid ] or data.default or 0
 
 	local min_pos = pic_x + 1
 	local max_pos = min_pos + length
@@ -5079,6 +5071,10 @@ pen.FLAG_UPDATE_UTF = "PENMAN_UTF_MAP_UPDATE"
 pen.FLAG_FANCY_FONT = "PENMAN_FANCY_FONTING"
 pen.FLAG_RESTART_CHECK = "PENMAN_GAME_HAS_STARTED"
 pen.FLAG_INTERFACE_TOGGLE = "PENMAN_INTERFACE_DOWN"
+
+pen.GLOBAL_FRAME_NUM = "PENMAN_FRAME_NUM"
+pen.GLOBAL_FRAME_SAFETY = "PENMAN_FRAME_SAFETY"
+pen.GLOBAL_FRAME_PAUSED = "PENMAN_FRAME_PAUSED"
 
 pen.GLOBAL_SCREEN_X = "PENMAN_SCREEN_X"
 pen.GLOBAL_SCREEN_Y = "PENMAN_SCREEN_Y"
@@ -8545,6 +8541,53 @@ pen.FILE_XML_KEY = [[
 </Sprite>
 ]]
 
+-------------------------------------------------------     [OVERRIDES]     -------------------------------------------------------
+
+_print = print
+print = function( ... )
+	local out = {}
+	pen.t.loop({ ... }, function( i, v )
+		if( type( v ) == "table" ) then --limit max table depth
+			table.insert( out, pen.t.parse( v, true )) --add formatting and color coding for types
+		else table.insert( out, tostring( v )) end --add color highlighting based on datatype
+		--(booleans are blue, numbers are yellow, strings are white, functions are purple)
+	end)
+	_print( table.concat( out, "\n\t" ))
+end
+
+--not providing pen.estimate id should not do the memorization
+
+_GameGetFrameNum = GameGetFrameNum
+GameGetFrameNum = function( is_advanced )
+	local frame_num = _GameGetFrameNum()
+	if( not( is_advanced )) then return frame_num end
+	local is_still = ( pen.c.last_frame or -1 ) == frame_num
+	pen.c.last_frame = frame_num
+
+	--paused global fully switches to paused mode
+	--use gui to find out when the next frame is
+	--save the frame that got processed within the lua global to make sure it only happens once
+
+	local is_paused = GlobalsGetValue( pen.GLOBAL_FRAME_PAUSED, "1" ) == "1"
+	if( is_paused ) then
+		if( not( is_still )) then GlobalsSetValue( pen.GLOBAL_FRAME_PAUSED, "0" ); return frame_num end
+	elseif( is_still ) then GlobalsSetValue( pen.GLOBAL_FRAME_PAUSED, "1" ) else return frame_num end
+	
+	-- local gui = GuiCreate()
+	-- print( GuiGetScreenDimensions( gui ))
+	-- GuiStartFrame( gui )
+	-- print( GuiGetScreenDimensions( gui ))
+
+	-- frame_num = tonumber( GlobalsGetValue( pen.GLOBAL_FRAME_NUM, "" )) or ( frame_num + 1 )
+	-- local is_waiting = GlobalsGetValue( pen.GLOBAL_FRAME_SAFETY, "0" ) == "0"
+	-- if( not( is_waiting )) then return frame_num, true end
+
+	--every frame getter creates a gui object and does not call start frame again
+	--the first gamegetframenum to see that the reported screen dims are not matching is the one to get the next frame
+
+	return frame_num, true
+end
+
 -------------------------------------------------------     [LIBMAN]     -------------------------------------------------------
 
 pen.lib = pen.lib or {}
@@ -8559,6 +8602,13 @@ pen.t.loop({ "nxml", "base64", "matrix", "complex", "EZWand", "_libman", "_stuff
 	if( ModDoesFileExist( path )) then pen.lib[ v ] = dofile_once( path ); return end
 end)
 --parallax
+
+function pen.lib.nxml_builder( source )
+	if( not( pen.vld( pen.lib.nxml ))) then return end
+
+	--recieves either entity_id or nxml table
+	--returns either nxml table or entity_id
+end
 
 function pen.lib.sprite_builder( path, print_me )
 	if( not( pen.vld( pen.lib.nxml ))) then return end
@@ -8899,11 +8949,6 @@ function pen.lib.player_builder( hooman, func )
 	}), "offset", 0, -char_h + ( collider.h + collider.y ))
 	
 	return data
-end
-
-function pen.lib.nxml2entity()
-end
-function pen.lib.entity2nxml()
 end
 
 -------------------------------------------------------     [LUALS]     -------------------------------------------------------

@@ -1755,7 +1755,12 @@ function pen.raytrace_entities( x, y, r, l, hit_action, data )
 
 	local diameter = l
 	local d_x, d_y = l*math.cos( r ), l*math.sin( r )
-	local hit, hit_x, hit_y = RaytracePlatforms( x, y, x + d_x, y + d_y )
+	local hit, hit_x, hit_y = false, x + d_x, y + d_y
+	if( data.always_trace ) then
+		hit = false
+	elseif( data.do_liquids ) then
+		hit, hit_x, hit_y = RaytraceSurfacesAndLiquiform( x, y, hit_x, hit_y )
+	else hit, hit_x, hit_y = RaytracePlatforms( x, y, hit_x, hit_y ) end
 	if( hit ) then
 		d_x, d_y = hit_x - x, hit_y - y
 		diameter = math.sqrt(( d_x )^2 + ( d_y )^2 )
@@ -2478,7 +2483,7 @@ function pen.gunshot( shot_func, eject_func )
 		pen.magic_storage( gun_id, "heat_cutoff", "value_float", 0.5 )
 	end
 
-	local efficiency = pen.magic_storage( gun_id, "ammo_efficiency", "value_float" ) or -1
+	local efficiency = pen.magic_storage( gun_id, "ammo_consumption", "value_float" ) or -1
 	local cost = efficiency > 0 and efficiency*( 1 + total_heat/max_heat ) or 1
 	if( ammo > 0 ) then pen.magic_storage( card_id, "ammo", "value_int", math.max( ammo - cost, 0 )) end
 
@@ -2499,7 +2504,7 @@ function pen.gunshot( shot_func, eject_func )
 
 	if( not( is_beam ) and is_cooked ) then
 		if( bolt_delay < 0 and math.random() < total_heat/( 2*max_heat )) then
-			return pen.play_sound({ action.sfx[1], "items/guns/dryfire", action.sfx[3]}, x, y ) end
+			return pen.play_sound({ action.sfx[1], "items/guns/dryfire" }, x, y ) end
 		--full-auto guns have a chance to trigger runaway detonation in the form of uncontrolled fast firing magdump with randomized intervals and insanely low accuracy (prevent switching guns while this happens)
 	end
 

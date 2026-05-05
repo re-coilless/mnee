@@ -689,7 +689,10 @@ function pen.t.order( tbl, func )
         out[n] = k; n = n + 1
     end
     table.sort( out, func or function( a, b )
-		return tostring( a ) < tostring( b )
+		if( type( a ) == "number" and type( b ) == "number" ) then return a < b end
+		local v1, v2 = 100*string.byte( a ), 100*string.byte( b )
+		if( type( tbl[a]) ~= "table" or type( tbl[b]) ~= "table" ) then return v1 < v2 end
+		return ( tbl[a].order_id or v1 ) < ( tbl[b].order_id or v2 )
 	end)
 	
     local i = 0
@@ -2507,9 +2510,10 @@ function pen.gunshot( shot_func, eject_func )
 			return pen.play_sound({ action.sfx[1], "items/guns/dryfire" }, x, y ) end
 		--full-auto guns have a chance to trigger runaway detonation in the form of uncontrolled fast firing magdump with randomized intervals and insanely low accuracy (prevent switching guns while this happens)
 	end
-
+	
 	local shot_x, shot_y = pen.get_hotspot_pos( gun_id, "shoot_pos" )
 	pen.play_sound({ action.sfx[1], action.sfx[2].."/shoot", action.sfx[3]}, shot_x, shot_y )
+	if( pen.vld( action.shake, true )) then GameScreenshake( action.shake, shot_x, shot_y ) end
 
 	local heat = 0
 	local ids = { hooman, arm_id, gun_id, card_id }
@@ -5132,6 +5136,7 @@ pen.GLOBAL_JPAD_TARGET_R = "PENMAN_JPAD_TARGET_R_"
 pen.GLOBAL_JPAD_TARGET_U = "PENMAN_JPAD_TARGET_U_"
 pen.GLOBAL_JPAD_TARGET_D = "PENMAN_JPAD_TARGET_D_"
 pen.GLOBAL_JPAD_TARGET = "PENMAN_JPAD_TARGET_"
+pen.GLOBAL_JPAD_ZONE = "PENMAN_JPAD_ZONE_"
 
 pen.MARKER_TAB = "\\_"
 pen.MARKER_FANCY_TEXT = { "{>%S->{", "}<%S-<}", "{%-}%S-{%-}" }
@@ -5320,6 +5325,7 @@ pen.Z = {
 	WORLD_FRONT = 10000,
 	WORLD_UI = 5000,
 	
+	NON_CLICK = 9999,
 	BACKGROUND = 1000,
 
 	MAIN_DEEP = 100,
@@ -5340,12 +5346,13 @@ pen.Z = {
 
 	FOREGROUND = -1000,
 
+	TUTORIAL_SHADOW = -5000,
 	TIPS_BACK = -10000,
 	TIPS = -10500,
 	TIPS_FRONT = -11000,
-
+	TUTORIAL_TIPS = -20000,
+	
 	HOVER = -25000,
-	TUTORIAL = -50000,
 	KEYBOARD = -90000,
 	DEBUG = -99999,
 
@@ -5370,6 +5377,7 @@ index
 	boss_bars = pen.Z.WORLD_UI + 10
 	pickup_info = pen.Z.WORLD_UI
 	world_tip = pen.Z.WORLD_UI - 10
+	click_protection = pen.Z.NON_CLICK
 	inv_background = pen.Z.BACKGROUND
 	tipping_highlight = pen.Z.BACKGROUND - 5
 	inv_titles = pen.Z.MAIN_DEEP

@@ -1059,6 +1059,16 @@ pen.new.interface = function( pic_x, pic_y, s_x, s_y, pic_z, data )
 				if( GlobalsGetValue( pen.GLOBAL_JPAD_FOCUS..e, "" ) == fid ) then return end
 			end
 			
+			if( not( mnee.ignore_zone_mode )) then
+				local zone = pen.t.pack( GlobalsGetValue( pen.GLOBAL_JPAD_ZONE..i, "|0|0|0|0|0|" ))
+				if( zone[1] > frame_num ) then
+					local center_x, center_y = pic_x + s_x/2, pic_y + s_y/2
+					local valid_x = center_x > zone[2] and center_x < zone[2] + zone[4]
+					local valid_y = center_y > zone[3] and center_y < zone[3] + zone[5]
+					if( not( valid_x and valid_y )) then return end
+				end
+			end
+			
 			if( state == "_" ) then
 				local focus_loop = GlobalsGetValue( pen.GLOBAL_JPAD_FOCUS_LOOP..i, "" )
 				local target = pen.t.pack( GlobalsGetValue( pen.GLOBAL_JPAD_FOCUS_TARGET..i, "|_|0|" ))

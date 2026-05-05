@@ -24,8 +24,7 @@ function OnModInit()
 			pen.setting_set( prefix.."FRONTEND", 1 )
 		end,
 	})
-
-	-- fix z levels
+	
 	-- also try splitscreen for kappa
 	-- make procedural pause screen keyboard/mouse/gamepad that highlights all the bind's keys on hover of one of them (also add option to hide stuff from this menu; list all binds to the side in a scrolllist and highlight on hover)
 

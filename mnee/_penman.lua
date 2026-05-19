@@ -6,7 +6,7 @@ if( GameGetWorldStateEntity() > 0 ) then
 	GlobalsSetValue( "HERMES_IS_REAL", "1" )
 end
 
-pen.VERSION = "[VERSION_GOES_HERE]" -- [COMMIT_GOES_HERE]
+pen.VERSION = 33.4 -- b361093
 pen.PATH = string.match( jit.util.funcinfo( function() end ).source, "(.+/)[^/]+" ) --thanks to ImmortalDamned and Alex
 
 -------------------------------------------------------     [IO]     -------------------------------------------------------
@@ -44,7 +44,7 @@ function pen.vld( v, is_ecs )
 	if( v == nil ) then return false end
 	local t, out = type( v ), true
 	if( t == "number" ) then
-		out = v == v and v ~= math.inf
+		out = v == v and v ~= math.huge
 		if( out and is_ecs ) then out = v > 0 end
 	elseif( t == "string" ) then
 		out = v ~= pen.DIV_1 and v ~= "" and v ~= " " and v ~= "\0"
@@ -1660,7 +1660,7 @@ end
 
 function pen.is_entity_sapient( entity_id )
 	if( EntityHasTag( entity_id, "player_unit" )) then return true end
-	for i,comp in ipairs( pen.AI_COMPS ) do
+	for comp,_ in pairs( pen.AI_COMPS ) do
 		if( EntityGetFirstComponentIncludingDisabled( entity_id, comp )) then return true end
 	end
 	return false
@@ -2204,9 +2204,13 @@ function pen.magic_chugger( mttrs, eater_id, eatee_id, volume, perc )
 end
 
 function pen.get_strength( hooman )
+	local strength = 0
 	local kick_comp = EntityGetFirstComponentIncludingDisabled( hooman, "KickComponent" )
-	if( pen.vld( kick_comp, true )) then return 3*ComponentGetValue2( kick_comp, "max_force" ) end
-	return 0
+	if( pen.vld( kick_comp, true )) then
+		strength = 3*ComponentGetValue2( kick_comp, "max_force" )
+	else strength = pen.magic_storage( hooman, "vector_strength", "value_float" ) or 0 end
+	local coef = pen.magic_storage( hooman, "vector_strength_coef", "value_float" ) or 1
+	return coef*strength
 end
 
 function pen.get_speed( entity_id ) --should work for everything
@@ -2377,7 +2381,7 @@ function pen.debug_vector( x, y, l, r, is_line )
 	end
 end
 
-function pen.debug_print( text, x, y, color )
+function pen.debug_print( text, x, y, color ) --make sure text can never go offscreen
 	if( pen.vld( x ) and pen.vld( y )) then
 		local pic_x, pic_y = x, y
 		local is_guied = color == true
@@ -2928,7 +2932,7 @@ function pen.add_perk( hooman, perk_id ) --bad
 	EntityAddChild( hooman, ui )
 end
 
-function pen.rate_projectile( proj_id, hooman, data )--sparkbolt at 20m is ~1
+function pen.rate_projectile( proj_id, hooman, data ) --sparkbolt at 20m is ~1
 	if( EntityGetRootEntity( proj_id ) ~= proj_id ) then return 0 end
 	local custom_points = pen.magic_storage( proj_id, "custom_rating", "value_float" )
 	if( pen.vld( custom_points )) then return custom_points end
@@ -2978,7 +2982,7 @@ function pen.rate_projectile( proj_id, hooman, data )--sparkbolt at 20m is ~1
 	return pen.vld( final_value ) and final_value or 0
 end
 
-function pen.rate_spell( spell_id, data )--sparkbolt is 1
+function pen.rate_spell( spell_id, data ) --sparkbolt is 1
 	if( not( pen.vld( spell_id, true ))) then return 0 end
 	local act_comp = EntityGetFirstComponentIncludingDisabled( spell_id, "ItemActionComponent" )
 	local action_data = data or pen.get_spell( ComponentGetValue2( act_comp, "action_id" ))
@@ -3005,7 +3009,7 @@ function pen.rate_spell( spell_id, data )--sparkbolt is 1
 	return pen.vld( final_value ) and final_value or 0
 end
 
-function pen.rate_wand( wand_id, data )--sollex is 1
+function pen.rate_wand( wand_id, data ) --sollex is 1
 	if( not( pen.vld( wand_id, true ))) then return 0 end
 	local custom_points = pen.magic_storage( wand_id, "custom_rating", "value_float" )
 	if( pen.vld( custom_points )) then return custom_points end
@@ -3053,15 +3057,18 @@ function pen.rate_wand( wand_id, data )--sollex is 1
 	local f_multi = 2.58 + ( 1.017 - 2.58 )/( 1 + ( data.spell_cast/48023 )^1.63 )^983676
 	local f_spread = math.rad( 45 - data.spread )
 	
-	--add spells
+	local f_spells = 0
+	pen.child_play( wand_id, function( parent, child, i )
+		f_spells = f_spells + pen.rate_spell( child )
+	end)
 
 	local f_reloading = 2
 	if( data.can_reload ) then f_reloading = f_reloading - ( 0.044/0.024 )*( 1 - math.exp( -0.024*data.reload_time )) end
-	local final_value = 1500*f_delay*f_reloading*f_mana_max*f_mana_charge*math.sqrt( f_spread*f_multi )*f_shuffle*f_capacity^1.5
+	local final_value = 1500*f_delay*f_reloading*f_mana_max*f_mana_charge*math.sqrt( f_spread*f_multi )*f_shuffle*f_capacity^1.5 + f_spells
 	return pen.vld( final_value ) and final_value or 0
 end
 
-function pen.rate_creature( entity_id, hooman, data )--hamis at 20m is 1
+function pen.rate_creature( entity_id, hooman, data ) --hamis at 20m is 1
 	if( EntityGetRootEntity( entity_id ) ~= entity_id ) then return 0 end
 	local custom_points = pen.magic_storage( entity_id, "custom_rating", "value_float" )
 	if( pen.vld( custom_points )) then return custom_points end
@@ -3070,7 +3077,7 @@ function pen.rate_creature( entity_id, hooman, data )--hamis at 20m is 1
 	hooman = hooman or pen.get_hooman()
 	local dmg_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "DamageModelComponent" )
 	local gene_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "GenomeDataComponent" )
-	if( pen.vld( dmg_comp, true ) or pen.vld( gene_comp, true )) then
+	if( not( pen.vld( dmg_comp, true ) and pen.vld( gene_comp, true ))) then
 		return 0
 	elseif( check_gene and EntityGetHerdRelation( entity_id, hooman ) < 90 ) then
 		return 0
@@ -3104,7 +3111,7 @@ function pen.rate_creature( entity_id, hooman, data )--hamis at 20m is 1
 	local armor_types = ComponentObjectGetMembers( dmg_comp, "damage_multipliers" )
 	for field in pairs( armor_types ) do
 		if( field ~= "healing" ) then
-			vulnerability = vulnerability + ComponentObjectGetValue2( dmg_comp, "damage_multipliers", armor_types[i] )
+			vulnerability = vulnerability + ComponentObjectGetValue2( dmg_comp, "damage_multipliers", field )
 		end
 	end
 	
@@ -3145,17 +3152,42 @@ function pen.rate_creature( entity_id, hooman, data )--hamis at 20m is 1
 		if( pen.vld( fish_comp, true )) then overall_speed = 300 end
 	end
 
-	--add wand check for stuff in-hand
+	local f_wand = pen.rate_wand( pen.get_active_item( entity_id ))
 	
 	local f_speed = ( overall_speed + 0.01 )/10
 	local f_vulner = 0.77 + ( 3 - 0.26 )/( 1 + ( vulnerability/5 )^2.9 )
 	local f_supremacy = math.min( supremacy, 20 )/20
 	local f_violence = violence*10
 	local f_hp = ( hp + max_hp )*25
-	
+
 	local main = f_distance*f_speed*f_vulner*f_hp
-	local final_value = f_php*0.5*( 0.08*( main - ( main > f_supremacy and f_supremacy or 0 )) + f_violence )
+	local final_value = f_php*0.5*( 0.08*( main - ( main > f_supremacy and f_supremacy or 0 )) + f_violence ) + f_wand
+
 	return pen.vld( final_value ) and final_value or 0
+end
+
+function pen.rate_threat( hooman, radius )
+	local threat = 0
+	
+	local x, y = pen.get_creature_centre( hooman )
+	local h_x, h_y = pen.get_creature_head( hooman )
+	pen.t.loop( pen.get_killable( x, y, radius ), function( i, entity_id )
+		if( EntityHasTag( entity_id, "player_unit" )) then return end
+		if( not( pen.is_entity_sapient( entity_id ))) then return end
+		local e_x, e_y = pen.get_creature_head( entity_id )
+		if( RaytracePlatforms( x, y, e_x, e_y )) then return end
+		threat = threat + pen.rate_creature( entity_id )
+	end)
+	pen.t.loop( EntityGetInRadiusWithTag( x, y, radius, "projectile" ), function( i, proj_id )
+		local p_x, p_y = EntityGetTransform( proj_id )
+		if( RaytracePlatforms( x, y, p_x, p_y )) then return end
+		threat = threat + pen.rate_projectile( proj_id )
+	end)
+
+	--incoming damage (compare hp values; drop in 50% of hp is +1000 threat)
+	--continous gunfire (delta in stat_times_player_has_shot over 10 frames)
+	
+	return threat
 end
 
 --wrapper that allows one to easily create normal sprite tier emitters with animation support
@@ -3601,6 +3633,11 @@ function pen.magic_rgb( c, to_rbg, mode )
 		out[4] = c[4]
 		return out
 	end, { reset_frame = pen.CACHE_RESET_DELAY }))}
+end
+
+function pen.magic_cloud( pic )
+	--pen.magic_draw(  )
+	--ModImageGetPixel( old_id, old_xy[1] + i, old_xy[2] + e )
 end
 
 function pen.colourer( gui, c, alpha )
@@ -4793,7 +4830,7 @@ function pen.new.text_srcl( sid, pic_x, pic_y, pic_z, dims, text, data )
 		local target, buffer, spacing = w - dims[1], 15, 5
 		local is_right = pen.c.scrolling_text_memo[ sid ] == 0
 		local shift = pen.estimate( sid.."_anim",
-			is_right and ( target + buffer ) or -buffer, "exp"..tostring( 1000*speed ), 0.1, 0.75 )
+			is_right and ( target + buffer ) or -buffer, "exp"..tostring( 1/( 1000*speed )), 0.1, 0.75 )
 		if( shift > ( target + spacing ) or shift < -spacing ) then pen.c.scrolling_text_memo[ sid ] = is_right and 1 or 0 end
 		pen.new.text( -shift, h/2, pic_z, text, data )
 	end
@@ -4976,6 +5013,18 @@ function pen.new.pager( pic_x, pic_y, pic_z, data )
 	end
 
 	return data.page, max_page, sfx_type
+end
+
+function pen.new.cloud( pic_x, pic_y, pic_z, data )
+	if( not( pen.vld( data ))) then return end
+
+	local _,_,_,orig_gui = pen.new.builder( GuiCreate())
+	for i,blob in ipairs( data ) do
+		local pos_x, pos_y = pic_x + blob.x, pic_y + blob.y
+		pen.new.pixel( pos_x, pos_y, pic_z, blob.c, blob.w, blob.h )
+	end
+	pen.new.builder( false )
+	if( orig_gui ) then pen.new.builder( orig_gui ) end
 end
 
 function pen.new.plot( pic_x, pic_y, pic_z, data )
@@ -5241,12 +5290,12 @@ pen.P = {
 		PURPLE = {179,141,232}, _="ffb38de8",
 	},
 	N40 = { --ammo types, classes, misc colors
-		HOLO_1 = {182,213,60}, _="ffb6d53c",
+		HOLO_1 = {121,140,42}, _="ff798c2a",
 		HOLO_2 = {144,168,49}, _="ff90a831",
-		HOLO_3 = {121,140,42}, _="ff798c2a",
-		HOLO_RED_1 = {195,3,3}, _="ffc30303",
+		HOLO_3 = {182,213,60}, _="ffb6d53c",
+		HOLO_RED_1 = {62,0,10}, _="ff3e000a",
 		HOLO_RED_2 = {136,0,21}, _="ff880015",
-		HOLO_RED_3 = {62,0,10}, _="ff3e000a",
+		HOLO_RED_3 = {195,3,3}, _="ffc30303",
 	},
 	NCRS = {
 		GREY_1 = {21,29,40}, _="ff151d28",
@@ -5806,16 +5855,18 @@ pen.ANIM_INTERS = {
 }
 pen.ESTIM_ALGS = { --huge thanks to Nathan
 	exp = function( t, v, p )
-		return ( t - v )/( p or 10 )
+		return ( p or 0.1 )*( t - v )
 	end,
 	ixp = function( t, v, p )
 		return math.tanh(( p or 10 )*( t - v ))
 	end,
 	hmd = function( t, v, p )
-		return (( p or 2 )*v*t )/( t + v ) - v
+		local h = ( 2*v*t )/( t + v )
+		return ( p or 0.1 )*( h - v )
 	end,
 	gmp = function( t, v, p ) --only for t,v > 0
-		return math.pow( t*v, 1/( p or 2 )) - v
+		local g = math.sqrt( t*v )
+		return ( p or 0.1 )*( g - v )*math.abs( math.log( t/v ))
 	end,
 	lsm = function( t, v, p ) --only for relatively similar values
 		v = math.max( v, 0.001 )
@@ -8827,6 +8878,8 @@ function pen.lib.player_builder( hooman, func )
 		pen.GENERIC_CHAR_SETUP.CharacterPlatformingComponent.accel_x = 0.001
 		pen.GENERIC_CHAR_SETUP.CharacterPlatformingComponent.accel_x_air = 0.001
 		pen.GENERIC_CHAR_SETUP.CharacterPlatformingComponent.run_velocity = 0
+		pen.GENERIC_CHAR_SETUP.CharacterPlatformingComponent.jump_velocity_x = 0
+		pen.GENERIC_CHAR_SETUP.CharacterPlatformingComponent.jump_velocity_y = -60
 	end
 	
 	pen.t.loop( pen.GENERIC_CHAR_SETUP, function( name, values )

@@ -1218,14 +1218,14 @@ pen.new.interface = function( pic_x, pic_y, s_x, s_y, pic_z, data )
 			local pos = pen.t.pack( GlobalsGetValue( pen.GLOBAL_JPAD_POS..k, "|0|0|" ))
 			if( pos[1] ~= pic_x or pos[2] ~= pic_y ) then
 				GlobalsSetValue( pen.GLOBAL_JPAD_POS..k, pen.t.pack({
-					pen.estimate( "jpad_focus_pos_x_"..k, pic_x, "wgt0.5" ),
-					pen.estimate( "jpad_focus_pos_y_"..k, pic_y, "wgt0.5" )}))
+					pen.estimate( "jpad_focus_pos_x_"..k, pic_x, "wgt" ),
+					pen.estimate( "jpad_focus_pos_y_"..k, pic_y, "wgt" )}))
 			end
 			local size = pen.t.pack( GlobalsGetValue( pen.GLOBAL_JPAD_SIZE..k, "|0|0|" ))
 			if( size[1] ~= s_x or size[2] ~= s_y ) then
 				GlobalsSetValue( pen.GLOBAL_JPAD_SIZE..k, pen.t.pack({
-					pen.estimate( "jpad_focus_size_x_"..k, s_x, "wgt0.5" ),
-					pen.estimate( "jpad_focus_size_y_"..k, s_y, "wgt0.5" )}))
+					pen.estimate( "jpad_focus_size_x_"..k, s_x, "wgt" ),
+					pen.estimate( "jpad_focus_size_y_"..k, s_y, "wgt" )}))
 			end
 			
 			if( speed > 0 ) then
@@ -1269,7 +1269,7 @@ pen.new.interface = function( pic_x, pic_y, s_x, s_y, pic_z, data )
 			
 			local is_crossing = cross ~= 0
 			cross = pen.estimate( "jpad_focus_cross_"..k,
-				doing_cross and 1 or 0, doing_cross and "wgt1" or "wgt0.5" )
+				doing_cross and 1 or 0, { "wtg", doing_cross and 1 or 0.5 })
 			GlobalsSetValue( pen.GLOBAL_JPAD_CROSS..k, cross )
 			if( is_crossing and cross == 0 ) then
 				GlobalsSetValue( pen.GLOBAL_JPAD_CURSOR..k, "" )

@@ -1452,7 +1452,7 @@ function mnee.get_keyboard_input( kb_func )
 	if(( input or "" ) ~= "" ) then return input end
 end
 
-function pen.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
+function pen.new.input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 	if( not( pen.vld( iid ))) then return text, false end
 
 	data = data or {}
@@ -1525,16 +1525,16 @@ function pen.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 	if( is_active ) then
 		is_updated = data.is_live
 		GlobalsSetValue( pen.GLOBAL_INPUT_FRAME, GameGetFrameNum() + 1 )
-
-		local will_highlight = InputIsKeyDown( 225 --[[Left Shift]])
-		will_highlight = will_highlight or InputIsKeyDown( 229 --[[Right Shift]])
+		
 		local is_moving = InputIsKeyJustDown( 81 --[[Down]]) or InputIsKeyJustDown( 82 --[[Up]])
 		is_moving = is_moving or InputIsKeyJustDown( 79 --[[Right]]) or InputIsKeyJustDown( 80 --[[Left]])
+		local will_highlight = InputIsKeyDown( 225 --[[Left Shift]]) or InputIsKeyDown( 229 --[[Right Shift]])
 		if( not( will_highlight ) and is_moving ) then pen.c.input_data.hdata = {} end
 
 		local a, b = "", ""
 		local input = mnee.get_keyboard_input( data.kb_func ) or ""
-		if( input ~= "" or ( will_highlight and ( is_moving or pen.c.input_data.hdata[2] == nil ))) then
+		if( input ~= "" or ( will_highlight and ( is_moving or pen.c.input_data.hdata[1] == nil ))) then
+			local i = pen.c.input_data.i
 			local c = pen.c.input_data.index or 0
 			local s = pen.c.input_data.space_num or 0
 			local score, i, is_edge = s - 1, -1, pen.c.input_data.pos.c == 0
@@ -1557,23 +1557,24 @@ function pen.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 			
 			if( i ~= -1 ) then
 				local da, db = 0, 0
-				-- local drift = pen.c.input_data.hdata[1] or 0
-				-- if( drift < 0 ) then da = drift else db = drift end
+				local drift = ( pen.c.input_data.hdata[1] or i ) - i
+
+				if( drift < 0 ) then da = drift else db = drift end
 				-- if( drift ~= 0 ) then da, db = da - 1, db + 1 end
 				a = string.sub( pen.c.input_data.buffer, 1, i - 1 + da )
 				b = string.sub( pen.c.input_data.buffer, i + db, -1 )
 
 				if( will_highlight ) then
-					pen.c.input_data.hdata[2] = pen.c.input_data.hdata[2] or i
-					if( is_moving ) then pen.c.input_data.hdata[1] = i - pen.c.input_data.hdata[2] end
+					pen.c.input_data.hdata[1] = pen.c.input_data.hdata[1] or i
 				else pen.c.input_data.hdata = {} end
 			else a = pen.c.input_data.buffer end
 		end
 		
-		pen.c.typing_test.a = a == "" and ( pen.c.typing_test.a or "" ) or a
-		pen.c.typing_test.b = b == "" and ( pen.c.typing_test.b or "" ) or b
-		pen.debug_print( string.gsub( pen.c.typing_test.a.."|"..pen.c.typing_test.b, "\n", "[N]" ), 200, 75, true )
-		pen.debug_print( pen.c.input_data.hdata[1], 50, 50, true )
+		-- pen.c.typing_test.a = a == "" and ( pen.c.typing_test.a or "" ) or a
+		-- pen.c.typing_test.b = b == "" and ( pen.c.typing_test.b or "" ) or b
+		-- pen.debug_print( string.gsub( pen.c.typing_test.a.."|"..pen.c.typing_test.b, "\n", "[N]" ), 200, 75, true )
+		-- pen.debug_print( pen.c.input_data.hdata[1], 50, 50, true )
+		-- pen.debug_print( pen.c.typing_test.h, 50, 75, true )
 
 		if( type( input ) == "number" ) then
 			local kind = math.abs( input )
@@ -1666,7 +1667,7 @@ function pen.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 				data.no_culling, data.fully_featured = true, true
 				pen.new.text( scroll_pos[2], scroll_pos[1], pic_z - 1, "{>cursor>{"..( t or "" ).."}<cursor<}", data )
 			elseif( do_hov ) then data.color = pen.P.VNL.YELLOW end
-			
+
 			data.no_culling, data.fully_featured = false, false
 			local dims, new_line = pen.new.text( scroll_pos[2], scroll_pos[1], pic_z, t, data )
 			return { dims[2] + ( string.sub( t, -1, -1 ) == "\n" and new_line or 0 ) + 1, dims[1]}
@@ -1674,7 +1675,7 @@ function pen.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 	end
 	data.vis_func( pic_x, pic_y, pic_z, size_x, size_y, is_active, do_lmb, do_rmb, is_hovered, t, data )
 
-	--finalize highlighting
+	--cursor blinking period should be reset on every new input
 	--holding to repeat input (arrows and backspace)
 	--ctrl + a/c/v/x through mnee.KB_CLIPBOARD (with buffer of up to 25 last copies in a setting)
 	
@@ -1827,7 +1828,7 @@ function mnee.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 			tid = data.uid, is_active = true, is_special = is_active,
 			dims = { size_x, size_y }, pic_z = pic_z + 0.1, pos = { pic_x - data.edging, pic_y }})
 		if( do_hov ) then pen.new.pixel( pic_x - data.edging - 1, pic_y - 1,
-			pic_z + 0.2, pen.P.PRSP[ is_active and "BLUE" or "RED" ], size_x + 6, size_y + 6 ) end
+			pic_z + 0.5, pen.P.PRSP[ is_active and "BLUE" or "RED" ], size_x + 6, size_y + 6 ) end
 		mnee.new_scroller( data.uid.."_scroller", pic_x, pic_y + 1, pic_z, size_x, size_y + 2, function( scroll_pos )
 			if( not( data.no_wrap )) then
 				data.dims = { size_x, -1 } end
@@ -1844,7 +1845,7 @@ function mnee.new_input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 		end, data )
 	end
 
-	return pen.try( pen.new_input, {
+	return pen.try( pen.new.input, {
 		iid, pic_x, pic_y, pic_z, size_x, size_y, text, data
 	}, function( log, _, pic_x, pic_y )
 		pen.new.text_shad( pic_x, pic_y, pen.Z.DEBUG, log, {

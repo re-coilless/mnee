@@ -6,7 +6,7 @@ if( GameGetWorldStateEntity() > 0 ) then
 	GlobalsSetValue( "HERMES_IS_REAL", "1" )
 end
 
-pen.VERSION = 33.5 -- cf7cc56
+pen.VERSION = unknown -- 28df6ee
 pen.PATH = string.match( jit.util.funcinfo( function() end ).source, "(.+/)[^/]+" ) --thanks to ImmortalDamned and Alex
 
 -------------------------------------------------------     [IO]     -------------------------------------------------------
@@ -5664,7 +5664,7 @@ pen.FONT_MODS = {
 		end
 		
 		if( idt.last_lin ~= index.lin ) then
-			if( idt.drift.hl ) then idt.hdata[3] = idt.hdata[3] or { idt.pos.l, idt.pos.c } end
+			if( idt.drift.hl ) then idt.hdata[2] = idt.hdata[2] or { idt.pos.l, idt.pos.c } end
 			
 			local prev_lin = math.abs( idt.last_lin )
 			if( idt.drift.l and idt.pos.l == index.lin ) then
@@ -5692,7 +5692,7 @@ pen.FONT_MODS = {
 				end
 			end
 
-			if( idt.drift.hl ) then idt.hdata[4] = { idt.pos.l, idt.pos.c } end
+			if( idt.drift.hl ) then idt.hdata[3] = { idt.pos.l, idt.pos.c } end
 			
 			idt.last_last_lin = math.abs( idt.last_lin )
 		end
@@ -5724,9 +5724,9 @@ pen.FONT_MODS = {
 			if( char_data.char == " " ) then idt.is_space = true end
 		end
 
-		if( pen.vld(( idt.hdata or {})[3])) then
-			local _pos_id = 10000*( idt.hdata[3][1] or -1 ) + ( idt.hdata[3][2] or -1 )
-			local h_pos_id = 10000*( idt.hdata[4][1] or -1 ) + ( idt.hdata[4][2] or -1 )
+		if( pen.vld(( idt.hdata or {})[2])) then
+			local _pos_id = 10000*( idt.hdata[2][1] or -1 ) + ( idt.hdata[2][2] or -1 )
+			local h_pos_id = 10000*( idt.hdata[3][1] or -1 ) + ( idt.hdata[3][2] or -1 )
 			if( _pos_id > h_pos_id ) then local temp = _pos_id; _pos_id = h_pos_id; h_pos_id = temp end
 			local this_pos_id = 10000*index.lin + index.chr
 			if( this_pos_id >= _pos_id and this_pos_id <= h_pos_id ) then

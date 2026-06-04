@@ -1,3 +1,5 @@
+if( mnee ~= nil ) then return end
+
 if( ModIsEnabled( "penman" )) then
 	dofile_once( "mods/penman/_penman.lua" )
 else dofile_once( "mods/mnee/_penman.lua" ) end
@@ -1269,7 +1271,7 @@ pen.new.interface = function( pic_x, pic_y, s_x, s_y, pic_z, data )
 			
 			local is_crossing = cross ~= 0
 			cross = pen.estimate( "jpad_focus_cross_"..k,
-				doing_cross and 1 or 0, { "wtg", doing_cross and 1 or 0.5 })
+				doing_cross and 1 or 0, { "wgt", doing_cross and 1 or 0.5 })
 			GlobalsSetValue( pen.GLOBAL_JPAD_CROSS..k, cross )
 			if( is_crossing and cross == 0 ) then
 				GlobalsSetValue( pen.GLOBAL_JPAD_CURSOR..k, "" )
@@ -1521,7 +1523,7 @@ function pen.new.input( iid, pic_x, pic_y, pic_z, size_x, size_y, text, data )
 	local t = text
 	if( is_active ) then t = pen.c.input_data.buffer or text end
 	if( clicked and not( is_active )) then pen.c.input_data.buffer = text end
-	
+
 	if( is_active ) then
 		is_updated = data.is_live
 		GlobalsSetValue( pen.GLOBAL_INPUT_FRAME, GameGetFrameNum() + 1 )

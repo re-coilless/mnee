@@ -1,3 +1,5 @@
+if( pen ~= nil ) then return end
+
 pen = pen or {}
 pen.t = pen.t or {} -- table funcs
 pen.c = pen.c or {} -- cache table
@@ -6,7 +8,7 @@ if( GameGetWorldStateEntity() > 0 ) then
 	GlobalsSetValue( "HERMES_IS_REAL", "1" )
 end
 
-pen.VERSION = unknown -- 28df6ee
+pen.VERSION = 33.53 -- c1bdead
 pen.PATH = string.match( jit.util.funcinfo( function() end ).source, "(.+/)[^/]+" ) --thanks to ImmortalDamned and Alex
 
 -------------------------------------------------------     [IO]     -------------------------------------------------------
@@ -161,6 +163,7 @@ function pen.estimate( eid, target, alg, min_delta, max_delta ) --thanks Nathan
 	alg = pen.ght( alg or "exp" )
 	min_delta = math.max( min_delta or 0.01, 0.0001 )
 
+	--not providing pen.estimate id should not do the memorization
 	pen.c.estimator_prev = pen.c.estimator_prev or {}
 	pen.c.estimator_memo = pen.c.estimator_memo or {}
 	pen.c.estimator_vlct = pen.c.estimator_vlct or {}
@@ -488,7 +491,7 @@ function pen.t.loop( tbl, func, return_tbl )
 
 	local function iter( i, v )
 		local is_fine, out = pcall( func, i, v )
-		if( not( is_fine )) then error( "[LOOP="..tostring( i ).."; "..tostring( v ).."]\n"..out ) else return out end
+		if( not( is_fine )) then error( "[LOOP = "..tostring( i )..";"..tostring( v ).."]\n"..out ) else return out end
 	end
 
 	local sorter = false
@@ -1927,7 +1930,7 @@ function pen.get_tinker_state( hooman, x, y )
 	end) or false
 end
 
-function pen.get_spell_data( spell_id )
+function pen.get_spell_info( spell_id )
 	local function clean_my_gun()
 		ACTION_MANA_DRAIN_DEFAULT, ACTION_DRAW_RELOAD_TIME_INCREASE = 10, 0
 		ACTION_UNIDENTIFIED_SPRITE_DEFAULT = "data/ui_gfx/gun_actions/unidentified.png"
@@ -1950,11 +1953,11 @@ function pen.get_spell_data( spell_id )
 	dofile_once( "data/scripts/gun/gun.lua" )
 	dofile_once( "data/scripts/gun/gun_enums.lua" )
 	dofile_once( "data/scripts/gun/gun_actions.lua" )
-	return pen.cache({ "spell_data", spell_id }, function()
+	return pen.cache({ "spell_info", spell_id }, function()
 		clean_my_gun()
-
-		local spell_data = pen.t.clone( pen.t.get( actions, spell_id, nil, nil, {}), nil )
-		if( spell_data.action == nil ) then return spell_data end
+		
+		local spell_info = pen.t.clone( pen.t.get( actions, spell_id, nil, nil, {}), nil )
+		if( spell_info.action == nil ) then return spell_info end
 		
 		-- thanks Lamia
 		-- local functions_to_shadow = {
@@ -2003,13 +2006,13 @@ function pen.get_spell_data( spell_id )
 
 		local metadata = create_shot()
 		c, metadata.state_proj = metadata.state, { damage = {}, explosion = {}, crit = {}, lightning = {}}
-		set_current_action( spell_data )
+		set_current_action( spell_info )
 		c.draw_many, c.projs = 0, {}
 		
-		pcall( spell_data.action )
-		if( spell_data.tip_data ~= nil ) then spell_data.tip_data() end
+		pcall( spell_info.action )
+		if( spell_info.tip_data ~= nil ) then spell_info.tip_data() end
 		if( math.abs( current_reload_time ) > 1e6 ) then
-			spell_data.is_chainsaw = true
+			spell_info.is_chainsaw = true
 			current_reload_time = current_reload_time + ACTION_DRAW_RELOAD_TIME_INCREASE end --shouldn't this be a minus?
 		metadata.state.reload_time, metadata.shot_effects = current_reload_time, pen.t.clone( shot_effects )
 		
@@ -2159,8 +2162,8 @@ function pen.get_spell_data( spell_id )
 		EntityLoad = real_EntityLoad
 		clean_my_gun()
 
-		spell_data.meta = pen.t.clone( metadata )
-		return spell_data
+		spell_info.meta = pen.t.clone( metadata )
+		return spell_info
 	end, { reset_count = 0 })
 end
 
@@ -2401,7 +2404,7 @@ function pen.debug_print( text, x, y, color ) --make sure text can never go offs
 		if( not( is_guied )) then
 			pic_x, pic_y = pen.world2gui( x, y ) else color = nil end
 		pen.new.text_shad( pic_x, pic_y, ( is_guied and 1 or -1 )*pen.Z.DEBUG, text, {
-			alpha = 0.5, is_centered_x = true, is_centered_y = true, color = color or pen.P.VNL.WARNING })
+			alpha = 0.5, is_centered_x = false, is_centered_y = true, color = color or pen.P.VNL.WARNING })
 	else --stolen from fairmod + thanks Nathan
 		color = color or pen.P.VNL.WARNING
 		if( ModIsEnabled( "index_core" )) then
@@ -2649,7 +2652,7 @@ function pen.get_delta_time( id )
     local this_time = GameGetRealWorldTimeSinceStarted()*1000
     pen.c.delta_time_memo[ id ] = this_time
 
-    return ( this_time - last_time )/( 1000/60 )
+    return this_time - last_time
 end
 
 function pen.ricochet( v, p_angle, n_angle, r_angles )
@@ -8688,11 +8691,8 @@ print = function( ... )
 	_print( table.concat( out, "\n\t" ))
 end
 
---not providing pen.estimate id should not do the memorization
-
-_GameGetFrameNum = GameGetFrameNum
-GameGetFrameNum = function( is_advanced )
-	local frame_num = _GameGetFrameNum()
+PenGetFrameNum = function( is_advanced )
+	local frame_num = GameGetFrameNum()
 	if( not( is_advanced )) then return frame_num end
 	local is_still = ( pen.c.last_frame or -1 ) == frame_num
 	pen.c.last_frame = frame_num

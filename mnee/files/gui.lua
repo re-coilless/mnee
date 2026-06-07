@@ -73,6 +73,8 @@ if( not( gonna_rebind )) then
                     unfolded_nodes[i] = unfolded_nodes[i] == nil and 1 or nil
                     pen.setting_set( "mnee.UNFOLDED_NODES", pen.t.pack( pen.t.unarray( unfolded_nodes )))
                 end
+                
+                if( pos_y > 0 and pos_y < 10 ) then mnee.G.current_mod = i end
 
                 local dims = pen.new.text( 3 + 116/2, pos_y, pic_z - 0.1, name, { aggressive = true,
                     dims = {100,0}, is_centered_x = true, color = pen.P.PRSP[ is_hovered and "RED" or "BLUE" ]})

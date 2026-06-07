@@ -25,7 +25,6 @@ function OnModInit()
 		end,
 	})
 	
-	-- also try splitscreen for kappa
 	-- make procedural pause screen keyboard/mouse/gamepad that highlights all the bind's keys on hover of one of them (also add option to hide stuff from this menu; list all binds to the side in a scrolllist and highlight on hover)
 
 	mnee.G.m_list = mnee.G.m_list or ""
@@ -387,8 +386,8 @@ function OnWorldPreUpdate()
 			local off = math.max( dims[1]/2 - 80, 40 )
 			
 			clicked = mnee.new_button( pic_x - off - 90,
-				pic_y + 20, pic_z, "mods/mnee/files/pics/button_90_B.png", { jpad = true })
-			pen.new.text( pic_x - off - 90/2, pic_y + 20, pic_z - 0.1,
+				pic_y + 20, pic_z - 0.1, "mods/mnee/files/pics/button_90_B.png", { jpad = true })
+			pen.new.text( pic_x - off - 90/2, pic_y + 20, pic_z - 0.2,
 				GameTextGet( "$mnee_tipA" ), { is_centered_x = true, color = pen.P.PRSP.RED })
 			if( clicked ) then
 				pen.play_sound( pen.S.PRSP[ mnee.G.gui_active and "CLOSE" or "OPEN" ])
@@ -397,8 +396,8 @@ function OnWorldPreUpdate()
 			end
 
 			clicked = mnee.new_button( pic_x + off,
-				pic_y + 20, pic_z, "mods/mnee/files/pics/button_90_A.png", { jpad = true })
-			pen.new.text( pic_x + off + 90/2, pic_y + 20, pic_z - 0.1,
+				pic_y + 20, pic_z - 0.1, "mods/mnee/files/pics/button_90_A.png", { jpad = true })
+			pen.new.text( pic_x + off + 90/2, pic_y + 20, pic_z - 0.2,
 				GameTextGet( "$mnee_tipB" ), { is_centered_x = true, color = pen.P.PRSP.WHITE })
 			if( clicked ) then
 				GameAddFlagRun( mnee.NO_REMINDER )
@@ -406,7 +405,7 @@ function OnWorldPreUpdate()
 				mnee.G.help_active = false
 			end
 
-			clicked = mnee.new_button( pic_x - 5, pic_y + 20, pic_z, "mods/mnee/files/pics/help.png",
+			clicked = mnee.new_button( pic_x - 5, pic_y + 20, pic_z - 0.1, "mods/mnee/files/pics/help.png",
 				{ auid = "help_reminder", highlight = pen.P.PRSP.PURPLE, jpad_vip = true })
 			if( clicked ) then
 				pen.play_sound( pen.S.PRSP[ mnee.G.help_active and "CLOSE" or "OPEN" ])

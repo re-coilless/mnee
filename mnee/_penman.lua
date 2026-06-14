@@ -8,7 +8,7 @@ if( GameGetWorldStateEntity() > 0 ) then
 	GlobalsSetValue( "HERMES_IS_REAL", "1" )
 end
 
-pen.VERSION = 33.53 -- c1bdead
+pen.VERSION = 34 -- 0d27556
 pen.PATH = string.match( jit.util.funcinfo( function() end ).source, "(.+/)[^/]+" ) --thanks to ImmortalDamned and Alex
 
 -------------------------------------------------------     [IO]     -------------------------------------------------------
@@ -605,6 +605,23 @@ function pen.t.clone( orig, copies )
 		setmetatable( copy, pen.t.clone( getmetatable( orig ), copies ))
 	else copy = copies[ orig ] end
     return copy
+end
+
+function pen.t.random( tbl, data ) --support for tag-based filtering
+	local total = 0
+	local tickets = {}
+	for i,v in pairs( tbl ) do
+		local w = pen.ghf( type( v ) == "table" and ( v.weight or 1 ) or 1, { v, data })
+		if( w > 0 ) then
+			total = total + w
+			table.insert( tickets, { total, i })
+		end
+	end
+
+	local num = pen.random( 0, total )
+	for i,v in ipairs( tickets ) do
+		if( v[1] >= num ) then return tbl[v[2]] end
+	end
 end
 
 function pen.t.pack( data )
@@ -1615,16 +1632,7 @@ function pen.seed_gen( values )
 	return math.random( 0, 2000000000 )
 end
 
-function pen.seeded_random( event_id, mutator, a, b, bidirectional, seed_container )
-	if( seed_container ~= nil ) then
-		math.randomseed( tonumber( pen.hsh( ModSettingGetNextValue( seed_container )..pen.hsh( event_id..tostring( mutator )))))
-	else return 0 end
-
-	math.random();math.random();math.random()
-	return ( bidirectional or false ) and ( math.random( a, b*2 ) - b ) or math.random( a, b )
-end
-
-function pen.generic_random( a, b, macro_drift, bidirectional )
+function pen.random( a, b, macro_drift, bidirectional )
 	if( macro_drift == nil ) then
 		macro_drift = GetUpdatedEntityID() or 1
 		if( macro_drift > 1 ) then
@@ -1639,6 +1647,15 @@ function pen.generic_random( a, b, macro_drift, bidirectional )
 
 	Random( 1, 5 );Random( 1, 5 );Random( 1, 5 )
 	return ( bidirectional or false ) and ( Random( a, b*2 ) - b ) or Random( a, b )
+end
+
+function pen.srandom( event_id, mutator, a, b, bidirectional, seed_container )
+	if( seed_container ~= nil ) then
+		math.randomseed( tonumber( pen.hsh( ModSettingGetNextValue( seed_container )..pen.hsh( event_id..tostring( mutator )))))
+	else return 0 end
+
+	math.random();math.random();math.random()
+	return ( bidirectional or false ) and ( math.random( a, b*2 ) - b ) or math.random( a, b )
 end
 
 function pen.migrate( mod_id, funcs )
@@ -2828,6 +2845,47 @@ function pen.magic_shooter( who_shot, path, x, y, v_x, v_y, do_it, proj_mods, cu
 	
 	if( pen.vld( proj_mods )) then proj_mods( proj_id, proj_comp, custom_values ) end
 	return proj_id
+end
+
+function pen.magic_spawner( x, y, area, dims, data )
+	data = data or {}
+	data.exc = data.exc or {}
+	data.max_tries = data.max_tries or 32
+	data.check_liquids = data.check_liquids or false
+
+	local is_real = false
+	local rnd_x, rnd_y = 0, 0
+	local rx_a, rx_b = area[1] + dims[1], area[2] - dims[1]
+	local ry_a, ry_b = area[3] + dims[2], area[4] - dims[2]
+	local x_a, x_b, y_a, y_b = rx_a, rx_b, ry_a, ry_b
+	for i = 1,data.max_tries do
+		rnd_x = pen.random( x_a, x_b )
+		rnd_y = pen.random( y_a, y_b )
+
+		local is_valid = true
+		for e,v in ipairs( data.exc ) do
+			local d_x = ( x + rnd_x ) - v[1]
+			local d_y = ( y + rnd_y ) - v[2]
+			local d = math.sqrt( d_x^2 + d_y^2 )
+			if( d <= v[3]) then is_valid = false; break end
+		end
+
+		if( is_valid ) then
+			local ray_func = RaytracePlatforms
+			if( data.check_liquids ) then ray_func = RaytraceSurfacesAndLiquiform end
+			is_valid = not( ray_func( x - dims[1], y - dims[2], x + dims[1], y + dims[2]))
+			is_valid = is_valid and not( ray_func( x + dims[1], y - dims[2], x - dims[1], y + dims[2]))
+		end
+
+		if( not( is_valid )) then
+			if( math.abs( rnd_x - rx_a ) > math.abs( rnd_x - rx_b )) then
+				x_a = rnd_x + dims[1] else x_b = rnd_x - dims[2] end
+			if( math.abs( rnd_y - ry_a ) > math.abs( rnd_y - ry_b )) then
+				y_a = rnd_y + dims[2] else y_b = rnd_y - dims[2] end
+		else is_real = true; break end
+	end
+
+	if( is_real ) then return x + rnd_x, y + rnd_y end
 end
 
 function pen.delayed_kill( entity_id, delay, comp_id )
@@ -5580,12 +5638,12 @@ pen.FONT_MODS = {
 		return nil, pic_y.l + math.sin( 0.5*index.gbl + GameGetFrameNum()/7 )
 	end,
 	quake = function( data, pic_x, pic_y, pic_z, char_data, color, index )
-		pic_x.l = pic_x.l + pen.generic_random( 0, 100, nil, true )/200
-		pic_y.l = pic_y.l + pen.generic_random( 0, 100, nil, true )/200
+		pic_x.l = pic_x.l + pen.random( 0, 100, nil, true )/200
+		pic_y.l = pic_y.l + pen.random( 0, 100, nil, true )/200
 		return pic_x.l, pic_y.l
 	end,
 	cancer = function( data, pic_x, pic_y, pic_z, char_data, color, index )
-		local new_one = pen.magic_byte( pen.generic_random( 33, 127 ))
+		local new_one = pen.magic_byte( pen.random( 33, 127 ))
 		return nil, nil, nil, nil, new_one == "$" and "!" or new_one
 	end,
 	rainbow = function( data, pic_x, pic_y, pic_z, char_data, color, index )

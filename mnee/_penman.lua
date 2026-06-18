@@ -8,7 +8,7 @@ if( GameGetWorldStateEntity() > 0 ) then
 	GlobalsSetValue( "HERMES_IS_REAL", "1" )
 end
 
-pen.VERSION = 34 -- 0d27556
+pen.VERSION = 34.1 -- 54fd1ad
 pen.PATH = string.match( jit.util.funcinfo( function() end ).source, "(.+/)[^/]+" ) --thanks to ImmortalDamned and Alex
 
 -------------------------------------------------------     [IO]     -------------------------------------------------------
@@ -2519,13 +2519,18 @@ function pen.gunshot( shot_func, eject_func )
 	if(( pen.magic_storage( gun_id, "heat_cutoff", "value_float" ) or -1 ) > 0 ) then return end
 
 	if( is_beam and is_cooked ) then
-		pen.play_sound({ action.sfx[1], action.sfx[4]}, x, y )
+		pen.play_sound({ action.sfx[1], action.sfx[5]}, x, y )
 		pen.magic_storage( gun_id, "heat_cutoff", "value_float", 0.5 )
 	end
-
+	
 	local efficiency = pen.magic_storage( gun_id, "ammo_consumption", "value_float" ) or -1
 	local cost = efficiency > 0 and efficiency*( 1 + total_heat/max_heat ) or 1
-	if( ammo > 0 ) then pen.magic_storage( card_id, "ammo", "value_int", math.max( ammo - cost, 0 )) end
+	if( ammo > 0 ) then
+		local new_ammo = math.max( ammo - cost, 0 )
+		if( new_ammo < math.min( max_ammo/4, 10 )) then
+			pen.play_sound({ action.sfx[1], action.sfx[4]}, x, y ) end
+		pen.magic_storage( card_id, "ammo", "value_int", new_ammo )
+	end
 
 	local x, y, r, s_x, s_y = EntityGetTransform( gun_id )
 	if( pen.vld( action.shells )) then
@@ -2544,7 +2549,7 @@ function pen.gunshot( shot_func, eject_func )
 
 	if( not( is_beam ) and is_cooked ) then
 		if( bolt_delay < 0 and math.random() < total_heat/( 2*max_heat )) then
-			return pen.play_sound({ action.sfx[1], "items/guns/dryfire" }, x, y ) end
+			return pen.play_sound({ action.sfx[1], action.sfx[4]}, x, y ) end
 		--full-auto guns have a chance to trigger runaway detonation in the form of uncontrolled fast firing magdump with randomized intervals and insanely low accuracy (prevent switching guns while this happens)
 	end
 	

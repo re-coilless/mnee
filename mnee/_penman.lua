@@ -8,7 +8,7 @@ if( GameGetWorldStateEntity() > 0 ) then
 	GlobalsSetValue( "HERMES_IS_REAL", "1" )
 end
 
-pen.VERSION = 34.1 -- 54fd1ad
+pen.VERSION = 34.11 -- ef3d230
 pen.PATH = string.match( jit.util.funcinfo( function() end ).source, "(.+/)[^/]+" ) --thanks to ImmortalDamned and Alex
 
 -------------------------------------------------------     [IO]     -------------------------------------------------------
@@ -4253,11 +4253,9 @@ function pen.new.dragger( did, pic_x, pic_y, s_x, s_y, pic_z, data )
 	local state, mouse_state = 0, InputIsMouseButtonDown( 1 )
 
 	if( is_going ) then
-		if( mouse_state ) then
-			state = 2
-			pic_x = m_x + pen.c.dragger_data[ did ].off[1]
-			pic_y = m_y + pen.c.dragger_data[ did ].off[2]
-		else
+		pic_x = m_x + pen.c.dragger_data[ did ].off[1]
+		pic_y = m_y + pen.c.dragger_data[ did ].off[2]
+		if( mouse_state ) then state = 2 else
 			state = -1
 			pen.c.dragger_data[ did ] = nil
 			GlobalsSetValue( pen.GLOBAL_DRAGGER_SAFETY, 1 )

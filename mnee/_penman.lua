@@ -8,7 +8,7 @@ if( GameGetWorldStateEntity() > 0 ) then
 	GlobalsSetValue( "HERMES_IS_REAL", "1" )
 end
 
-pen.VERSION = 34.11 -- ef3d230
+pen.VERSION = 34.15 -- 5b415d2
 pen.PATH = string.match( jit.util.funcinfo( function() end ).source, "(.+/)[^/]+" ) --thanks to ImmortalDamned and Alex
 
 -------------------------------------------------------     [IO]     -------------------------------------------------------
@@ -159,23 +159,23 @@ end
 
 ---asymptotic animation
 function pen.estimate( eid, target, alg, min_delta, max_delta ) --thanks Nathan
+	eid = eid or "_"
 	target = pen.ght( target )
 	alg = pen.ght( alg or "exp" )
 	min_delta = math.max( min_delta or 0.01, 0.0001 )
 
-	--not providing pen.estimate id should not do the memorization
 	pen.c.estimator_prev = pen.c.estimator_prev or {}
 	pen.c.estimator_memo = pen.c.estimator_memo or {}
 	pen.c.estimator_vlct = pen.c.estimator_vlct or {}
 	if( target[1] == true or target[3]) then
-		pen.c.estimator_memo[ eid ], pen.c.estimator_vlct[ eid ] = nil,nil
+		pen.c.estimator_memo[ eid ], pen.c.estimator_vlct[ eid ] = nil, nil
 		if( not( target[3] )) then return end
 	elseif( alg[3] and pen.c.estimator_prev[ eid ] ~= pen.t.pack({ alg[1], alg[2]})) then
 		pen.c.estimator_vlct[ eid ], pen.c.estimator_prev[ eid ] = nil, nil
 	end
 
-	pen.c.estimator_memo[ eid ] = pen.c.estimator_memo[ eid ] or target[2] or target[1]
 	pen.c.estimator_vlct[ eid ] = pen.c.estimator_vlct[ eid ] or 0
+	pen.c.estimator_memo[ eid ] = pen.c.estimator_memo[ eid ] or target[2] or target[1]
 	if( pen.c.estimator_prev[ eid ] == nil ) then
 		pen.c.estimator_prev[ eid ] = pen.t.pack({ alg[1], alg[2]})
 	end
@@ -186,7 +186,13 @@ function pen.estimate( eid, target, alg, min_delta, max_delta ) --thanks Nathan
 		max_delta = math.min( math.abs( max_delta or delta ), math.abs( target[1] - value ))
 		pen.c.estimator_memo[ eid ] = value + pen.lmt( pen.lmt( delta, max_delta ), min_delta, true )
 	else pen.c.estimator_memo[ eid ], pen.c.estimator_vlct[ eid ] = target[1], 0 end
-	return pen.c.estimator_memo[ eid ]
+	
+	local out = pen.c.estimator_memo[ eid ]
+	if( not( pen.vld( eid ))) then
+		pen.c.estimator_memo[ eid ] = nil
+		pen.c.estimator_vlct[ eid ] = nil
+		pen.c.estimator_prev[ eid ] = nil end
+	return out
 end
 
 ---procedural animation

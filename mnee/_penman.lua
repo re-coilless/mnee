@@ -8,7 +8,7 @@ if( GameGetWorldStateEntity() > 0 ) then
 	GlobalsSetValue( "HERMES_IS_REAL", "1" )
 end
 
-pen.VERSION = 34.15 -- 5b415d2
+pen.VERSION = 34.51 -- 30acc93
 pen.PATH = string.match( jit.util.funcinfo( function() end ).source, "(.+/)[^/]+" ) --thanks to ImmortalDamned and Alex
 
 -------------------------------------------------------     [IO]     -------------------------------------------------------
@@ -285,10 +285,10 @@ function pen.v2s( value, is_pretty, full_precision, unquote )
 	return ( is_pretty or false ) and tostring( value ) or (({
 		["nil"] = function( v ) return "" end,
 		["number"] = function( v ) return full_precision and string.format( "%.16f", v ) or tostring( v ) end,
-		["string"] = function( v ) return unquote and v or string.format( "%q", v ) end,
+		["string"] = function( v ) return unquote and v or string.format( "\'%s\'", v ) end,
 		["boolean"] = function( v ) return "bool"..pen.b2n( v ) end,
-		["function"] = function( v ) return string.format( "%q", tostring( v )) end,
-		["userdata"] = function( v ) return string.format( "%q", tostring( v )) end,
+		["function"] = function( v ) return string.format( "\'%s\'", tostring( v )) end,
+		["userdata"] = function( v ) return string.format( "\'%s\'", tostring( v )) end,
 	})[ type( value )]( value ) or value )
 end
 function pen.s2v( str )
@@ -298,6 +298,8 @@ function pen.s2v( str )
 		return pen.n2b( tonumber( string.sub( str, -1, -1 )))
 	elseif( tonumber( str )) then
 		return tonumber( str )
+	elseif( string.find( str, "^\'.+\'$" )) then
+		return string.sub( str, 2, -2 )
 	elseif( string.find( str, "^\".+\"$" )) then
 		return string.sub( str, 2, -2 )
 	end
@@ -690,7 +692,7 @@ function pen.t.parse( data, is_pretty, full_precision )
 			if( string.find( str, "^{.+}$" ) == nil ) then return {} end
 			str = ","..string.sub( string.sub( str, 2, -1 ), 1, -2 )..",["
 			
-			local name_pattern = "^%[\"?.-\"?%]="
+			local name_pattern = "^%[\'?.-\'?%]="
 			local function s2n( s )
 				local name = string.sub( s, string.find( s, name_pattern ))
 				return pen.s2v( string.sub( name, 2, -3 ))
@@ -1669,13 +1671,13 @@ function pen.migrate( mod_id, funcs )
 	local current_version = pen.setting_get( mod_id.."._version" ) or 1
 	for version,func in pen.t.order( funcs ) do
 		if( current_version < version ) then
-			func( mod_id..".", current_version )
-			latest_version = version
-		end
+			func( mod_id..".", current_version ) end
+		latest_version = version
 	end
 	
-	if( latest_version == 0 ) then return end
-	pen.setting_set( mod_id.."._version", latest_version )
+	if( latest_version ~= current_version ) then
+		pen.setting_set( mod_id.."._version", latest_version ) end
+	return latest_version
 end
 
 function pen.is_game_restarted( is_local )

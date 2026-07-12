@@ -488,7 +488,7 @@ function mnee.set_bindings( binding_data )
 			::continue::
 		end
 	end
-	
+
 	pen.setting_set( "mnee.BINDINGS", pen.t.parse( key_data ))
 	GlobalsSetValue( mnee.UPDATER, GameGetFrameNum())
 end

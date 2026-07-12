@@ -23,6 +23,11 @@ function OnModInit()
 		[3] = function( prefix, current_version )
 			pen.setting_set( prefix.."FRONTEND", 1 )
 		end,
+		[4] = function( prefix, current_version )
+			pen.setting_set( prefix.."SETUP", "" )
+			pen.setting_set( prefix.."PROFILE", 2 )
+			pen.setting_set( prefix.."BINDINGS", "" )
+		end,
 	})
 	
 	-- make procedural pause screen keyboard/mouse/gamepad that highlights all the bind's keys on hover of one of them (also add option to hide stuff from this menu; list all binds to the side in a scrolllist and highlight on hover)
@@ -115,7 +120,7 @@ function OnModInit()
 				if( key == "[NONE]"  ) then return end
 				if( mnee.BANNED_KEYS[ key ]) then return end
 				if( not( InputIsKeyDown( i ))) then return end
-				return { string.format( "%q", key ), pen.DIV_1 }
+				return { string.format( "\'%s\'", key ), pen.DIV_1 } --thanks ImmortalDamned
 			end),
 			pen.t.loop_concat( lists[2], function( i, key ) --mouse
 				if( key == "[NONE]"  ) then return end
